@@ -10,7 +10,8 @@ module.exports = app => {
   const { Schema } = app.mongoose;
   const schema = new Schema({
     _id: { type: String, default: () => require('uuid').v4() },  // UUID 与线上 sub 形态一致
-    phone: { type: String, unique: true, required: true },
+    account: { type: String, unique: true, sparse: true },        // 账号密码登录账号（新：POST /user/login）
+    phone: { type: String, unique: true, sparse: true },          // 手机号（sparse：短信注册预留，可无）
     password_hash: { type: String, select: false },
     name: String,
     company: String,

@@ -25,6 +25,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(account: string, password: string) {
     const resp = await userApi.login(account, password);
+    if (!resp?.accessToken) throw new Error((resp as any)?.msg || '账号或密码错误');
     token.value = resp.accessToken;
     user.value = resp.user;
     brands.value = resp.brands || [];

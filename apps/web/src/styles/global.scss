@@ -4,6 +4,12 @@ html, body, #app {
   padding: 0;
 }
 
+.err-msg {
+  color: #ef4444;
+  font-size: 13px;
+  margin: 4px 0 8px;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   background-color: $bg-page;

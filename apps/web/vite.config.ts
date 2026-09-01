@@ -27,6 +27,11 @@ export default defineConfig({
     port: 5173,
     host: true,
     open: false,
+    // 开发代理：/user/* 与 /api/auth/* → Egg api（:7001）
+    proxy: {
+      '/user': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/api': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+    },
   },
   css: {
     preprocessorOptions: {

@@ -55,8 +55,9 @@
                     <input v-model="password" class="form-input" placeholder="请输入密码" type="password" />
                   </div>
                 </div>
-                <button type="submit" class="submit-btn" :disabled="!account || !password">
-                  登录
+                <p v-if="errMsg" class="err-msg">{{ errMsg }}</p>
+                <button type="submit" class="submit-btn" :disabled="!account || !password || submitting">
+                  {{ submitting ? '登录中…' : '登录' }}
                   <svg class="submit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
                 </button>
               </template>
@@ -218,11 +219,15 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
+const auth = useAuthStore();
 const activeTab = ref<'account' | 'phone'>('account');
 const account = ref('');
 const password = ref('');
+const errMsg = ref('');
+const submitting = ref(false);
 const phone = ref('');
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 let animId = 0;
@@ -297,10 +302,21 @@ onUnmounted(() => {
   cancelAnimationFrame(animId);
 });
 
-function handleSubmit() {
-  // 账号密码登录：跳转到报告页面
+async function handleSubmit() {
+  // 账号密码登录：真实调 POST /user/login
   if (activeTab.value === 'account') {
-    router.push('/dashboard/overview');
+    if (submitting.value) return;
+    errMsg.value = '';
+    submitting.value = true;
+    try {
+      await auth.login(account.value.trim(), password.value);
+      // 拉一次 /user/info 验证 token 立即可用；失败不影响进后台
+      router.push('/dashboard/overview');
+    } catch (e: any) {
+      errMsg.value = e?.message || '网络异常，请确认后端已启动（:7001）';
+    } finally {
+      submitting.value = false;
+    }
     return;
   }
   // 手机号登录：获取验证码逻辑
