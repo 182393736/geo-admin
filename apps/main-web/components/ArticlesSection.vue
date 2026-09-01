@@ -64,7 +64,7 @@ const links = [
 </template>
 
 <style scoped lang="scss">
-.articles { background: #fff; padding: 96px 0; }
+.articles { padding: 104px 0; background: transparent; }
 .article-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-bottom: 44px; }
 .article-card {
   background: #fff; border: 1px solid #ececf1; border-radius: 16px; padding: 24px 24px 20px;

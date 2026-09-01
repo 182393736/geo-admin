@@ -73,7 +73,7 @@ const engines = [
 </template>
 
 <style scoped lang="scss">
-.monitor { background: #fafafa; }
+.monitor { padding: 76px 0; background: transparent; }
 .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.18em; color: #6b7280; margin-bottom: 18px; }
 .title { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; color: var(--ink); margin: 0 0 18px; em { font-style: normal; color: #6366f1; } }
 .sub { font-size: 15.5px; color: #4b5563; line-height: 1.8; margin-bottom: 34px; max-width: 480px; }

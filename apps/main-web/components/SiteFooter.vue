@@ -49,7 +49,7 @@
 </template>
 
 <style scoped lang="scss">
-.site-footer { background: #191622; color: #d6d3d8; padding: 56px 0 28px; }
+.site-footer { background: rgb(26, 26, 34); color: rgb(214, 211, 216); padding: 56px 0 34px; }
 .footer-grid { display: grid; grid-template-columns: 1.4fr repeat(4, 1fr); gap: 32px; margin-bottom: 44px; }
 .f-logo { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
 .f-logo-icon { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; color: #fff; }

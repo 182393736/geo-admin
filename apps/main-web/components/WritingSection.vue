@@ -1,8 +1,8 @@
 <script setup lang="ts">
 const features = [
-  { title: '锁定选题',   desc: '读取你的排名波动与引用缺口，自动确定这一篇该写什么、为谁补位。', icon: '🕐' },
-  { title: '循证依据',   desc: '锁定高权重引用源作为事实底座，不引用原文未提及的外部源，杜绝编造。', icon: '🔗' },
-  { title: '护栏自检',   desc: '禁用词扫描、事实核验、结构检查逐项通过，交付可直接进入发稿的成品。', icon: '✅' },
+  { title: '锁定选题',   desc: '读取你的排名波动与引用缺口，自动确定这一篇该写什么、为谁补位。', iconSvg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
+  { title: '循证依据',   desc: '锁定高权重引用源作为事实底座，不引用原文未提及的外部源，杜绝编造。', iconSvg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' },
+  { title: '护栏自检',   desc: '禁用词扫描、事实核验、结构检查逐项通过，交付可直接进入发稿的成品。', iconSvg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>' },
 ];
 const chips = ['生成循证稿件', '补位下滑问题', '重写旧内容'];
 </script>
@@ -46,7 +46,7 @@ const chips = ['生成循证稿件', '补位下滑问题', '重写旧内容'];
 </template>
 
 <style scoped lang="scss">
-.writing { background: #fff; padding-top: 88px; }
+.writing { padding: 76px 0; background: transparent; }
 .section-title {
   em { font-style: normal; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 }
@@ -81,7 +81,7 @@ const chips = ['生成循证稿件', '补位下滑问题', '重写旧内容'];
   background: #fff; border-radius: 14px; padding: 20px 22px;
   display: flex; gap: 14px; align-items: flex-start;
 }
-.feat-icon { font-size: 20px; flex-shrink: 0; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: #f4f4f6; border-radius: 10px; }
+.feat-icon { flex-shrink: 0; width: 36px; height: 36px; color: #6366f1; display: flex; align-items: center; justify-content: center; background: #f4f4f6; border-radius: 10px; }
 .feat-title { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
 .feat-desc { font-size: 13px; color: #6b7280; line-height: 1.7; }
 </style>

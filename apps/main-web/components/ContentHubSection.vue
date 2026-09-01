@@ -36,7 +36,7 @@ const modules = [
 </template>
 
 <style scoped lang="scss">
-.content-hub { background: #fafafa; padding: 96px 0; }
+.content-hub { padding: 104px 0; background: transparent; }
 .hub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .hub-card {
   background: #fff; border: 1px solid #ececf1; border-radius: 18px; padding: 30px 28px;

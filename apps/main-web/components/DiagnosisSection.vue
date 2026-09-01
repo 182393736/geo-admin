@@ -68,7 +68,7 @@ const webRows = [
 </template>
 
 <style scoped lang="scss">
-.diag { background: #fff; padding: 88px 0; }
+.diag { padding: 88px 0; background: transparent; }
 .diag-panel {
   background: #131024;
   border-radius: 26px; padding: 68px 64px;

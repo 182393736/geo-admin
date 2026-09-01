@@ -41,16 +41,16 @@ const cases = [
 </template>
 
 <style scoped lang="scss">
-.effects { background: #fff; padding-top: 40px; }
+.effects { padding: 104px 0; background: transparent; }
 .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .card {
-  background: #fff; border: 1px solid #ececf1; border-radius: 18px; padding: 30px 26px 24px;
+  background: rgb(255, 255, 255); border: 1px solid rgb(236, 236, 241); border-radius: 18px; padding: 30px 26px 24px;
   transition: transform .18s ease, box-shadow .18s ease;
-  &:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(16, 24, 40, .06); }
+  &:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(16, 24, 40, 0.06); }
 }
-.card-segment { font-size: 13px; font-weight: 600; color: #6b7280; letter-spacing: 0.04em; margin-bottom: 16px; }
-.card-result { font-size: 44px; font-weight: 900; letter-spacing: -0.02em; color: var(--ink); line-height: 1; margin-bottom: 8px; }
-.card-metric { font-size: 14px; color: #374151; font-weight: 500; margin-bottom: 20px; }
-.card-story { font-size: 13.5px; color: #6b7280; line-height: 1.75; margin-bottom: 20px; padding-top: 16px; border-top: 1px dashed #f0f0f4; }
-.card-foot { font-size: 12px; color: #9ca3af; }
+.card-segment { font-size: 12.5px; font-weight: 600; color: rgb(107, 107, 120); letter-spacing: 0.04em; margin-bottom: 16px; line-height: 18.75px; }
+.card-result { font-size: 44px; font-weight: 900; letter-spacing: -0.02em; color: rgb(10, 10, 15); line-height: 1; margin-bottom: 8px; }
+.card-metric { font-size: 14.5px; color: rgb(58, 58, 69); font-weight: 500; margin-bottom: 20px; line-height: 21.75px; }
+.card-story { font-size: 12.5px; color: rgb(107, 107, 120); line-height: 22.5px; margin-bottom: 20px; padding-top: 16px; border-top: 1px dashed rgb(240, 240, 244); }
+.card-foot { font-size: 12px; color: rgb(154, 154, 166); }
 </style>

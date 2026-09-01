@@ -49,7 +49,7 @@ function toggle(i: number) { openIdx.value = openIdx.value === i ? -1 : i; }
 </template>
 
 <style scoped lang="scss">
-.faq { background: #fafafa; }
+.faq { padding: 104px 0; background: transparent; }
 .faq-list { display: flex; flex-direction: column; gap: 12px; }
 .faq {
   background: #fff; border: 1px solid #ececf1; border-radius: 14px; overflow: hidden;

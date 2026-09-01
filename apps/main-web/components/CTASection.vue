@@ -15,7 +15,7 @@
 </template>
 
 <style scoped lang="scss">
-.cta { background: #fff; padding: 96px 0; border-top: 1px solid #f0f0f4; }
+.cta { padding: 96px 0; background: rgb(255, 255, 255); }
 .section-title {
   em { font-style: normal; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 }

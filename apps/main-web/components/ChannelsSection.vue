@@ -43,7 +43,7 @@ const channels = [
 </template>
 
 <style scoped lang="scss">
-.channels { background: #fff; padding-bottom: 96px; }
+.channels { padding: 76px 0; background: rgb(255, 255, 255); }
 .channel-grid {
   display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px;
   max-width: 1180px; margin: 0 auto;

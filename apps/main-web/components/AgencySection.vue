@@ -16,7 +16,7 @@
 </template>
 
 <style scoped lang="scss">
-.agency { background: #fff; padding: 40px 0; }
+.agency { padding: 96px 0; background: transparent; }
 .ag-card {
   background: linear-gradient(135deg, #1c1917 0%, #292524 100%);
   border-radius: 20px; padding: 44px 48px;
