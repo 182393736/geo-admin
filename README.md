@@ -6,8 +6,10 @@
 
 ```
 apps/
-├── web    @geo-admin/web   Vue3 + Arco Design + ECharts 控制台（当前 mock 驱动）
-└── api    @geo-admin/api   Egg.js + Mongoose 后台（46 model + 3 schedule + 7 pipeline service + LLM 封装）
+├── web       @geo-admin/web        Vue3 + Arco Design + ECharts 控制台（当前 mock 驱动）
+├── api       @geo-admin/api        Egg.js + Mongoose 后台（46 model + 3 schedule + 7 pipeline service + LLM 封装）
+├── main-web  @geo-admin/main-web   官网首页（手写复刻版）
+└── gen-site  @geo-admin/gen-site   官网首页（对照线上真实样式表逐像素复刻）
 docs/                         接口分析 · 业务闭环 · 数据库设计 · 施工清单 · LLM 调用点提示词
 ```
 
@@ -17,6 +19,7 @@ docs/                         接口分析 · 业务闭环 · 数据库设计 ·
 pnpm install
 pnpm dev:web        # 前端（默认 mock 数据）
 pnpm dev:api        # 后端（需 MONGO_URL / DEEPSEEK_API_KEY）
+pnpm dev:site       # 官网 gen-site（http://localhost:3002）
 ```
 
 ## 前端接真实后端

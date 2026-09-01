@@ -11,7 +11,10 @@
     "format": "prettier --write .",
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter @geo-admin/api dev",
-    "build:web": "pnpm --filter web build"
+    "dev:site": "pnpm --filter @geo-admin/gen-site dev",
+    "build:web": "pnpm --filter web build",
+    "build:site": "pnpm --filter @geo-admin/gen-site build",
+    "preview:site": "pnpm --filter @geo-admin/gen-site preview"
   },
   "engines": {
     "node": ">=20.0.0"

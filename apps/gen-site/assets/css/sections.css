@@ -1,0 +1,32 @@
+.news-index{max-width:1080px;margin:22px auto 0;padding:0 24px;display:flex;gap:14px;align-items:baseline}.news-index>span{flex:0 0 auto;color:#9a9aa6;font-size:12px;font-weight:800;letter-spacing:.06em}.news-index-list{display:flex;flex-wrap:wrap;gap:6px 18px}.news-index-list a{color:#6b6b78;font-size:12.5px;line-height:1.9;text-decoration:none}.news-index-list a:hover{color:#7c3aed}.foot-recent{width:100%;margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.10)}.foot-recent>b{display:block;margin-bottom:9px;color:rgba(255,255,255,.55);font-size:12px;font-weight:800;letter-spacing:.06em}.foot-recent-list{display:flex;flex-wrap:wrap;gap:5px 16px}.foot-recent-list a{color:rgba(255,255,255,.42);font-size:12px;line-height:1.9;text-decoration:none}.foot-recent-list a:hover{color:rgba(255,255,255,.75)}.foot-recent-more{margin-top:9px}.foot-recent-more a{color:rgba(255,255,255,.55);font-size:12px;font-weight:700;text-decoration:none}
+
+.pg-nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:36px auto 8px;max-width:1080px;padding:0 24px}.pg-link{display:inline-flex;align-items:center;min-width:36px;height:36px;padding:0 12px;justify-content:center;border:1px solid #e8e8ee;border-radius:9px;background:#fff;color:#3f3f4a;font-size:13.5px;font-weight:700;text-decoration:none}.pg-link:hover{border-color:#7c3aed;color:#6d28d9}.pg-current{background:#7c3aed;border-color:#7c3aed;color:#fff}
+
+
+        .input-card-inner{display:flex;flex-direction:column}
+        .timus-analysis-attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:3px;padding:0}
+        .timus-analysis-chip{display:inline-flex;min-width:0;max-width:240px;min-height:24px;align-items:center;gap:4px;padding:4px 7px;border:1px solid #e7e2ef;border-radius:8px;background:#f8f6fb;color:#4d4857;font:500 12px/1.1 inherit}
+        .timus-analysis-chip>span:first-child{flex:0 0 auto;font-size:12px;line-height:1}
+        .timus-analysis-chip span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .timus-analysis-chip button{display:grid;flex:0 0 14px;width:14px;height:14px;place-items:center;padding:0;border:0;background:transparent;color:#918a9e;cursor:pointer;font-size:14px;line-height:1}
+        .timus-analysis-shake{animation:timus-analysis-shake .35s ease}
+        @keyframes timus-analysis-shake{25%{transform:translateX(-7px)}50%{transform:translateX(7px)}75%{transform:translateX(-4px)}}
+        .timus-analysis-overlay{position:fixed;inset:0;z-index:10020;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(18,14,27,.45);backdrop-filter:blur(5px)}
+        .timus-analysis-modal{position:relative;width:min(520px,100%);padding:26px;border:1px solid rgba(255,255,255,.8);border-radius:22px;background:#fff;box-shadow:0 25px 70px rgba(32,20,58,.22)}
+        .timus-analysis-modal h3{margin:0 0 6px;color:#17141d;font-size:21px}
+        .timus-analysis-modal p{margin:0 0 18px;color:#86818e;font-size:13px}
+        .timus-analysis-close{position:absolute;top:16px;right:17px;border:0;background:transparent;color:#77717f;cursor:pointer;font-size:22px}
+        .timus-analysis-link-row{display:flex;gap:9px}
+        .timus-analysis-link-row input{min-width:0;flex:1;padding:12px 13px;border:1px solid #ded9e7;border-radius:10px;outline:none;font:14px inherit}
+        .timus-analysis-link-row input:focus{border-color:#8b43ee;box-shadow:0 0 0 3px rgba(139,67,238,.1)}
+        .timus-analysis-link-row button,.timus-analysis-confirm{border:0;border-radius:10px;background:linear-gradient(135deg,#9948ee,#7137e9);color:#fff;cursor:pointer;font:700 13px inherit;padding:0 18px}
+        .timus-analysis-link-error{margin-top:8px;color:#dc2626;font-size:12px}
+        .timus-analysis-link-list{display:flex;flex-direction:column;gap:7px;margin-top:14px}
+        .timus-analysis-link-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:9px;background:#f7f5fa;color:#4f4a57;font-size:12px}
+        .timus-analysis-link-item span:nth-child(2){min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .timus-analysis-link-item button{border:0;background:transparent;color:#938c9b;cursor:pointer;font-size:17px}
+        .timus-analysis-confirm{width:100%;margin-top:16px;padding:12px}
+        .timus-analysis-drop{display:flex;min-height:190px;align-items:center;justify-content:center;flex-direction:column;gap:8px;border:1.5px dashed #cfc5db;border-radius:15px;background:#faf9fc;cursor:pointer;text-align:center}
+        .timus-analysis-drop:hover{border-color:#8b43ee;background:#fbf8ff}
+        .timus-analysis-drop b{color:#322c3c;font-size:16px}
+        .timus-analysis-drop span{color:#918a9c;font-size:12px}
