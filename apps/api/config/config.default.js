@@ -12,6 +12,8 @@ module.exports = () => ({
   deepseek: { apiKey: process.env.DEEPSEEK_API_KEY || '' },
   // 登录 JWT：生产务必用环境变量覆盖 secret
   jwt: { secret: process.env.JWT_SECRET || 'geo-jwt-dev-secret', expiresIn: '7d' },
+  // 登录接口模拟网络延时（dev 便于观察 loading 态）；生产默认为 0
+  loginDelayMs: process.env.NODE_ENV === 'production' ? 0 : 2000,
   rankWeights: [40, 20, 20, 16, 16, 13.33, 10, 10, 8, 8], // 实测逆向的位次权重（第1~10名），可配置校准
   platforms: ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'],
 });

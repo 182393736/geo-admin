@@ -220,6 +220,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { toast } from '@/lib/toast';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -309,11 +310,14 @@ async function handleSubmit() {
     errMsg.value = '';
     submitting.value = true;
     try {
-      await auth.login(account.value.trim(), password.value);
+      const resp = await auth.login(account.value.trim(), password.value);
+      toast.success('登录成功', resp?.user?.username ? `欢迎回来，${resp.user.username}` : undefined);
       // 拉一次 /user/info 验证 token 立即可用；失败不影响进后台
       router.push('/dashboard/overview');
     } catch (e: any) {
-      errMsg.value = e?.message || '网络异常，请确认后端已启动（:7001）';
+      const msg = e?.message || '网络异常，请确认后端已启动（:7001）';
+      errMsg.value = msg;
+      toast.error('登录失败', msg);
     } finally {
       submitting.value = false;
     }

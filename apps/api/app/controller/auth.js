@@ -10,6 +10,10 @@ const Controller = require('egg').Controller;
 class AuthController extends Controller {
   async login() {
     const { ctx } = this;
+    // dev 环境模拟真实网络延迟（可在 config.loginDelayMs 配置）
+    const delay = Number(ctx.app.config.loginDelayMs) || 0;
+    if (delay > 0) await new Promise(r => setTimeout(r, delay));
+
     const { account, password } = ctx.request.body || {};
     if (!account || !password) {
       ctx.status = 400;
