@@ -29,10 +29,18 @@ pnpm dev            # http://localhost:3002
 pnpm build && pnpm preview
 ```
 
+## 页面
+
+| 路由 | 布局 | 说明 |
+| --- | --- | --- |
+| `/` | `layouts/default.vue`（含导航 / 页脚） | 官网首页，14 个区块 |
+| `/trial` | `layout: false` | 线上 `/trial` 是**独立的 React SPA**（Tailwind + 页面内联样式），与首页不是同一套样式体系，因此独立渲染、样式按需加载 |
+
 ## 目录
 
 ```
-app.vue                        页面骨架（.original-design-root / main / footer）
+app.vue                        NuxtLayout + NuxtPage
+layouts/default.vue            首页外壳（导航 / 页脚 / 背景 / Toast）+ 滚动渐显
 assets/css/tokens.css          重置 + 设计变量 :root
 assets/css/design.css          主样式表（原站 design.css，未改动）
 assets/css/sections.css        组件级内联样式
@@ -42,6 +50,9 @@ components/SiteFooter.vue      页脚
 components/SiteBackground.vue  背景装饰层
 components/SiteToast.vue       Toast
 components/home/*.vue          首页 14 个区块
+components/trial/*.vue         /trial 页面区块
+public/css/trial.css            /trial 样式（Tailwind + 页面内联样式，按需加载）
+public/trial-assets/            /trial 字体与图片资源（71 个）
 composables/useReveal.ts       滚动渐显（替代原站 design-runtime.js）
 ```
 
@@ -55,6 +66,9 @@ composables/useReveal.ts       滚动渐显（替代原站 design-runtime.js）
 | 1280×800 笔记本 | 10244px | 10244px | 225 | **0.0017%** |
 | 820×1100 平板 | 12707px | 12707px | 156 | **0.0015%** |
 | 390×844 手机 | 15453px | 15453px | 263 | **0.0031%** |
+
+> 上表为首页。`/trial` 页面在四种视口下均为 **0 像素差异**（高度完全一致）。
+> 页面含呼吸/流光等装饰动画，比对前需冻结动画，否则相位差会体现为像素噪声。
 
 - **页面总高度在四种视口下完全一致**
 - **可见文本完全一致**（385 行，相似度 100%）

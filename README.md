@@ -20,6 +20,7 @@ pnpm install
 pnpm dev:web        # 前端（默认 mock 数据）
 pnpm dev:api        # 后端（需 MONGO_URL / DEEPSEEK_API_KEY）
 pnpm dev:site       # 官网 gen-site（http://localhost:3002）
+pnpm dev:site       # 官网 gen-site（http://localhost:3002）
 ```
 
 ## 前端接真实后端
