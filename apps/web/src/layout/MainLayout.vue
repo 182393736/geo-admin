@@ -56,6 +56,7 @@
           <icon-expand v-if="appStore.collapsed" :size="16" />
           <icon-shrink v-else :size="16" />
         </div>
+        <UserMenu />
       </div>
     </aside>
 
@@ -113,6 +114,7 @@
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
+import UserMenu from '@/components/UserMenu.vue';
 import {
   IconDashboard,
   IconBarChart,

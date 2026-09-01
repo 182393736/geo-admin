@@ -162,6 +162,19 @@ const routes = [
         component: () => import('@/views/pricing/index.vue'),
         meta: { title: '套餐' },
       },
+      // 用户菜单（pixel-clone 入口占位）
+      {
+        path: '/dashboard/profile',
+        name: 'Profile',
+        component: () => import('@/views/placeholder/index.vue'),
+        meta: { title: '个人资料', icon: '👤' },
+      },
+      {
+        path: '/dashboard/support',
+        name: 'Support',
+        component: () => import('@/views/placeholder/index.vue'),
+        meta: { title: '联系客服', icon: '💬' },
+      },
       // 品牌 - 4个子页面
       {
         path: '/dashboard/brand-card',
