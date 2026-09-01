@@ -1,0 +1,315 @@
+{
+  "mongoose": {
+    "client": {
+      "url": "/home/user/geo-admin/apps/api/config/config.default.js",
+      "options": {
+        "autoIndex": "/home/user/geo-admin/apps/api/config/config.default.js",
+        "useUnifiedTopology": "/home/user/geo-admin/apps/api/config/config.default.js",
+        "useNewUrlParser": "/home/user/geo-admin/apps/api/config/config.default.js",
+        "serverSelectionTimeoutMS": "/home/user/geo-admin/apps/api/config/config.default.js",
+        "reconnectTries": "/home/user/geo-admin/apps/api/config/config.default.js"
+      }
+    },
+    "url": "/home/user/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/config/config.default.js",
+    "options": "/home/user/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/config/config.default.js",
+    "plugins": "/home/user/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/config/config.default.js",
+    "loadModel": "/home/user/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/config/config.default.js",
+    "app": "/home/user/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/config/config.default.js",
+    "agent": "/home/user/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/config/config.default.js"
+  },
+  "security": {
+    "csrf": {
+      "enable": "/home/user/geo-admin/apps/api/config/config.default.js",
+      "type": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "ignoreJSON": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "useSession": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "cookieName": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "sessionName": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "headerName": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "bodyName": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "queryName": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "rotateWhenInvalid": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "supportedRequests": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "refererWhiteList": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "cookieOptions": {
+        "signed": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+      }
+    },
+    "domainWhiteList": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+    "protocolWhiteList": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+    "defaultMiddleware": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+    "xframe": {
+      "enable": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "value": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+    },
+    "hsts": {
+      "enable": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.local.js",
+      "maxAge": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "includeSubdomains": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+    },
+    "dta": {
+      "enable": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+    },
+    "methodnoallow": {
+      "enable": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+    },
+    "noopen": {
+      "enable": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+    },
+    "nosniff": {
+      "enable": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+    },
+    "referrerPolicy": {
+      "enable": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "value": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+    },
+    "xssProtection": {
+      "enable": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "value": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+    },
+    "csp": {
+      "enable": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "policy": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+    },
+    "ssrf": {
+      "ipBlackList": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "ipExceptionList": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "hostnameExceptionList": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js",
+      "checkAddress": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+    }
+  },
+  "keys": "/home/user/geo-admin/apps/api/config/config.default.js",
+  "deepseek": {
+    "apiKey": "/home/user/geo-admin/apps/api/config/config.default.js"
+  },
+  "rankWeights": "/home/user/geo-admin/apps/api/config/config.default.js",
+  "platforms": "/home/user/geo-admin/apps/api/config/config.default.js",
+  "session": {
+    "maxAge": "/home/user/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/config/config.default.js",
+    "key": "/home/user/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/config/config.default.js",
+    "httpOnly": "/home/user/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/config/config.default.js",
+    "encrypt": "/home/user/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/config/config.default.js",
+    "logValue": "/home/user/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/config/config.default.js"
+  },
+  "helper": {
+    "shtml": "/home/user/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js"
+  },
+  "jsonp": {
+    "limit": "/home/user/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/config/config.default.js",
+    "callback": "/home/user/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/config/config.default.js",
+    "csrf": "/home/user/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/config/config.default.js"
+  },
+  "onerror": {
+    "errorPageUrl": "/home/user/geo-admin/node_modules/.pnpm/egg-onerror@2.4.0/node_modules/egg-onerror/config/config.default.js",
+    "appErrorFilter": "/home/user/geo-admin/node_modules/.pnpm/egg-onerror@2.4.0/node_modules/egg-onerror/config/config.default.js",
+    "templatePath": "/home/user/geo-admin/node_modules/.pnpm/egg-onerror@2.4.0/node_modules/egg-onerror/config/config.default.js"
+  },
+  "i18n": {
+    "defaultLocale": "/home/user/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/config/config.default.js",
+    "dirs": "/home/user/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/config/config.default.js",
+    "queryField": "/home/user/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/config/config.default.js",
+    "cookieField": "/home/user/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/config/config.default.js",
+    "cookieDomain": "/home/user/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/config/config.default.js",
+    "cookieMaxAge": "/home/user/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/config/config.default.js"
+  },
+  "watcher": {
+    "type": "/home/user/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/config/config.local.js",
+    "eventSources": {
+      "default": "/home/user/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/config/config.default.js",
+      "development": "/home/user/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/config/config.default.js"
+    }
+  },
+  "customLogger": {
+    "scheduleLogger": {
+      "consoleLevel": "/home/user/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/config/config.default.js",
+      "file": "/home/user/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/config/config.default.js"
+    }
+  },
+  "schedule": {
+    "directory": "/home/user/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/config/config.default.js"
+  },
+  "multipart": {
+    "mode": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "autoFields": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "defaultCharset": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "defaultParamCharset": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "fieldNameSize": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "fieldSize": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "fields": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "fileSize": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "files": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "fileExtensions": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "whitelist": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "allowArrayField": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "tmpdir": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+    "cleanSchedule": {
+      "cron": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js",
+      "disable": "/home/user/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js"
+    }
+  },
+  "development": {
+    "watchDirs": "/home/user/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/config/config.default.js",
+    "ignoreDirs": "/home/user/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/config/config.default.js",
+    "fastReady": "/home/user/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/config/config.default.js",
+    "reloadOnDebug": "/home/user/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/config/config.default.js",
+    "overrideDefault": "/home/user/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/config/config.default.js",
+    "overrideIgnore": "/home/user/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/config/config.default.js"
+  },
+  "logrotator": {
+    "filesRotateByHour": "/home/user/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/config/config.default.js",
+    "hourDelimiter": "/home/user/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/config/config.default.js",
+    "filesRotateBySize": "/home/user/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/config/config.default.js",
+    "maxFileSize": "/home/user/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/config/config.default.js",
+    "maxFiles": "/home/user/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/config/config.default.js",
+    "rotateDuration": "/home/user/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/config/config.default.js",
+    "maxDays": "/home/user/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/config/config.default.js"
+  },
+  "static": {
+    "prefix": "/home/user/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/config/config.default.js",
+    "dir": "/home/user/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/config/config.default.js",
+    "dynamic": "/home/user/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/config/config.default.js",
+    "preload": "/home/user/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/config/config.default.js",
+    "buffer": "/home/user/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/config/config.default.js",
+    "maxFiles": "/home/user/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/config/config.default.js"
+  },
+  "view": {
+    "root": "/home/user/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.default.js",
+    "cache": "/home/user/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.local.js",
+    "defaultExtension": "/home/user/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.default.js",
+    "defaultViewEngine": "/home/user/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.default.js",
+    "mapping": "/home/user/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.default.js"
+  },
+  "env": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "name": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "cookies": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "proxy": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "maxIpsCount": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "maxProxyCount": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "protocolHeaders": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "ipHeaders": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "hostHeaders": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "pkg": {
+    "name": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "version": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "private": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "description": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "scripts": {
+      "dev": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "start": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "stop": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "test": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+    },
+    "dependencies": {
+      "egg": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "egg-mongoose": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "egg-scripts": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "uuid": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "jsonwebtoken": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "bcryptjs": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "dayjs": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+    },
+    "devDependencies": {
+      "egg-bin": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+    },
+    "engines": {
+      "node": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+    }
+  },
+  "baseDir": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "HOME": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "rundir": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "dump": {
+    "ignore": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "timing": {
+      "slowBootActionMinDuration": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+    }
+  },
+  "confusedConfigurations": {
+    "bodyparser": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "notFound": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "sitefile": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "middlewares": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "httpClient": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+  },
+  "notfound": {
+    "pageUrl": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+  },
+  "siteFile": {
+    "/favicon.ico": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "cacheControl": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+  },
+  "bodyParser": {
+    "enable": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "encoding": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "formLimit": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "jsonLimit": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "textLimit": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "strict": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "queryString": {
+      "arrayLimit": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "depth": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "parameterLimit": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+    },
+    "onerror": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+  },
+  "logger": {
+    "dir": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "encoding": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "env": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "level": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "consoleLevel": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "disableConsoleAfterReady": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "outputJSON": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "buffer": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "appLogName": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "coreLogName": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "agentLogName": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "errorLogName": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "coreLogger": {
+      "consoleLevel": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.local.js"
+    },
+    "allowDebugAtProd": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "enablePerformanceTimer": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "enableFastContextLogger": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+  },
+  "httpclient": {
+    "enableDNSCache": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "dnsCacheLookupInterval": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "dnsCacheMaxLength": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "request": {
+      "timeout": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+    },
+    "httpAgent": {
+      "keepAlive": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "freeSocketTimeout": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "maxSockets": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "maxFreeSockets": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+    },
+    "httpsAgent": {
+      "keepAlive": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "freeSocketTimeout": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "maxSockets": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "maxFreeSockets": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+    },
+    "useHttpClientNext": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+  },
+  "meta": {
+    "enable": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "logging": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+  },
+  "coreMiddleware": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "workerStartTimeout": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "serverTimeout": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+  "cluster": {
+    "listen": {
+      "path": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "port": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+      "hostname": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+    }
+  },
+  "clusterClient": {
+    "maxWaitTime": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js",
+    "responseTimeout": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+  },
+  "onClientError": "/home/user/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js"
+}

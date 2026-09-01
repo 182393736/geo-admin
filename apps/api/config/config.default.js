@@ -3,7 +3,8 @@ module.exports = () => ({
   mongoose: {
     client: {
       url: process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/geo',
-      options: { autoIndex: true, maxPoolSize: 20 },
+      options: { autoIndex: true, useUnifiedTopology: true, useNewUrlParser: true,
+             serverSelectionTimeoutMS: 8000, reconnectTries: 10 },
     },
   },
   security: { csrf: { enable: false } }, // API 走 JWT Bearer，无表单 CSRF 面

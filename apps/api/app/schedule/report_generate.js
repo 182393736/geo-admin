@@ -4,7 +4,7 @@
  * 读： daily_metric_* / source_daily_stats / leaderboard_dailies / publish_orders
  * 写： reports(status: generating→ready)
  */
-const { Subscription } = require('egg').Schedule;
+const { Subscription } = require('egg');
 
 class ReportGenerate extends Subscription {
   static get schedule() { return { cron: '0 0 5 * * 0', type: 'worker' }; } // weekly 示例，monthly 另配

@@ -5,7 +5,7 @@
  * 写： brand_entities / brand_mentions / opinion_* / canonical_sources / cited_articles / citation_edges
  *     daily_metric_queries / daily_metric_brands / source_daily_stats / leaderboard_dailies
  */
-const { Subscription } = require('egg').Schedule;
+const { Subscription } = require('egg');
 
 class DailyParse extends Subscription {
   static get schedule() { return { cron: '0 0 4 * * *', type: 'worker' }; }

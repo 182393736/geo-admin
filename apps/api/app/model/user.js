@@ -9,7 +9,7 @@
 module.exports = app => {
   const { Schema } = app.mongoose;
   const schema = new Schema({
-    _id: { type: String, default: () => new (require('uuid').v4)() },  // UUID 与线上 sub 形态一致
+    _id: { type: String, default: () => require('uuid').v4() },  // UUID 与线上 sub 形态一致
     phone: { type: String, unique: true, required: true },
     password_hash: { type: String, select: false },
     name: String,

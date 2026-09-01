@@ -3,7 +3,7 @@
  * S2 每日采集任务展开：凌晨 00:30 为每个 active 品牌生成槽位
  * 写表：collect_tasks → collect_slots
  */
-const { Subscription } = require('egg').Schedule;
+const { Subscription } = require('egg');
 
 class DailyCollect extends Subscription {
   static get schedule() { return { cron: '0 30 0 * * *', type: 'worker', immediate: false }; }
