@@ -197,3 +197,13 @@ const router = createRouter({
 });
 
 export default router;
+
+// 登录守卫：无 token 进登录页；401 后 http.ts 会自动跳出
+import { useAuthStore } from '@/stores/auth';
+router.beforeEach((to) => {
+  const auth = useAuthStore();
+  if (to.path !== '/login' && !auth.isAuthenticated) return { path: '/login' };
+  if (to.path === '/login' && auth.isAuthenticated) return { path: '/dashboard/overview' };
+  document.title = `${(to.meta.title as string) || ''} · GEO 管理平台`;
+  return true;
+});
