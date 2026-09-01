@@ -11,3 +11,4 @@ dist-ssr
 .turbo
 .pnpm-store
 coverage
+*.tsbuildinfo
