@@ -41,7 +41,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/geo-api',
-      // 分析完成后「前往控制台」落地地址（apps/web 管理台）
+      // 分析完成后「前往控制台」落地地址（控制台独立部署，用 NUXT_PUBLIC_CONSOLE_URL 配置）
       consoleUrl: process.env.NUXT_PUBLIC_CONSOLE_URL || 'http://127.0.0.1:5173',
     },
   },
