@@ -16,13 +16,19 @@
     </div>
     <div class="nav-right">
       <a class="nav-cta" href="/trial" id="primaryCta">开始试用</a>
-      <a href="/login" class="nav-login" id="loginLink" @click.prevent="login">登录</a>
-      <div class="user-menu" id="userMenu">
+      <a
+        v-show="!isLoggedIn"
+        href="/login"
+        class="nav-login"
+        id="loginLink"
+        @click.prevent="login"
+      >登录</a>
+      <div class="user-menu" id="userMenu" :class="{ active: isLoggedIn }">
         <button class="user-avatar-btn">
-          <div class="avatar-circle">进</div>
-          <span class="user-name">进入平台</span>
+          <div class="avatar-circle">{{ user?.initial || '进' }}</div>
+          <span class="user-name">{{ user?.account || '进入平台' }}</span>
         </button>
-        <button class="user-logout-btn" data-timus-logout="" type="button">退出</button>
+        <button class="user-logout-btn" data-timus-logout="" type="button" @click="logout">退出</button>
       </div>
     </div>
   </nav>
@@ -39,9 +45,13 @@ const PATH_BY_KEY: Record<string, string> = {
   reports: '/resources', academy: '/articles', news: '/news', contact: '/contact',
 }
 const go = (path: string) => navigateTo(path)
-const login = () => window.dispatchEvent(
-  new CustomEvent('timus:auth-open', { detail: { intent: 'login' } })
-)
+
+// 登录态（前端模拟，见 composables/useAuth.ts）
+const { isLoggedIn, user, logout } = useAuth()
+const { open } = useAuthModal()
+
+// 右上角登录按钮：弹出登录框，默认选中「账号密码」
+const login = () => open('password', 'header')
 
 onMounted(() => {
   const onScroll = () => { scrolled.value = window.scrollY > 8 }

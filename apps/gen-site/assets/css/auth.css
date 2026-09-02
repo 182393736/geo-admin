@@ -1,0 +1,114 @@
+/* ================================================================
+   登录弹窗 .shared-auth-* —— 抓取自 geo.timus.cn 真实渲染结果
+   注意：本文件必须排在主样式表之后引入（见 nuxt.config.ts 的 css 顺序）。
+   只保留 sharedAuthIn 关键帧，其余 @keyframes 已剔除，
+   避免覆盖首页既有的 breath-a / spin / btn-shine 等动画。
+   ================================================================ */
+
+.shared-auth-overlay { position: fixed; inset: 0px; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
+
+.shared-auth-card { position: relative; display: flex; width: 100%; max-width: 720px; overflow: hidden; border-radius: 22px; background: rgb(255, 255, 255); box-shadow: rgba(0, 0, 0, 0.25) 0px 32px 80px; animation: 0.24s cubic-bezier(0.22, 1, 0.36, 1) 0s 1 normal none running sharedAuthIn; }
+@keyframes sharedAuthIn { 
+  0% { opacity: 0; transform: translateY(12px) scale(0.985); }
+}
+
+.shared-auth-close { position: absolute; top: 14px; right: 14px; z-index: 3; display: flex; width: 26px; height: 26px; align-items: center; justify-content: center; border: 1px solid rgb(229, 231, 235); border-radius: 50%; background: rgb(243, 244, 246); color: rgb(107, 114, 128); cursor: pointer; transition: background 0.15s, color 0.15s; }
+
+.shared-auth-close:hover { background: rgb(229, 231, 235); color: rgb(55, 65, 81); }
+
+.shared-auth-promo { position: relative; display: flex; width: 270px; flex: 0 0 270px; flex-direction: column; overflow: hidden; padding: 34px 28px; color: rgb(255, 255, 255); background: linear-gradient(135deg, rgb(30, 27, 75) 0%, rgb(49, 46, 129) 52%, rgb(55, 48, 163) 100%); }
+
+.shared-auth-promo-glow { position: absolute; top: -70px; right: -70px; width: 260px; height: 260px; border-radius: 50%; background: rgba(165, 180, 252, 0.1); pointer-events: none; }
+
+.shared-auth-brand { position: relative; z-index: 1; margin-bottom: 24px; font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
+
+.shared-auth-promo h3 { position: relative; z-index: 1; margin: 0px 0px 6px; color: rgb(255, 255, 255); font-size: 19px; font-weight: 800; line-height: 1.3; letter-spacing: -0.025em; }
+
+.shared-auth-promo h3 span { background: linear-gradient(90deg, rgb(165, 180, 252), rgb(216, 180, 254)) text; color: transparent; }
+
+.shared-auth-promo-copy { position: relative; z-index: 1; margin: 0px 0px 24px; color: rgba(255, 255, 255, 0.55); font-size: 12px; line-height: 1.65; }
+
+.shared-auth-benefits { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; }
+
+.shared-auth-benefit { display: flex; align-items: flex-start; gap: 10px; }
+
+.shared-auth-benefit-icon { display: flex; width: 28px; height: 28px; flex: 0 0 28px; align-items: center; justify-content: center; margin-top: 2px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; background: rgba(255, 255, 255, 0.1); font-size: 13px; }
+
+.shared-auth-benefit b { display: block; margin-bottom: 2px; color: rgb(255, 255, 255); font-size: 12px; font-weight: 600; }
+
+.shared-auth-benefit p { margin: 0px; color: rgba(255, 255, 255, 0.5); font-size: 11px; line-height: 1.35; }
+
+.shared-auth-panel { display: flex; min-width: 0px; flex: 1 1 0%; flex-direction: column; padding: 34px 30px; }
+
+.shared-auth-title { margin: 0px 0px 4px; color: rgb(17, 24, 39); font-size: 20px; font-weight: 800; line-height: 1.3; letter-spacing: -0.02em; }
+
+.shared-auth-subtitle { margin: 0px 0px 16px; color: rgb(107, 114, 128); font-size: 13px; line-height: 1.55; }
+
+.shared-auth-tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 20px; border-radius: 10px; background: rgb(243, 244, 246); }
+
+.shared-auth-tabs button { flex: 1 1 0%; padding: 8px 10px; border: 0px; border-radius: 8px; background: transparent; color: rgb(107, 114, 128); cursor: pointer; transition: 0.15s; }
+
+.shared-auth-tabs button:hover { color: rgb(55, 65, 81); }
+
+.shared-auth-tabs button.active { background: linear-gradient(90deg, rgb(79, 70, 229), rgb(124, 58, 237)); color: rgb(255, 255, 255); box-shadow: rgba(0, 0, 0, 0.1) 0px 1px 3px; }
+
+.shared-auth-label { display: block; margin-bottom: 8px; color: rgb(156, 163, 175); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.shared-auth-phone-field { display: flex; overflow: hidden; margin-bottom: 10px; border: 1.5px solid rgb(229, 231, 235); border-radius: 10px; transition: border-color 0.15s, box-shadow 0.15s; }
+
+.shared-auth-phone-field:focus-within { border-color: rgb(196, 181, 253); box-shadow: rgba(79, 70, 229, 0.08) 0px 0px 0px 3px; }
+
+.shared-auth-country { display: flex; align-items: center; padding: 0px 14px; border-right: 1px solid rgb(229, 231, 235); background: rgb(249, 250, 251); color: rgb(107, 114, 128); font-size: 13px; font-weight: 500; white-space: nowrap; }
+
+.shared-auth-input { width: 100%; min-width: 0px; padding: 13px 14px; border: 1.5px solid rgb(229, 231, 235); border-radius: 10px; outline: none; background: rgb(255, 255, 255); color: rgb(17, 24, 39); transition: border-color 0.15s, box-shadow 0.15s; }
+
+.shared-auth-phone-field .shared-auth-input { flex: 1 1 0%; border: 0px; border-radius: 0px; box-shadow: none; }
+
+.shared-auth-input:focus { border-color: rgb(196, 181, 253); box-shadow: rgba(79, 70, 229, 0.08) 0px 0px 0px 3px; }
+
+.shared-auth-input::placeholder { color: rgb(156, 163, 175); }
+
+.shared-auth-password-field { margin-bottom: 12px; }
+
+.shared-auth-password-field + .shared-auth-password-field { margin-bottom: 10px; }
+
+.shared-auth-agree { margin: 0px 0px 14px; color: rgb(156, 163, 175); font-size: 11px; line-height: 1.45; }
+
+.shared-auth-agree a { color: rgb(124, 58, 237); text-decoration: none; }
+
+.shared-auth-agree a:hover { text-decoration: underline; }
+
+.shared-auth-submit { width: 100%; padding: 13px 0px; border: 0px; border-radius: 10px; background: linear-gradient(135deg, rgb(79, 70, 229), rgb(124, 58, 237)); color: rgb(255, 255, 255); cursor: pointer; box-shadow: rgba(79, 70, 229, 0.3) 0px 2px 12px; transition: opacity 0.15s, box-shadow 0.15s; }
+
+.shared-auth-submit:hover { opacity: 0.9; box-shadow: rgba(79, 70, 229, 0.4) 0px 4px 18px; }
+
+.shared-auth-submit:disabled { cursor: not-allowed; opacity: 0.35; box-shadow: none; }
+
+.shared-auth-phone-note { margin: 0px 0px 14px; color: rgb(107, 114, 128); font-size: 13px; line-height: 1.65; }
+
+.shared-auth-phone-note b { color: rgb(124, 58, 237); font-weight: 600; }
+
+.shared-auth-otp-grid { display: grid; grid-template-columns: repeat(6, minmax(0px, 1fr)); gap: 8px; margin-bottom: 10px; }
+
+.shared-auth-otp { width: 100%; aspect-ratio: 1 / 1; padding: 0px; border: 1.5px solid rgb(229, 231, 235); border-radius: 10px; outline: none; background: rgb(255, 255, 255); color: rgb(17, 24, 39); text-align: center; transition: 0.15s; }
+
+.shared-auth-otp.filled { border-color: rgb(124, 58, 237); background: rgb(250, 245, 255); color: rgb(124, 58, 237); }
+
+.shared-auth-otp:focus { border-color: rgb(196, 181, 253); box-shadow: rgba(79, 70, 229, 0.08) 0px 0px 0px 3px; }
+
+.shared-auth-resend { margin: 0px 0px 14px; color: rgb(156, 163, 175); font-size: 12px; text-align: center; }
+
+.shared-auth-resend button { padding: 0px; border: 0px; background: transparent; color: rgb(124, 58, 237); font: inherit; cursor: pointer; }
+
+.shared-auth-error { margin: 0px 0px 10px; padding: 8px 10px; border-radius: 8px; background: rgb(255, 240, 243); color: rgb(220, 53, 69); font-size: 12px; line-height: 1.45; }
+@media (max-width: 420px) {
+  .shared-auth-overlay { padding: 14px; }
+  .shared-auth-panel { padding: 32px 20px 24px; }
+  .shared-auth-otp-grid { gap: 6px; }
+  .shared-auth-otp { border-radius: 8px; font-size: 19px; }
+}
+@media (max-width: 767px) {
+  .shared-auth-card { max-width: 450px; }
+  .shared-auth-promo { display: none; }
+  .shared-auth-panel { padding: 34px 30px; }
+}

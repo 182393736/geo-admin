@@ -11,6 +11,7 @@ export default defineNuxtConfig({
     '~/assets/css/design.css',   // 主样式表 design.css（最先下发）
     '~/assets/css/tokens.css',   // 重置 + 设计变量（:root）及后置覆盖
     '~/assets/css/sections.css', // 随页面内联下发的组件级样式
+    '~/assets/css/auth.css',     // 登录弹窗 .shared-auth-*（必须排在最后）
   ],
 
   app: {

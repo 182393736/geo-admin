@@ -11,9 +11,9 @@
     </p>
 
     <!-- INTEGRATED INPUT BOX -->
-    <div class="input-card">
+    <div class="input-card" ref="cardEl" :class="{ 'timus-analysis-shake': shaking }">
       <div class="input-card-inner">
-        <textarea id="brandInput" placeholder="例如：我的品牌叫「格力空调」，是国内领先的空调品牌，官网是 www.gree.com，主要竞品是美的和海尔..."></textarea>
+        <textarea id="brandInput" v-model="brandText" placeholder="例如：我的品牌叫「格力空调」，是国内领先的空调品牌，官网是 www.gree.com，主要竞品是美的和海尔..."></textarea>
       </div>
       <div class="input-actions">
         <div class="input-tools">
@@ -32,7 +32,7 @@
             上传文档
           </button>
         </div>
-        <button class="submit-btn" type="button" data-timus-analysis-submit="">
+        <button class="submit-btn" type="button" data-timus-analysis-submit="" @click="onSubmit">
           <span class="btn-content">开始免费分析</span>
         </button>
       </div>
@@ -41,10 +41,10 @@
     <!-- QUICK FILL CHIPS -->
     <div class="quick-fill">
       <span class="quick-fill-label">快速填入：</span>
-      <button class="chip" data-timus-brand-preset="小鹏汽车">小鹏汽车</button>
-      <button class="chip" data-timus-brand-preset="完美日记">完美日记</button>
-      <button class="chip" data-timus-brand-preset="格力空调">格力空调</button>
-      <button class="chip" data-timus-brand-preset="维乐口腔">维乐口腔</button>
+      <button class="chip" data-timus-brand-preset="小鹏汽车" @click="brandText = '小鹏汽车'">小鹏汽车</button>
+      <button class="chip" data-timus-brand-preset="完美日记" @click="brandText = '完美日记'">完美日记</button>
+      <button class="chip" data-timus-brand-preset="格力空调" @click="brandText = '格力空调'">格力空调</button>
+      <button class="chip" data-timus-brand-preset="维乐口腔" @click="brandText = '维乐口腔'">维乐口腔</button>
     </div>
 
     <!-- PROOF STRIP：中立监测底座数字（原四信任点退役，数字上岗） -->
@@ -57,3 +57,39 @@
     </div>
   </section>
 </template>
+
+<script setup lang="ts">
+const brandText = ref('')
+const shaking = ref(false)
+const cardEl = ref<HTMLElement | null>(null)
+
+const { isLoggedIn } = useAuth()
+const { open } = useAuthModal()
+const { showToast } = useToast()
+
+let shakeTimer: ReturnType<typeof setTimeout> | null = null
+
+function shake() {
+  shaking.value = false
+  // 下一帧再加类，保证连续点击也能重新触发动画
+  requestAnimationFrame(() => {
+    shaking.value = true
+    if (shakeTimer) clearTimeout(shakeTimer)
+    shakeTimer = setTimeout(() => { shaking.value = false }, 400)
+  })
+}
+
+function onSubmit() {
+  if (!brandText.value.trim()) {
+    shake()
+    return
+  }
+  // 未登录：先弹出登录框，默认选中「账号密码」
+  if (!isLoggedIn.value) {
+    open('password', 'home-submit')
+    return
+  }
+  // 已登录：走原有的分析流程（此处沿用原站的 Toast 反馈）
+  showToast('正在进入控制台...')
+}
+</script>
