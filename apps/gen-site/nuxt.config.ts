@@ -3,10 +3,13 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   devtools: { enabled: false },
 
-  // 抓取自 geo.timus.cn 的原始样式，引入顺序与原站 <head> 完全一致，保证层叠结果不变
+  // 抓取自 geo.timus.cn 的原始样式，引入顺序与原站 <head> 完全一致，保证层叠结果不变。
+  // 注意：原站下发顺序是 design.css → 重置/变量块 → 页面级内联样式，
+  // 其中存在后置覆盖（如 .hero-sub{font-weight:600} 覆盖 design.css 里的 200），
+  // 顺序一旦颠倒层叠结果就会变化，请勿调整。
   css: [
-    '~/assets/css/tokens.css',   // 重置 + 设计变量（:root）
-    '~/assets/css/design.css',   // 主样式表 design.css
+    '~/assets/css/design.css',   // 主样式表 design.css（最先下发）
+    '~/assets/css/tokens.css',   // 重置 + 设计变量（:root）及后置覆盖
     '~/assets/css/sections.css', // 随页面内联下发的组件级样式
   ],
 
