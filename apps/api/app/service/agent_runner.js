@@ -4,14 +4,15 @@
  * 职责：注入硅基流动配置/搜索 Provider/mongoose models/nextSeq，其余编排全在库里。
  */
 const { Service } = require('egg');
-const { createSiliconFlowClient, createSearchProvider, runOnboarding, persistResult, sanitizePreview } = require('@geo-admin/geo-agent');
+const { createSiliconFlowClient, createSearchProvider, createWebSearch, runOnboarding, persistResult, sanitizePreview } = require('@geo-admin/geo-agent');
 
 class AgentRunnerService extends Service {
   buildDeps() {
     const { app } = this;
     const cfg = app.config.siliconflow || {};
     const llm = createSiliconFlowClient({ apiKey: cfg.apiKey, baseURL: cfg.baseURL, model: cfg.model });
-    return { llm, searchProvider: createSearchProvider({}) };
+    // 联网取证/热度验证两条腿都按 key 自动降级：无 SERPAPI_KEY/BING_SEARCH_KEY → 诚实保持 llm_estimate
+    return { llm, searchProvider: createSearchProvider({}), webSearch: createWebSearch({}) };
   }
 
   /** 只跑分析不落库：返回完整 result（预览/调试用） */

@@ -56,4 +56,43 @@ async function reweightBySearch(candidates, provider, trace) {
   return 'real_search';
 }
 
-module.exports = { createSearchProvider, reweightBySearch };
+/**
+ * 联网检索（供 tool-calling 循环调用的真实搜索执行器）：
+ * 返回 [{ title, url, snippet }]；未配置任何 key 返回 null（调用侧降级不联网）
+ */
+function createWebSearch(opts = {}) {
+  const fetchImpl = opts.fetchImpl || globalThis.fetch;
+  const serpKey = opts.serpApiKey || process.env.SERPAPI_KEY || '';
+  const bingKey = opts.bingKey || process.env.BING_SEARCH_KEY || '';
+  const limit = opts.limit || 6;
+
+  if (serpKey) {
+    return { name: 'serpapi', async search(query) {
+      try {
+        const resp = await fetchImpl(`https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${serpKey}`, { signal: AbortSignal.timeout(12000) });
+        if (!resp.ok) return [];
+        const j = await resp.json();
+        return (j.organic_results || []).slice(0, limit)
+          .map(r => ({ title: r.title || '', url: r.link || '', snippet: r.snippet || '' }))
+          .filter(r => r.url);
+      } catch (e) { return []; }
+    } };
+  }
+  if (bingKey) {
+    return { name: 'bing', async search(query) {
+      try {
+        const resp = await fetchImpl(`https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${limit}`, {
+          headers: { 'Ocp-Apim-Subscription-Key': bingKey }, signal: AbortSignal.timeout(12000),
+        });
+        if (!resp.ok) return [];
+        const j = await resp.json();
+        return (((j.webPages || {}).value) || []).slice(0, limit)
+          .map(r => ({ title: r.name || '', url: r.url || '', snippet: r.snippet || '' }))
+          .filter(r => r.url);
+      } catch (e) { return []; }
+    } };
+  }
+  return null;
+}
+
+module.exports = { createSearchProvider, createWebSearch, reweightBySearch };

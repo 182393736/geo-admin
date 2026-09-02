@@ -103,8 +103,37 @@ async function main() {
   const r2 = await runOnboarding({ llm: stubLlm, fetchImpl: stubFetch }, { brand_name: 'HANYUAI 图像助理' });
   assert.ok(r2.brand.name && r2.profile.description && r2.candidates.length >= 3, '仅品牌名也要完整产出');
   assert.ok(!r2.traces.some(t => t.kind === 'page_read'), '无链接则不抓页');
+  assert.strictEqual(r2.search_grounded, false, '未配搜索 key：不联网、诚实标记');
 
-  console.log('CONTRACT OK: 品牌+可选链接 → 完整字段集（画像/别名/产品/竞品/候选/情报文/留痕/记账）全部通过');
+  // ===== 联网取证场景：配了 webSearch → DeepSeek 经 tool-calling 主动发搜索 =====
+  const toolCalls = [];
+  const stubLlmWithTools = {
+    ...stubLlm,
+    async chatToolLoop({ tools, handlers }) {
+      assert.ok(tools[0]?.function?.name === 'web_search', '暴露 web_search 工具');
+      const q1 = 'HANYUAI 图像助理 官网 产品';
+      const q2 = '免费 AI 图像工具 对比 豆绘 Canva';
+      const r1 = await handlers.web_search({ query: q1 });
+      const r2x = await handlers.web_search({ query: q2 });
+      toolCalls.push(q1, q2);
+      assert.ok(r1.results[0]?.url, '工具返回搜索结果');
+      return { content: '证据要点：HANYUAI 为一站式免费 AI 图像平台；同类竞品包括豆绘AI、Canva。来源：https://hanyuai.com …', calls: [], usage: { total_tokens: 500 } };
+    },
+  };
+  const stubWeb = { name: 'fake-serp', async search(q) {
+    return [ { title: `${q} - 结果A`, url: 'https://example.com/a', snippet: '摘要A' } ];
+  } };
+  const r3 = await runOnboarding(
+    { llm: stubLlmWithTools, fetchImpl: stubFetch, webSearch: stubWeb },
+    { brand_name: 'HANYUAI 图像助理', website: 'hanyuai.com' },
+  );
+  assert.strictEqual(r3.search_grounded, true, '联网取证生效标记');
+  const sq = r3.traces.filter(t => t.kind === 'search_query');
+  assert.ok(sq.length >= 2, '检索词留痕');
+  assert.ok(sq.every(t => t.meta.engine === 'fake-serp'), '检索来源留痕');
+  assert.ok(r3.usage.some(u => u.step === 'web_research'), '联网步记账');
+
+  console.log('CONTRACT OK: 完整字段集 + 联网工具循环（tool-calling）两条路径全部通过');
 }
 
 main().catch(e => { console.error('CONTRACT FAIL:', e); process.exit(1); });
