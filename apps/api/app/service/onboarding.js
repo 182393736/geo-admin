@@ -136,12 +136,24 @@ class OnboardingService extends Service {
         { upsert: true },
       );
     }
+    // 竞品落库（LLM 解析出的候选：source=品牌挖掘；compet_point 竞争点由后续 agent/insight 阶段补全）
+    for (const c of parsed.competitors || []) {
+      const name = typeof c === 'string' ? c.trim() : String((c && c.name) || '').trim();
+      const point = typeof c === 'object' && c ? String(c.compet_point || c.point || '').trim() : '';
+      if (!name) continue;
+      await M('CompetitorRegister').updateOne(
+        { brand_id: task.brand_id, name },
+        { $setOnInsert: { brand_id: task.brand_id, name, source: '品牌挖掘', compet_point: point, enabled: true } },
+        { upsert: true },
+      );
+    }
     let order = 0;
     for (const q of parsed.industry_queries || []) {
       const qid = await this.nextSeq('monitor_query');
       await M('MonitorQuery').create({
         query_id: qid, user_id: task.user_id, brand_id: task.brand_id,
         query: q, question_list: [{ user_friendly: q, platform_query: q }],
+        platform_prompt: q,  // 实测契约：默认与 query 同值，平台差异化改写由后续 agent 覆盖
         query_type: 'industry', query_order: ++order, task_id: taskId,
       });
     }
@@ -150,6 +162,7 @@ class OnboardingService extends Service {
       await M('MonitorQuery').create({
         query_id: qid, user_id: task.user_id, brand_id: task.brand_id,
         query: q, question_list: [{ user_friendly: q, platform_query: q }],
+        platform_prompt: q,
         query_type: 'brand', query_order: ++order, task_id: taskId,
       });
     }
@@ -172,7 +185,7 @@ class OnboardingService extends Service {
   "industry": "所属行业，如 公共家具制造",
   "business_desc": "一句话品牌简介（<=80字）",
   "aliases": ["品牌的常用简称/别名，0~3个"],
-  "competitors": ["可能的竞品名称，0~3个"],
+  "competitors": [{"name": "竞品名称", "compet_point": "一句话竞争定位（品类 · 差异点），如 '电商AI设计工具 · 阿里旗下电商 AI 设计工具，电商场景强'"}, "0~5个"],
   "keywords": ["核心业务关键词，3~6个"],
   "industry_queries": ["用户会向 AI 提问的行业排名类问题，5~8个，如 '公共座椅厂家推荐'"],
   "brand_queries": ["关于该品牌口碑的问题，1~2个，如 'XX品牌怎么样，口碑好不好'"]
@@ -183,6 +196,10 @@ class OnboardingService extends Service {
       industry: String(data.industry || '').trim(),
       business_desc: String(data.business_desc || '').trim(),
       aliases: (data.aliases || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 3),
+      // 兼容 LLM 返回字符串数组或 {name, compet_point} 对象数组
+      competitors: (data.competitors || []).map(c =>
+        typeof c === 'string' ? c.trim() : { name: String((c && c.name) || '').trim(), compet_point: String((c && (c.compet_point || c.point)) || '').trim() },
+      ).filter(c => (typeof c === 'string' ? c : c.name)).slice(0, 5),
       keywords: (data.keywords || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 6),
       industry_queries: (data.industry_queries || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 8),
       brand_queries: (data.brand_queries || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 2),
@@ -200,6 +217,7 @@ class OnboardingService extends Service {
       industry: '',
       business_desc: (input.business_desc || '').slice(0, 120),
       aliases: [],
+      competitors: [],  // 降级路径无检索能力，竞品留空由用户手工登记
       keywords: kw,
       industry_queries: [
         `${head}厂家推荐`, `${head}品牌哪个好`, `靠谱的${head}供应商有哪些`,

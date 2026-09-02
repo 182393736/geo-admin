@@ -15,7 +15,12 @@ module.exports = app => {
     content: String,
     file_oss_key: String,
     url: String,
-    meta: Schema.Types.Mixed,
+    // 以下为实测契约 GET /api/brand/library/text 显式字段（此前混在 meta 里，对齐线上后显式化）
+    slug: { type: String, index: true },  // 如 "品牌口碑与市场处境-品牌挖掘"
+    tags: [String],                        // 如 ["品牌挖掘","口碑"]
+    source: String,                        // 如 "品牌挖掘"（AI 情报文）/ "用户上传"
+    word_count: Number,                    // 正文字数（线上 438）
+    meta: Schema.Types.Mixed,              // 其余杂项（_file_size/_file_mtime 等）
   }, { collection: 'brand_libraries', versionKey: false, timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
   return app.mongoose.model('BrandLibrary', schema);

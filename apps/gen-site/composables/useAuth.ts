@@ -1,9 +1,10 @@
 /**
- * 登录态（前端模拟）
+ * 登录态（真实接口版）
  *
- * 复刻站点只有静态页，没有后端可连，因此登录态用 localStorage 本地维护。
- * 若后续接真实接口，只需把 login / logout 里的实现换成请求即可，
- * 对外暴露的 isLoggedIn / user / login / logout 保持不变。
+ * 已接入 apps/api 的 POST /user/login（账号密码 → JWT）。
+ * 对外暴露的 isLoggedIn / user / login / logout 签名与模拟版一致，
+ * 站点各处（SiteAuthModal 等）无需改动。token 另存 'geo.token' 供 useGeoApi 使用。
+ * 手机验证码通道待 API 侧短信能力接入后启用（弹窗手机 tab 会提示先用账号密码）。
  */
 export interface AuthUser {
   /** 登录账号（手机号或用户名） */
@@ -38,10 +39,7 @@ function persist(next: AuthUser | null) {
 }
 
 export function useAuth() {
-  // 登录态只能在客户端读取。
-  // 必须在 onMounted 之后再赋值：SSR 输出的 HTML 是「未登录」状态，
-  // 若在 setup 阶段就改写，客户端首次渲染会与 SSR 结果不一致，
-  // 导致 hydration 后状态被回滚（表现为刷新后登录态丢失）。
+  // 登录态只能在客户端读取；onMounted 后赋值避免 SSR/CSR hydration 不一致回滚。
   onMounted(() => {
     if (!ready.value) {
       user.value = read()
@@ -53,10 +51,19 @@ export function useAuth() {
 
   /** 登录：成功返回 true，失败返回错误文案 */
   async function login(account: string, password: string): Promise<true | string> {
-    // 模拟接口耗时，与线上弹窗的加载感一致
-    await new Promise((r) => setTimeout(r, 600))
     if (!account.trim()) return '请输入账号'
     if (password.length < 6) return '密码至少 6 位'
+    const { apiPost, setToken } = useGeoApi()
+    try {
+      const res = await apiPost<{ accessToken?: string }>('/user/login', {
+        account: account.trim(),
+        password,
+      })
+      if (!res?.accessToken) return '登录失败：响应缺少令牌'
+      setToken(res.accessToken)
+    } catch (e) {
+      return `登录失败：${(e as Error)?.message || '网络异常'}`
+    }
     const next: AuthUser = {
       account: account.trim(),
       initial: account.trim().slice(0, 1).toUpperCase(),
@@ -69,6 +76,9 @@ export function useAuth() {
   function logout() {
     user.value = null
     persist(null)
+    try {
+      localStorage.removeItem('geo.token')
+    } catch { /* 忽略 */ }
   }
 
   return { user, isLoggedIn, login, logout }

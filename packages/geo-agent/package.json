@@ -1,0 +1,15 @@
+{
+  "name": "@geo-admin/geo-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GEO 首登分析 Agent：品牌名+官网(可选) → 画像/别名/产品/竞品/监控问题候选/情报文 + 过程留痕。纯 CJS 零依赖，宿主注入模型与配置。",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node test/smoke_contract.js",
+    "test:live": "node test/live_run.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "UNLICENSED"
+}
