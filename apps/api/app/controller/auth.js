@@ -48,24 +48,31 @@ class AuthController extends Controller {
       ctx.body = { code: 401, msg: '用户不存在' };
       return;
     }
+    // 品牌态与 onboarding 投影：first_login=1 表示还没有任何品牌（前端据此跳 /trial）
+    const brands = await ctx.model.Brand.find({ user_id: user._id, status: { $ne: 'disabled' } })
+      .sort({ created_at: 1 }).lean();
+    const first = brands[0] || null;
+    const task = await ctx.service.onboarding.latestForUser(String(user._id));
     ctx.body = {
       code: 200,
       msg: 'ok',
       data: {
         user_id: user._id,
-        brand_id: '',
+        brand_id: first ? first.brand_id : '',
         phone: user.phone || '',
-        brand: user.company || '',
+        brand: first ? first.name : (user.company || ''),
         company: user.company || '',
-        industary: user.industry || '',
+        industary: (first && first.industry) || user.industry || '',
         aliases: [],
         vip_level: 'pro',
         vip_expire_date: '',
         query_limit: 100,
         daily_exec_count: 0,
-        first_login: 1,
-        crawler_started_at: null,
-        keyword_gen_started_at: null,
+        first_login: brands.length ? 2 : 1,   // 1=首次登录（无品牌）→ 前端跳 /trial
+        task_id: task ? task.task_id : null,
+        crawler_started_at: task ? (task.crawler_started_at || null) : null,
+        keyword_gen_started_at: task ? (task.keyword_gen_started_at || null) : null,
+        keyword_gen_completed_at: task ? (task.keyword_gen_completed_at || null) : null,
       },
     };
   }

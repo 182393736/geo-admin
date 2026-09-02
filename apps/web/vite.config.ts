@@ -27,6 +27,8 @@ export default defineConfig({
     port: 5173,
     host: true,
     open: false,
+    // 沙箱/远程预览域名放行（e2b 预览代理）
+    allowedHosts: ['.e2b.app', 'localhost', '127.0.0.1'],
     // 开发代理：/user/* 与 /api/auth/* → Egg api（:7001）
     proxy: {
       '/user': { target: 'http://127.0.0.1:7001', changeOrigin: true },

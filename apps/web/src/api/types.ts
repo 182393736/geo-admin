@@ -28,6 +28,24 @@ export interface MenuItem {
   icon: string; sort_order: number; visible: boolean;
 }
 
+// ---- 首次品牌分析（onboarding） ----
+export type OnboardingStage = 'crawl' | 'keyword' | 'query' | 'overview' | 'done' | 'fail';
+export interface AnalyzeBrandReq {
+  brand_name?: string;      // 品牌名称
+  website?: string;         // 官网 / 介绍链接
+  business_desc?: string;   // 品牌补充介绍
+}
+export interface AnalyzeBrandResp { task_id: string; brand_id: string; reused?: boolean }
+export interface OnboardingStatus {
+  task_id: string; brand_id: string;
+  stage: OnboardingStage;   // crawl→keyword→query→done / fail
+  done: boolean; error: string | null;
+  crawler_started_at: string | null; crawler_completed_at: string | null;
+  keyword_gen_started_at: string | null; keyword_gen_completed_at: string | null;
+  generated: { aliases: number; industry_queries: number; brand_queries: number };
+  brand: { brand_id: string; name: string; industry: string; status: string } | null;
+}
+
 // ---- 监控问题 ----
 export type QueryType = 'industry' | 'brand';
 export interface MonitorQuery {
