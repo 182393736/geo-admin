@@ -51,6 +51,9 @@ class AgentController extends Controller {
     if (!userId) { ctx.status = 401; ctx.body = { code: 401, msg: 'unauthorized' }; return; }
     ctx.set({ 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
     ctx.respond = false;
+    // Koa 默认 status=404、仅赋值 ctx.body 才置 200；裸流模式我们必须显式置 200，
+    // 否则事件虽照常流出但浏览器 fetch 会因 !resp.ok 抛错（曾经的"404 假象"根因）
+    ctx.status = 200;
     const send = (event, data) => { try { ctx.res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch (e) { /* 客户端断开 */ } };
     const input = {
       brand_name: String(b.brand_name).trim(),

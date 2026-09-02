@@ -126,6 +126,7 @@ async function main() {
     .parse((res, cb) => { let raw = ''; res.on('data', c => { raw += c; }); res.on('end', () => cb(null, raw)); })
     .send({ brand_name: 'HANYUAI 图像助理', website: 'hanyuai.com', save: false });
   const sseText = String(r6.body);
+  assert.strictEqual(r6.status, 200, `SSE 状态码必须 200（Koa respond=false 裸流下默认 404 的坑），实际 ${r6.status}`);
   ['event: stage', 'event: trace', 'event: profile', 'event: candidates', 'event: library', 'event: result']
     .forEach(tag => assert.ok(sseText.includes(tag), `SSE 缺事件 ${tag}`));
   assert.ok(sseText.includes('"compet_point"'), 'SSE result 内含完整候选/竞品字段');
