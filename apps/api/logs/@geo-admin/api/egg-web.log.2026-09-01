@@ -1,0 +1,459 @@
+2026-09-01 11:11:26,192 INFO 8593 [egg:logger] init all loggers with options: {"dir":"/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api","encoding":"utf8","env":"local","level":"INFO","consoleLevel":"INFO","disableConsoleAfterReady":false,"outputJSON":false,"buffer":true,"appLogName":"@geo-admin/api-web.log","coreLogName":"egg-web.log","agentLogName":"egg-agent.log","errorLogName":"common-error.log","coreLogger":{"consoleLevel":"WARN"},"allowDebugAtProd":false,"enablePerformanceTimer":false,"enableFastContextLogger":false,"type":"application","localStorage":{"enabled":false}}
+2026-09-01 11:11:26,192 INFO 8593 [egg-multipart] stream mode enable
+2026-09-01 11:11:26,313 INFO 8593 [egg-mongoose] connecting mongodb://127.0.0.1:27017/geo
+2026-09-01 11:11:26,343 INFO 8593 [egg-static] starting static serve /public/ -> /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/app/public
+2026-09-01 11:11:26,343 INFO 8593 [egg-security] use methodnoallow middleware
+2026-09-01 11:11:26,344 INFO 8593 [egg-security] use noopen middleware
+2026-09-01 11:11:26,344 INFO 8593 [egg-security] use nosniff middleware
+2026-09-01 11:11:26,344 INFO 8593 [egg-security] use xssProtection middleware
+2026-09-01 11:11:26,345 INFO 8593 [egg-security] use xframe middleware
+2026-09-01 11:11:26,345 INFO 8593 [egg-security] use dta middleware
+2026-09-01 11:11:26,345 INFO 8593 [egg-security] compose 6 middlewares into one security middleware
+2026-09-01 11:11:26,348 INFO 8593 [egg:core] dump config after load, 3ms
+2026-09-01 11:11:26,349 INFO 8593 [egg-mongoose] starting...
+2026-09-01 11:11:26,377 INFO 8593 [egg-watcher:application] watcher start success
+2026-09-01 11:11:34,319 ERROR 8593 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 11:11:34,320 ERROR 8593 nodejs.MongooseServerSelectionError: [egg-mongoose]connect ECONNREFUSED 127.0.0.1:27017
+    at Connection.openUri (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/mongoose@5.13.23/node_modules/mongoose/lib/connection.js:847:32)
+    at Mongoose.createConnection (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/mongoose@5.13.23/node_modules/mongoose/lib/index.js:291:17)
+    at Singleton.createOneClient [as create] (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:82:23)
+    at Singleton.createInstance (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/core/singleton.js:93:17)
+    at Singleton.initSync (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/core/singleton.js:31:27)
+    at Singleton.init (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/core/singleton.js:21:68)
+    at Application.addSingleton (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/egg.js:537:35)
+    at module.exports (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:34:7)
+    at module.exports (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/app.js:4:57)
+    at Hook.configDidLoad (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/lifecycle.js:99:9)
+    at Lifecycle.triggerConfigDidLoad (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/lifecycle.js:154:14)
+    at Lifecycle.triggerConfigWillLoad (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/lifecycle.js:148:10)
+    at AppWorkerLoader.loadCustomApp (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/loader/mixin/custom.js:37:20)
+    at AppWorkerLoader.load (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/loader/app_worker_loader.js:35:10)
+    at new Application (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/application.js:66:19)
+    at Object.<anonymous> (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-cluster@2.5.0/node_modules/egg-cluster/lib/app_worker.js:31:9)
+message: "[egg-mongoose]connect ECONNREFUSED 127.0.0.1:27017"
+reason: {"type":"Single","setName":null,"maxSetVersion":null,"maxElectionId":null,"servers":{},"stale":false,"compatible":true,"compatibilityError":null,"logicalSessionTimeoutMinutes":null,"heartbeatFrequencyMS":10000,"localThresholdMS":15,"commonWireVersion":null}
+pid: 8593
+hostname: Mac
+
+2026-09-01 11:11:34,320 ERROR 8593 nodejs.MongooseServerSelectionError: [egg-mongoose]connect ECONNREFUSED 127.0.0.1:27017
+    at Connection.openUri (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/mongoose@5.13.23/node_modules/mongoose/lib/connection.js:847:32)
+    at Mongoose.createConnection (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/mongoose@5.13.23/node_modules/mongoose/lib/index.js:291:17)
+    at Singleton.createOneClient [as create] (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:82:23)
+    at Singleton.createInstance (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/core/singleton.js:93:17)
+    at Singleton.initSync (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/core/singleton.js:31:27)
+    at Singleton.init (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/core/singleton.js:21:68)
+    at Application.addSingleton (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/egg.js:537:35)
+    at module.exports (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:34:7)
+    at module.exports (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/app.js:4:57)
+    at Hook.configDidLoad (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/lifecycle.js:99:9)
+    at Lifecycle.triggerConfigDidLoad (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/lifecycle.js:154:14)
+    at Lifecycle.triggerConfigWillLoad (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/lifecycle.js:148:10)
+    at AppWorkerLoader.loadCustomApp (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/loader/mixin/custom.js:37:20)
+    at AppWorkerLoader.load (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/loader/app_worker_loader.js:35:10)
+    at new Application (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/lib/application.js:66:19)
+    at Object.<anonymous> (/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-cluster@2.5.0/node_modules/egg-cluster/lib/app_worker.js:31:9)
+message: "[egg-mongoose]connect ECONNREFUSED 127.0.0.1:27017"
+reason: {"type":"Single","setName":null,"maxSetVersion":null,"maxElectionId":null,"servers":{},"stale":false,"compatible":true,"compatibilityError":null,"logicalSessionTimeoutMinutes":null,"heartbeatFrequencyMS":10000,"localThresholdMS":15,"commonWireVersion":null}
+pid: 8593
+hostname: Mac
+
+2026-09-01 11:11:34,324 INFO 8593 egg start timeline:
+▇ [126ms] - #0 Process Start
+▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ [8168ms] - #1 Application Start
+▇ [2ms] - #2 Load Plugin
+▇ [4ms] - #3 Load Config
+▇ [0ms] - #4 Require(0) config/config.default.js
+▇ [0ms] - #5 Require(1) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/config/config.default.js
+▇ [0ms] - #6 Require(2) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js
+▇ [0ms] - #7 Require(3) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/config/config.default.js
+▇ [1ms] - #8 Require(4) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-onerror@2.4.0/node_modules/egg-onerror/config/config.default.js
+▇ [0ms] - #9 Require(5) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/config/config.default.js
+▇ [0ms] - #10 Require(6) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/config/config.default.js
+▇ [0ms] - #11 Require(7) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/config/config.default.js
+▇ [0ms] - #12 Require(8) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js
+▇ [0ms] - #13 Require(9) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/config/config.default.js
+▇ [0ms] - #14 Require(10) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/config/config.default.js
+▇ [0ms] - #15 Require(11) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/config/config.default.js
+▇ [0ms] - #16 Require(12) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.default.js
+▇ [0ms] - #17 Require(13) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/config/config.default.js
+▇ [0ms] - #18 Require(14) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js
+▇ [0ms] - #19 Require(15) config/config.default.js
+▇ [0ms] - #20 Require(16) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.local.js
+▇ [0ms] - #21 Require(17) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/config/config.local.js
+▇ [1ms] - #22 Require(18) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.local.js
+▇ [0ms] - #23 Require(19) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.local.js
+▇ [4ms] - #24 Load extend/application.js
+▇ [0ms] - #25 Require(20) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/app/extend/application.js
+▇ [1ms] - #26 Require(21) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/application.js
+▇ [0ms] - #27 Require(22) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/app/extend/application.js
+▇ [1ms] - #28 Require(23) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/app/extend/application.js
+▇ [0ms] - #29 Require(24) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/app/extend/application.js
+▇ [1ms] - #30 Require(25) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/app/extend/application.js
+▇ [0ms] - #31 Require(26) app/extend/application.js
+▇ [1ms] - #32 Load extend/request.js
+▇ [0ms] - #33 Require(27) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/request.js
+▇ [1ms] - #34 Load extend/response.js
+▇ [1ms] - #35 Require(28) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/response.js
+▇ [6ms] - #36 Load extend/context.js
+▇ [2ms] - #37 Require(29) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/context.js
+▇ [0ms] - #38 Require(30) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/app/extend/context.js
+▇ [0ms] - #39 Require(31) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/app/extend/context.js
+▇ [2ms] - #40 Require(32) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/app/extend/context.js
+▇ [0ms] - #41 Require(33) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/app/extend/context.js
+▇ [0ms] - #42 Require(34) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/app/extend/context.js
+▇ [1ms] - #43 Require(35) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/context.js
+▇ [7ms] - #44 Load extend/helper.js
+▇ [4ms] - #45 Require(36) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/helper.js
+▇ [1ms] - #46 Require(37) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/helper.js
+▇ [2ms] - #47 Require(38) app/extend/helper.js
+▇ [8ms] - #48 Load app.js
+▇ [1ms] - #49 Require(39) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/app.js
+▇ [0ms] - #50 Require(40) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app.js
+▇ [3ms] - #51 Require(41) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-onerror@2.4.0/node_modules/egg-onerror/app.js
+▇ [3ms] - #52 Require(42) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/app.js
+▇ [0ms] - #53 Require(43) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/app.js
+▇ [0ms] - #54 Require(44) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/app.js
+▇ [1ms] - #55 Require(45) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/app.js
+▇ [0ms] - #56 Require(46) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/app.js
+▇ [0ms] - #57 Require(47) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/app.js
+▇ [0ms] - #58 Require(48) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/app.js
+▇ [0ms] - #59 Require(49) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/app.js
+ ▇ [183ms] - #60 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/lib/init.js:15:14
+ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ [8003ms] - #61 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:104:7
+ ▇ [53ms] - #62 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:52:9
+ ▇ [2ms] - #63 Load Service
+ ▇ [2ms] - #64 Load "service" to Context
+ ▇ [26ms] - #65 Load Middleware
+ ▇ [23ms] - #66 Load "middlewares" to Application
+ ▇ [0ms] - #67 Load Controller
+ ▇ [0ms] - #68 Load "controller" to Application
+ ▇ [0ms] - #69 Load Router
+ ▇ [22ms] - #70 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/egg.js:328:10
+ ▇ [21ms] - #71 Load "model" to Application
+2026-09-01 11:11:34,324 WARN 8593 [egg:core][slow-boot-action] #1 8168ms, name: Application Start
+2026-09-01 11:11:34,325 WARN 8593 [egg:core][slow-boot-action] #61 8003ms, name: Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:104:7
+2026-09-01 11:11:34,325 INFO 8593 [egg:core] dump config after ready, 3ms
+2026-09-01 11:25:59,918 INFO 16314 [egg:logger] init all loggers with options: {"dir":"/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api","encoding":"utf8","env":"local","level":"INFO","consoleLevel":"INFO","disableConsoleAfterReady":false,"outputJSON":false,"buffer":true,"appLogName":"@geo-admin/api-web.log","coreLogName":"egg-web.log","agentLogName":"egg-agent.log","errorLogName":"common-error.log","coreLogger":{"consoleLevel":"WARN"},"allowDebugAtProd":false,"enablePerformanceTimer":false,"enableFastContextLogger":false,"type":"application","localStorage":{"enabled":false}}
+2026-09-01 11:25:59,918 INFO 16314 [egg-multipart] stream mode enable
+2026-09-01 11:26:00,048 INFO 16314 [egg-mongoose] connecting mongodb://127.0.0.1:27017/geo
+2026-09-01 11:26:00,080 INFO 16314 [egg-static] starting static serve /public/ -> /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/app/public
+2026-09-01 11:26:00,081 INFO 16314 [egg-security] use methodnoallow middleware
+2026-09-01 11:26:00,081 INFO 16314 [egg-security] use noopen middleware
+2026-09-01 11:26:00,081 INFO 16314 [egg-security] use nosniff middleware
+2026-09-01 11:26:00,081 INFO 16314 [egg-security] use xssProtection middleware
+2026-09-01 11:26:00,082 INFO 16314 [egg-security] use xframe middleware
+2026-09-01 11:26:00,082 INFO 16314 [egg-security] use dta middleware
+2026-09-01 11:26:00,082 INFO 16314 [egg-security] compose 6 middlewares into one security middleware
+2026-09-01 11:26:00,083 INFO 16314 [egg:core] dump config after load, 1ms
+2026-09-01 11:26:00,085 INFO 16314 [egg-mongoose] starting...
+2026-09-01 11:26:00,117 INFO 16314 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 11:26:00,124 INFO 16314 [egg-mongoose] instance[0] start successfully
+2026-09-01 11:26:00,125 INFO 16314 [egg-watcher:application] watcher start success
+2026-09-01 11:26:00,130 INFO 16314 egg start timeline:
+▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ [130ms] - #0 Process Start
+                ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ [253ms] - #1 Application Start
+                 ▇ [3ms] - #2 Load Plugin
+                 ▇ [4ms] - #3 Load Config
+                 ▇ [0ms] - #4 Require(0) config/config.default.js
+                 ▇ [1ms] - #5 Require(1) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/config/config.default.js
+                 ▇ [0ms] - #6 Require(2) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js
+                 ▇ [0ms] - #7 Require(3) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/config/config.default.js
+                 ▇ [0ms] - #8 Require(4) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-onerror@2.4.0/node_modules/egg-onerror/config/config.default.js
+                 ▇ [0ms] - #9 Require(5) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/config/config.default.js
+                 ▇ [0ms] - #10 Require(6) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/config/config.default.js
+                  ▇ [0ms] - #11 Require(7) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/config/config.default.js
+                  ▇ [0ms] - #12 Require(8) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js
+                  ▇ [0ms] - #13 Require(9) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/config/config.default.js
+                  ▇ [0ms] - #14 Require(10) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/config/config.default.js
+                  ▇ [0ms] - #15 Require(11) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/config/config.default.js
+                  ▇ [0ms] - #16 Require(12) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.default.js
+                  ▇ [0ms] - #17 Require(13) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/config/config.default.js
+                  ▇ [1ms] - #18 Require(14) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js
+                  ▇ [0ms] - #19 Require(15) config/config.default.js
+                  ▇ [0ms] - #20 Require(16) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.local.js
+                  ▇ [0ms] - #21 Require(17) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/config/config.local.js
+                  ▇ [0ms] - #22 Require(18) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.local.js
+                  ▇ [0ms] - #23 Require(19) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.local.js
+                  ▇ [4ms] - #24 Load extend/application.js
+                  ▇ [1ms] - #25 Require(20) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/app/extend/application.js
+                  ▇ [0ms] - #26 Require(21) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/application.js
+                  ▇ [1ms] - #27 Require(22) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/app/extend/application.js
+                  ▇ [0ms] - #28 Require(23) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/app/extend/application.js
+                  ▇ [0ms] - #29 Require(24) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/app/extend/application.js
+                  ▇ [0ms] - #30 Require(25) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/app/extend/application.js
+                  ▇ [1ms] - #31 Require(26) app/extend/application.js
+                  ▇ [1ms] - #32 Load extend/request.js
+                   ▇ [0ms] - #33 Require(27) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/request.js
+                   ▇ [1ms] - #34 Load extend/response.js
+                   ▇ [1ms] - #35 Require(28) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/response.js
+                   ▇ [6ms] - #36 Load extend/context.js
+                   ▇ [2ms] - #37 Require(29) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/context.js
+                   ▇ [1ms] - #38 Require(30) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/app/extend/context.js
+                   ▇ [0ms] - #39 Require(31) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/app/extend/context.js
+                   ▇ [3ms] - #40 Require(32) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/app/extend/context.js
+                   ▇ [0ms] - #41 Require(33) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/app/extend/context.js
+                   ▇ [0ms] - #42 Require(34) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/app/extend/context.js
+                   ▇ [0ms] - #43 Require(35) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/context.js
+                   ▇ [9ms] - #44 Load extend/helper.js
+                    ▇ [4ms] - #45 Require(36) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/helper.js
+                    ▇ [1ms] - #46 Require(37) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/helper.js
+                    ▇ [3ms] - #47 Require(38) app/extend/helper.js
+                     ▇ [9ms] - #48 Load app.js
+                     ▇ [1ms] - #49 Require(39) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/app.js
+                     ▇ [0ms] - #50 Require(40) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app.js
+                     ▇ [4ms] - #51 Require(41) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-onerror@2.4.0/node_modules/egg-onerror/app.js
+                     ▇ [2ms] - #52 Require(42) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/app.js
+                      ▇ [1ms] - #53 Require(43) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/app.js
+                      ▇ [0ms] - #54 Require(44) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/app.js
+                      ▇ [1ms] - #55 Require(45) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/app.js
+                      ▇ [0ms] - #56 Require(46) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/app.js
+                      ▇ [0ms] - #57 Require(47) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/app.js
+                      ▇ [0ms] - #58 Require(48) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/app.js
+                      ▇ [0ms] - #59 Require(49) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/app.js
+                      ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ [205ms] - #60 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/lib/init.js:15:14
+                                       ▇▇▇▇▇▇▇▇▇ [73ms] - #61 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:104:7
+                                       ▇▇▇▇▇▇▇ [60ms] - #62 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:52:9
+                                       ▇ [4ms] - #63 Load Service
+                                       ▇ [4ms] - #64 Load "service" to Context
+                                        ▇▇▇ [27ms] - #65 Load Middleware
+                                        ▇▇▇ [25ms] - #66 Load "middlewares" to Application
+                                           ▇ [0ms] - #67 Load Controller
+                                           ▇ [0ms] - #68 Load "controller" to Application
+                                           ▇ [0ms] - #69 Load Router
+                                           ▇▇▇ [28ms] - #70 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/egg.js:328:10
+                                            ▇▇▇ [26ms] - #71 Load "model" to Application
+2026-09-01 11:26:00,130 INFO 16314 [egg:core] dump config after ready, 1ms
+2026-09-01 12:04:30,484 WARN 16314 [ClusterClient:Watcher] follower closed, and try to init it again
+2026-09-01 12:04:30,487 ERROR 16314 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 12:04:40,491 INFO 16314 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 12:04:40,491 INFO 16314 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-01 12:20:58,465 WARN 16314 [ClusterClient:Watcher] follower closed, and try to init it again
+2026-09-01 12:20:58,466 ERROR 16314 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 12:21:08,467 INFO 16314 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 12:21:08,467 INFO 16314 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-01 13:35:21,106 INFO 33220 [egg:logger] init all loggers with options: {"dir":"/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api","encoding":"utf8","env":"local","level":"INFO","consoleLevel":"INFO","disableConsoleAfterReady":false,"outputJSON":false,"buffer":true,"appLogName":"@geo-admin/api-web.log","coreLogName":"egg-web.log","agentLogName":"egg-agent.log","errorLogName":"common-error.log","coreLogger":{"consoleLevel":"WARN"},"allowDebugAtProd":false,"enablePerformanceTimer":false,"enableFastContextLogger":false,"type":"application","localStorage":{"enabled":false}}
+2026-09-01 13:35:21,106 INFO 33220 [egg-multipart] stream mode enable
+2026-09-01 13:35:21,239 INFO 33220 [egg-mongoose] connecting mongodb://127.0.0.1:27017/geo
+2026-09-01 13:35:21,286 INFO 33220 [egg-static] starting static serve /public/ -> /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/app/public
+2026-09-01 13:35:21,286 INFO 33220 [egg-security] use methodnoallow middleware
+2026-09-01 13:35:21,287 INFO 33220 [egg-security] use noopen middleware
+2026-09-01 13:35:21,287 INFO 33220 [egg-security] use nosniff middleware
+2026-09-01 13:35:21,288 INFO 33220 [egg-security] use xssProtection middleware
+2026-09-01 13:35:21,288 INFO 33220 [egg-security] use xframe middleware
+2026-09-01 13:35:21,288 INFO 33220 [egg-security] use dta middleware
+2026-09-01 13:35:21,288 INFO 33220 [egg-security] compose 6 middlewares into one security middleware
+2026-09-01 13:35:21,290 INFO 33220 [egg:core] dump config after load, 1ms
+2026-09-01 13:35:21,292 INFO 33220 [egg-mongoose] starting...
+2026-09-01 13:35:21,324 INFO 33220 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 13:35:21,332 INFO 33220 [egg-mongoose] instance[0] start successfully
+2026-09-01 13:35:21,333 INFO 33220 [egg-watcher:application] watcher start success
+2026-09-01 13:35:21,414 INFO 33220 egg start timeline:
+▇▇▇▇▇▇▇▇▇▇▇▇ [118ms] - #0 Process Start
+            ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ [346ms] - #1 Application Start
+             ▇ [2ms] - #2 Load Plugin
+             ▇ [4ms] - #3 Load Config
+             ▇ [1ms] - #4 Require(0) config/config.default.js
+             ▇ [0ms] - #5 Require(1) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/config/config.default.js
+             ▇ [0ms] - #6 Require(2) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js
+             ▇ [0ms] - #7 Require(3) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/config/config.default.js
+             ▇ [0ms] - #8 Require(4) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-onerror@2.4.0/node_modules/egg-onerror/config/config.default.js
+             ▇ [1ms] - #9 Require(5) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/config/config.default.js
+             ▇ [0ms] - #10 Require(6) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/config/config.default.js
+             ▇ [0ms] - #11 Require(7) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/config/config.default.js
+             ▇ [0ms] - #12 Require(8) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js
+             ▇ [0ms] - #13 Require(9) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/config/config.default.js
+             ▇ [0ms] - #14 Require(10) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/config/config.default.js
+             ▇ [0ms] - #15 Require(11) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/config/config.default.js
+             ▇ [0ms] - #16 Require(12) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.default.js
+             ▇ [1ms] - #17 Require(13) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/config/config.default.js
+             ▇ [0ms] - #18 Require(14) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js
+             ▇ [0ms] - #19 Require(15) config/config.default.js
+             ▇ [0ms] - #20 Require(16) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.local.js
+             ▇ [0ms] - #21 Require(17) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/config/config.local.js
+             ▇ [0ms] - #22 Require(18) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.local.js
+             ▇ [0ms] - #23 Require(19) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.local.js
+             ▇ [3ms] - #24 Load extend/application.js
+             ▇ [0ms] - #25 Require(20) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/app/extend/application.js
+             ▇ [0ms] - #26 Require(21) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/application.js
+             ▇ [1ms] - #27 Require(22) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/app/extend/application.js
+             ▇ [1ms] - #28 Require(23) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/app/extend/application.js
+             ▇ [0ms] - #29 Require(24) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/app/extend/application.js
+             ▇ [1ms] - #30 Require(25) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/app/extend/application.js
+              ▇ [0ms] - #31 Require(26) app/extend/application.js
+              ▇ [1ms] - #32 Load extend/request.js
+              ▇ [0ms] - #33 Require(27) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/request.js
+              ▇ [1ms] - #34 Load extend/response.js
+              ▇ [0ms] - #35 Require(28) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/response.js
+              ▇ [6ms] - #36 Load extend/context.js
+              ▇ [2ms] - #37 Require(29) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/context.js
+              ▇ [0ms] - #38 Require(30) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/app/extend/context.js
+              ▇ [0ms] - #39 Require(31) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/app/extend/context.js
+              ▇ [3ms] - #40 Require(32) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/app/extend/context.js
+              ▇ [1ms] - #41 Require(33) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/app/extend/context.js
+              ▇ [0ms] - #42 Require(34) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/app/extend/context.js
+              ▇ [0ms] - #43 Require(35) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/context.js
+              ▇ [9ms] - #44 Load extend/helper.js
+              ▇ [5ms] - #45 Require(36) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/helper.js
+               ▇ [1ms] - #46 Require(37) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/helper.js
+               ▇ [3ms] - #47 Require(38) app/extend/helper.js
+               ▇ [8ms] - #48 Load app.js
+               ▇ [0ms] - #49 Require(39) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/app.js
+               ▇ [1ms] - #50 Require(40) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app.js
+                ▇ [3ms] - #51 Require(41) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-onerror@2.4.0/node_modules/egg-onerror/app.js
+                ▇ [2ms] - #52 Require(42) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/app.js
+                ▇ [0ms] - #53 Require(43) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/app.js
+                ▇ [1ms] - #54 Require(44) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/app.js
+                ▇ [0ms] - #55 Require(45) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/app.js
+                ▇ [0ms] - #56 Require(46) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/app.js
+                ▇ [0ms] - #57 Require(47) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/app.js
+                ▇ [1ms] - #58 Require(48) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/app.js
+                ▇ [0ms] - #59 Require(49) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/app.js
+                ▇ [0ms] - #60 Require(50) app.js
+                 ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ [225ms] - #61 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/lib/init.js:15:14
+                               ▇▇▇▇▇▇▇▇▇ [90ms] - #62 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:104:7
+                               ▇▇▇▇▇▇▇▇ [75ms] - #63 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:52:9
+                               ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ [170ms] - #64 Before Start in app.js:8:7
+                               ▇▇ [20ms] - #65 Load Service
+                               ▇▇ [20ms] - #66 Load "service" to Context
+                                 ▇▇ [26ms] - #67 Load Middleware
+                                 ▇▇ [23ms] - #68 Load "middlewares" to Application
+                                    ▇ [0ms] - #69 Load Controller
+                                    ▇ [0ms] - #70 Load "controller" to Application
+                                    ▇ [1ms] - #71 Load Router
+                                    ▇ [0ms] - #72 Require(51) app/router.js
+                                    ▇▇▇ [29ms] - #73 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/egg.js:328:10
+                                    ▇▇ [24ms] - #74 Load "model" to Application
+2026-09-01 13:35:21,414 INFO 33220 [egg:core] dump config after ready, 1ms
+2026-09-01 14:26:03,198 INFO 45185 [egg:logger] init all loggers with options: {"dir":"/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api","encoding":"utf8","env":"local","level":"INFO","consoleLevel":"INFO","disableConsoleAfterReady":false,"outputJSON":false,"buffer":true,"appLogName":"@geo-admin/api-web.log","coreLogName":"egg-web.log","agentLogName":"egg-agent.log","errorLogName":"common-error.log","coreLogger":{"consoleLevel":"WARN"},"allowDebugAtProd":false,"enablePerformanceTimer":false,"enableFastContextLogger":false,"type":"application","localStorage":{"enabled":false}}
+2026-09-01 14:26:03,198 INFO 45185 [egg-multipart] stream mode enable
+2026-09-01 14:26:03,335 INFO 45185 [egg-mongoose] connecting mongodb://127.0.0.1:27017/geo
+2026-09-01 14:26:03,390 INFO 45185 [egg-static] starting static serve /public/ -> /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/app/public
+2026-09-01 14:26:03,391 INFO 45185 [egg-security] use methodnoallow middleware
+2026-09-01 14:26:03,391 INFO 45185 [egg-security] use noopen middleware
+2026-09-01 14:26:03,391 INFO 45185 [egg-security] use nosniff middleware
+2026-09-01 14:26:03,391 INFO 45185 [egg-security] use xssProtection middleware
+2026-09-01 14:26:03,391 INFO 45185 [egg-security] use xframe middleware
+2026-09-01 14:26:03,391 INFO 45185 [egg-security] use dta middleware
+2026-09-01 14:26:03,391 INFO 45185 [egg-security] compose 6 middlewares into one security middleware
+2026-09-01 14:26:03,394 INFO 45185 [egg:core] dump config after load, 2ms
+2026-09-01 14:26:03,395 INFO 45185 [egg-mongoose] starting...
+2026-09-01 14:26:03,428 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 14:26:03,434 INFO 45185 [egg-mongoose] instance[0] start successfully
+2026-09-01 14:26:03,435 INFO 45185 [egg-watcher:application] watcher start success
+2026-09-01 14:26:03,451 INFO 45185 egg start timeline:
+▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ [268ms] - #0 Process Start
+                      ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ [320ms] - #1 Application Start
+                       ▇ [7ms] - #2 Load Plugin
+                       ▇ [8ms] - #3 Load Config
+                       ▇ [0ms] - #4 Require(0) config/config.default.js
+                       ▇ [0ms] - #5 Require(1) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/config/config.default.js
+                       ▇ [0ms] - #6 Require(2) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.default.js
+                       ▇ [0ms] - #7 Require(3) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/config/config.default.js
+                       ▇ [0ms] - #8 Require(4) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-onerror@2.4.0/node_modules/egg-onerror/config/config.default.js
+                       ▇ [0ms] - #9 Require(5) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/config/config.default.js
+                       ▇ [1ms] - #10 Require(6) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/config/config.default.js
+                        ▇ [0ms] - #11 Require(7) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/config/config.default.js
+                        ▇ [1ms] - #12 Require(8) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/config/config.default.js
+                        ▇ [0ms] - #13 Require(9) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/config/config.default.js
+                        ▇ [0ms] - #14 Require(10) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/config/config.default.js
+                        ▇ [0ms] - #15 Require(11) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/config/config.default.js
+                        ▇ [0ms] - #16 Require(12) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.default.js
+                        ▇ [0ms] - #17 Require(13) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/config/config.default.js
+                        ▇ [0ms] - #18 Require(14) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.default.js
+                        ▇ [0ms] - #19 Require(15) config/config.default.js
+                        ▇ [0ms] - #20 Require(16) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/config/config.local.js
+                        ▇ [0ms] - #21 Require(17) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/config/config.local.js
+                        ▇ [0ms] - #22 Require(18) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/config/config.local.js
+                        ▇ [1ms] - #23 Require(19) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/config/config.local.js
+                        ▇ [6ms] - #24 Load extend/application.js
+                        ▇ [0ms] - #25 Require(20) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/app/extend/application.js
+                        ▇ [1ms] - #26 Require(21) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/application.js
+                        ▇ [1ms] - #27 Require(22) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/app/extend/application.js
+                        ▇ [1ms] - #28 Require(23) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/app/extend/application.js
+                        ▇ [0ms] - #29 Require(24) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/app/extend/application.js
+                        ▇ [1ms] - #30 Require(25) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/app/extend/application.js
+                        ▇ [1ms] - #31 Require(26) app/extend/application.js
+                         ▇ [1ms] - #32 Load extend/request.js
+                         ▇ [1ms] - #33 Require(27) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/request.js
+                         ▇ [2ms] - #34 Load extend/response.js
+                         ▇ [0ms] - #35 Require(28) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/response.js
+                         ▇ [17ms] - #36 Load extend/context.js
+                         ▇ [5ms] - #37 Require(29) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/context.js
+                         ▇ [0ms] - #38 Require(30) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-jsonp@2.0.0/node_modules/egg-jsonp/app/extend/context.js
+                         ▇ [1ms] - #39 Require(31) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/app/extend/context.js
+                         ▇ [8ms] - #40 Require(32) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/app/extend/context.js
+                          ▇ [1ms] - #41 Require(33) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-view@2.1.4/node_modules/egg-view/app/extend/context.js
+                          ▇ [0ms] - #42 Require(34) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/app/extend/context.js
+                          ▇ [0ms] - #43 Require(35) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/context.js
+                          ▇ [9ms] - #44 Load extend/helper.js
+                          ▇ [5ms] - #45 Require(36) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app/extend/helper.js
+                           ▇ [1ms] - #46 Require(37) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg@3.34.0/node_modules/egg/app/extend/helper.js
+                           ▇ [3ms] - #47 Require(38) app/extend/helper.js
+                           ▇ [12ms] - #48 Load app.js
+                           ▇ [0ms] - #49 Require(39) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-session@3.3.0/node_modules/egg-session/app.js
+                           ▇ [0ms] - #50 Require(40) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-security@3.8.1/node_modules/egg-security/app.js
+                           ▇ [5ms] - #51 Require(41) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-onerror@2.4.0/node_modules/egg-onerror/app.js
+                           ▇ [4ms] - #52 Require(42) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-i18n@2.1.1/node_modules/egg-i18n/app.js
+                            ▇ [2ms] - #53 Require(43) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/app.js
+                            ▇ [0ms] - #54 Require(44) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-schedule@4.0.1/node_modules/egg-schedule/app.js
+                            ▇ [0ms] - #55 Require(45) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-multipart@3.5.0/node_modules/egg-multipart/app.js
+                            ▇ [0ms] - #56 Require(46) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-development@3.0.2/node_modules/egg-development/app.js
+                            ▇ [0ms] - #57 Require(47) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/app.js
+                            ▇ [0ms] - #58 Require(48) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-static@2.3.1/node_modules/egg-static/app.js
+                            ▇ [0ms] - #59 Require(49) /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/app.js
+                            ▇ [0ms] - #60 Require(50) app.js
+                            ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ [235ms] - #61 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-watcher@3.1.1/node_modules/egg-watcher/lib/init.js:15:14
+                                        ▇▇▇▇▇▇▇▇ [95ms] - #62 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:104:7
+                                        ▇▇▇▇▇▇ [80ms] - #63 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-mongoose@3.3.1/node_modules/egg-mongoose/lib/mongoose.js:52:9
+                                        ▇▇▇▇▇▇▇▇▇ [108ms] - #64 Before Start in app.js:8:7
+                                        ▇ [22ms] - #65 Load Service
+                                        ▇ [22ms] - #66 Load "service" to Context
+                                          ▇▇ [30ms] - #67 Load Middleware
+                                          ▇▇ [28ms] - #68 Load "middlewares" to Application
+                                             ▇ [1ms] - #69 Load Controller
+                                             ▇ [1ms] - #70 Load "controller" to Application
+                                             ▇ [0ms] - #71 Load Router
+                                             ▇ [0ms] - #72 Require(51) app/router.js
+                                             ▇▇ [27ms] - #73 Before Start in /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-core@5.5.1/node_modules/egg-core/lib/egg.js:328:10
+                                             ▇ [23ms] - #74 Load "model" to Application
+2026-09-01 14:26:03,451 INFO 45185 [egg:core] dump config after ready, 2ms
+2026-09-01 19:22:21,556 ERROR 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 19:22:31,566 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 19:22:31,566 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-01 20:04:24,206 ERROR 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 20:04:34,081 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 20:04:34,081 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-01 20:20:32,072 ERROR 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 20:20:42,173 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 20:20:42,173 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-01 21:30:27,819 ERROR 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 21:30:27,822 WARN 45185 [TCPBase] socket is closed by other side while there were still unhandled data in the socket buffer
+2026-09-01 21:30:27,822 WARN 45185 [ClusterClient:Watcher] follower closed, and try to init it again
+2026-09-01 21:30:37,981 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 21:30:37,981 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-01 21:49:38,952 WARN 45185 [ClusterClient:Watcher] follower closed, and try to init it again
+2026-09-01 21:49:38,953 ERROR 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 21:49:49,038 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 21:49:49,038 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-01 22:05:53,897 WARN 45185 [ClusterClient:Watcher] follower closed, and try to init it again
+2026-09-01 22:05:53,898 ERROR 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 22:06:03,912 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 22:06:03,912 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-01 22:22:08,828 ERROR 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 22:22:18,834 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 22:22:18,834 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-01 22:38:23,653 ERROR 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 22:38:33,637 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 22:38:33,637 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-01 22:54:38,401 ERROR 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 22:54:48,409 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 22:54:48,409 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-01 23:35:06,880 ERROR 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-01 23:35:06,881 WARN 45185 [TCPBase] socket is closed by other side while there were still unhandled data in the socket buffer
+2026-09-01 23:35:06,881 WARN 45185 [ClusterClient:Watcher] follower closed, and try to init it again
+2026-09-01 23:35:16,882 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo connected successfully
+2026-09-01 23:35:16,882 INFO 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo reconnected successfully
+2026-09-02 00:07:17,764 ERROR 45185 [egg-mongoose] mongodb://127.0.0.1:27017/geo disconnected
+2026-09-02 00:07:17,800 INFO 45185 [-/127.0.0.1/-/5ms SCHEDULE /__schedule?path=/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/app/schedule/clean_log.js&type=worker&cron=0%200%20*%20*%20*] [egg-logrotator] clean all log before 31 days
+2026-09-02 00:07:17,801 INFO 45185 [-/127.0.0.1/-/5ms SCHEDULE /__schedule?path=/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/app/schedule/rotate_by_file.js&type=worker&cron=1%200%200%20*%20*%20*] [egg-logrotator] broadcast log-reload
+2026-09-02 00:07:17,801 INFO 45185 [-/127.0.0.1/-/5ms SCHEDULE /__schedule?path=/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/node_modules/.pnpm/egg-logrotator@3.2.0/node_modules/egg-logrotator/app/schedule/rotate_by_file.js&type=worker&cron=1%200%200%20*%20*%20*] [egg-logrotator] rotate files success by DayRotator, files ["/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api/common-error.log -> /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api/common-error.log.2026-09-01","/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api/@geo-admin/api-web.log -> /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api/@geo-admin/api-web.log.2026-09-01","/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api/egg-web.log -> /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api/egg-web.log.2026-09-01","/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api/egg-schedule.log -> /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api/egg-schedule.log.2026-09-01","/Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api/egg-agent.log -> /Users/hardy2/Documents/trae_projects/geo-test/geo-admin/apps/api/logs/@geo-admin/api/egg-agent.log.2026-09-01"]

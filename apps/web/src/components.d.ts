@@ -7,24 +7,8 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    AButton: typeof import('@arco-design/web-vue')['Button']
-    ACard: typeof import('@arco-design/web-vue')['Card']
-    ACol: typeof import('@arco-design/web-vue')['Col']
-    AEmpty: typeof import('@arco-design/web-vue')['Empty']
-    AForm: typeof import('@arco-design/web-vue')['Form']
-    AFormItem: typeof import('@arco-design/web-vue')['FormItem']
-    AInput: typeof import('@arco-design/web-vue')['Input']
-    AModal: typeof import('@arco-design/web-vue')['Modal']
-    AOption: typeof import('@arco-design/web-vue')['Option']
-    ARow: typeof import('@arco-design/web-vue')['Row']
-    ASelect: typeof import('@arco-design/web-vue')['Select']
-    ASpace: typeof import('@arco-design/web-vue')['Space']
-    ATable: typeof import('@arco-design/web-vue')['Table']
-    ATableColumn: typeof import('@arco-design/web-vue')['TableColumn']
-    ATag: typeof import('@arco-design/web-vue')['Tag']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    ToastHost: typeof import('./components/ToastHost.vue')['default']
     UserMenu: typeof import('./components/UserMenu.vue')['default']
   }
 }
