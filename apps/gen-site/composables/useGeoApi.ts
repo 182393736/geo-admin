@@ -37,12 +37,14 @@ export function useGeoApi() {
     })
     const data = await resp.json().catch(() => ({} as Record<string, unknown>))
     if (!resp.ok) {
-      throw new Error(String((data as { msg?: string })?.msg || `请求失败（${resp.status}）`))
+      const err = new Error(String((data as { msg?: string })?.msg || `请求失败（${resp.status}）`)) as Error & { status?: number }
+      err.status = resp.status
+      throw err
     }
     return data as T
   }
 
-  /** POST SSE：逐帧回调 onEvent(eventName, parsedData)，流结束正常返回 */
+  /** POST SSE：逐帧回调 onEvent(eventName, parsedData)，流结束正常返回；失败抛带 .status 的 Error */
   async function sse(path: string, body: unknown, onEvent: (ev: string, data: unknown) => void): Promise<void> {
     const resp = await fetch(`${base}${path}`, {
       method: 'POST',
@@ -51,7 +53,9 @@ export function useGeoApi() {
     })
     if (!resp.ok || !resp.body) {
       const data = await resp.json().catch(() => null)
-      throw new Error(String((data as { msg?: string } | null)?.msg || `请求失败（${resp.status}）`))
+      const err = new Error(String((data as { msg?: string } | null)?.msg || `请求失败（${resp.status}）`)) as Error & { status?: number }
+      err.status = resp.status
+      throw err
     }
     const reader = resp.body.getReader()
     const dec = new TextDecoder('utf-8')

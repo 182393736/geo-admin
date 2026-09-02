@@ -114,6 +114,12 @@ async function main() {
   const r5 = await app.httpRequest().post('/agent/onboarding/run').set(auth).send({});
   assert.strictEqual(r5.status, 400);
 
+  // ===== 只给官网链接（品牌名缺省）也要能分析 —— 对齐"链接可选"场景 =====
+  const r5b = await app.httpRequest().post('/agent/onboarding/run').set(auth)
+    .send({ website: 'hanyuai.com', save: false });
+  assert.strictEqual(r5b.status, 200, `仅官网链接可分析，实际 ${r5b.status}`);
+  assert.strictEqual(r5b.body.data.result.brand.name, 'HANYUAI 图像助理', '品牌名由 LLM 从站点内容推断');
+
   // ===== SSE 流：事件序列 + 终事件携带完整 result（供确认回传） =====
   const r6 = await app.httpRequest().post('/agent/onboarding/stream').set(auth)
     .buffer(true)

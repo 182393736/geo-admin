@@ -7,13 +7,13 @@
 const { Controller } = require('egg');
 
 class AgentController extends Controller {
-  /** 请求体：{ brand_name, website?, business_desc?, query_limit?, save?, brand_id?, selected_queries?, confirm_limit? } */
+  /** 请求体：{ brand_name?, website?, business_desc?, query_limit?, save?, brand_id?, selected_queries?, confirm_limit? } —— 三者至少给一（品牌名/官网/介绍，对齐"只给链接也能分析"） */
   async run() {
     const { ctx } = this;
     const b = ctx.request.body || {};
-    if (!b.brand_name || !String(b.brand_name).trim()) {
+    if (![b.brand_name, b.website, b.business_desc].some(v => v && String(v).trim())) {
       ctx.status = 400;
-      ctx.body = { code: 400, msg: 'brand_name 必填' };
+      ctx.body = { code: 400, msg: 'brand_name / website / business_desc 至少填一个' };
       return;
     }
     const userId = ctx.state.user && (ctx.state.user.id || ctx.state.user.sub);

@@ -188,13 +188,33 @@ let curBlock: Msg | null = null
 
 watch(docHint, (v) => { if (v) { hint.value = '文档解析即将上线，先粘贴官网链接即可～'; setTimeout(() => { docHint.value = false }, 2400) } })
 
-/** 从一段话里取品牌名（「引号」/品牌叫X/官网 URL 兜底为描述首段），与后端契约 brand_name 必填对齐 */
-function extractBrand(text: string): { name: string, website: string } {
-  const t = text.trim()
+/** 从一段话里取品牌名与官网：
+ *  支持 markdown 链接粘贴（[文字](url) → 取 url 为官网、文字还原进正文）、
+ *  裸域名识别、[「品牌」/「品牌叫X」]、以及首个非域名词条兜底（如 "hanyuai hanyuai.com" → hanyuai）
+ */
+function extractBrand(rawText: string): { name: string, website: string, cleanText: string } {
+  let t = rawText.trim()
+  let website = ''
+  const md = t.match(/\[([^\]]{1,80})\]\((https?:\/\/[^)\s]{4,200})\)/)
+  if (md) {
+    website = md[2].replace(/^https?:\/\//i, '').replace(/\/.*$/, '')
+    t = t.replace(md[0], md[1]).trim()
+  }
+  if (!website) {
+    const url = t.match(/(?:https?:\/\/)?((?:[a-z0-9-]+\.)+[a-z]{2,})(\/\S*)?/i)
+    if (url) website = url[1]
+  }
   const q = t.match(/[「『"]([^」』"]{1,30})[」』"]/)
   const n2 = t.match(/品牌(?:叫|是|为)[:： ]?([^，。,.\s]{1,30})/)
-  const url = t.match(/(?:https?:\/\/)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)(?:\/[^\s，。]*)?/i)
-  return { name: (q?.[1] || n2?.[1] || '').trim(), website: url?.[0]?.replace(/^https?:\/\//i, '') || '' }
+  let name = (q?.[1] || n2?.[1] || '').trim()
+  if (!name) {
+    const tokens = t.replace(/https?:\/\/\S+/gi, ' ').split(/[\s，。,.；;：:（）()]+/).filter(Boolean)
+    for (const tok of tokens) {
+      if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(tok)) continue // 跳过域名
+      if (/^[a-z0-9-]{2,30}$/i.test(tok) || /^[一-龥]{2,20}$/.test(tok)) { name = tok; break }
+    }
+  }
+  return { name: name.slice(0, 30), website, cleanText: t }
 }
 
 function fillChip(c: string) {
@@ -217,7 +237,7 @@ async function onSubmit() {
     watchOnceLogin()
     return
   }
-  await start(text, ex.name, website)
+  await start(ex.cleanText, ex.name, website)
 }
 
 /** 登录成功后自动接续分析（与对标站"登录后立即启动"一致） */
@@ -227,7 +247,7 @@ function watchOnceLogin() {
       pendingStart = false
       stop()
       const ex = extractBrand(form.text)
-      await start(form.text.trim(), ex.name, form.website.trim() || ex.website)
+      await start(ex.cleanText, ex.name, form.website.trim() || ex.website)
     }
   })
 }
@@ -272,12 +292,13 @@ async function start(userText: string, brandName: string, website: string) {
   selected.clear()
   curBlock = null
 
+  const display = brandName || website || '你的品牌'
   push({ type: 'user', text: userText })
-  push({ type: 'ai', text: `好的，我来分析「${brandName || website}」在主流 AI 助手中的可见度。${website ? `先读取官网 ${website}，` : ''}全程约 1~2 分钟。` })
+  push({ type: 'ai', text: `好的，我来分析「${display}」在主流 AI 助手中的可见度。${website ? `先读取官网 ${website}，` : ''}全程约 1~2 分钟。` })
 
   try {
     await sse('/agent/onboarding/stream', {
-      brand_name: brandName || '未命名品牌',
+      brand_name: brandName || '',
       website,
       business_desc: userText,
       save: false,
@@ -285,7 +306,19 @@ async function start(userText: string, brandName: string, website: string) {
   } catch (e) {
     closeBlock()
     phase.value = 'error'
-    push({ type: 'ai', text: `分析中断：${(e as Error)?.message || '网络异常'}。请稍后重试。` })
+    const status = (e as Error & { status?: number })?.status
+    if (status === 401) {
+      push({ type: 'ai', text: '登录已过期，请重新登录，登录后自动继续本次分析。' })
+      pendingStart = true
+      authModal.open('password', 'trial')
+      watchOnceLogin()
+      return
+    }
+    if (status === 404) {
+      push({ type: 'ai', text: '分析服务未就绪（404）：本地 API 运行的不是最新代码，请重启 API（pnpm --filter @geo-admin/api run dev:memory）后再试。' })
+    } else {
+      push({ type: 'ai', text: `分析中断：${(e as Error)?.message || '网络异常'}。请稍后重试。` })
+    }
     pushRetry()
   }
 }
