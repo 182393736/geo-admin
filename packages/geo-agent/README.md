@@ -40,9 +40,13 @@ await persistResult(models, {                // models = egg-mongoose 的 ctx.mo
 
 `stage(crawl→analyze→queries→weigh→library→done)`、`trace`（kind ∈ search_query/page_read/keyword_weight/llm_output，user_confirm 在 persist 侧）、`profile`、`candidates`、`library`、`done`。
 
+## 联网取证（Function Calling，非托管开关）
+
+DeepSeek/硅基流动的 OpenAI 兼容接口没有"联网开关"参数；联网的正解是**工具调用循环**：模型主动发起 `web_search(query)` → 本库执行真实搜索（`createWebSearch`，SERPAPI/Bing）→ 结果以 tool 消息回填 → 画像/候选生成基于证据。约束：JSON Mode 与 tools 互斥，循环结束后才走结构化抽取。配置了 `SERPAPI_KEY`/`BING_SEARCH_KEY` 时结果标 `search_grounded: true`、检索词全部落 `onboarding_traces`；未配置则不联网且保持 `llm_estimate`，不假装验证过。
+
 ## 测试
 
 ```bash
-pnpm --filter @geo-admin/geo-agent test          # 离线契约桩（零网络）
+pnpm --filter @geo-admin/geo-agent test          # 离线契约桩（含工具循环场景，零网络）
 SILICONFLOW_API_KEY=sk-*** pnpm --filter @geo-admin/geo-agent test:live   # 真机
 ```

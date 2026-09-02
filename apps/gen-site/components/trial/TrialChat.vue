@@ -342,6 +342,7 @@ function onEvent(ev: string, data: any) {
     const st = data?.stage
     closeBlock()
     if (st === 'crawl' && form.website.trim()) openBlock('读取品牌资料', [{ name: `官网 ${form.website.trim()}`, status: 'run' }])
+    else if (st === 'web_research') openBlock('联网检索公开信息', [])
     else if (st === 'analyze') openBlock('识别品牌与生成画像', [{ name: '解析品牌要素（行业/别名/竞品/卖点）', status: 'run' }])
     else if (st === 'queries') openBlock('生成候选监控问题', [{ name: '检索真实用户会问 AI 的问题', status: 'run' }])
     else if (st === 'weigh') openBlock('验证关键词热度', [])

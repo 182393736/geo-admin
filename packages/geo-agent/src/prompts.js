@@ -32,12 +32,15 @@ const QUERIES_SCHEMA = `{
   }, "6~10条，industry 为主，brand 1~2 条"]
 }`;
 
-function profilePrompts(input, site) {
-  const sys = '你是品牌情报分析师。基于用户输入与官网抓取信息，为「AI 搜索可见性监测」业务提取品牌档案。所有推断必须标注保守，不确定的字段留空，不要编造公司全称、融资、数据。';
+function profilePrompts(input, site, evidence = '') {
+  const sys = '你是品牌情报分析师。基于用户输入、官网抓取信息与联网检索证据，为「AI 搜索可见性监测」业务提取品牌档案。所有推断必须标注保守，不确定的字段留空，不要编造公司全称、融资、数据。';
   const siteBlock = site && site.ok
     ? `\n官网抓取（${site.url}）：\n标题：${site.title || '无'}\n描述：${site.description || '无'}\n正文摘录：${(site.text || '').slice(0, 3000) || '无'}`
     : '\n官网抓取：未提供或未成功';
-  const user = `品牌名称：${input.brand_name || '未知'}\n官网：${input.website || '未提供'}\n用户补充介绍：${input.business_desc || '未提供'}${siteBlock}\n\n请输出结构化品牌档案。`;
+  const evBlock = evidence
+    ? `\n联网检索证据要点：\n${evidence.slice(0, 2500)}`
+    : '';
+  const user = `品牌名称：${input.brand_name || '未知'}\n官网：${input.website || '未提供'}\n用户补充介绍：${input.business_desc || '未提供'}${siteBlock}${evBlock}\n\n请输出结构化品牌档案。`;
   return { sys, user, schemaHint: PROFILE_SCHEMA };
 }
 

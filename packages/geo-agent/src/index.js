@@ -8,7 +8,7 @@
  *   await persistResult(models, { userId, result, nextSeq, selectedQueries? });
  */
 const { createSiliconFlowClient } = require('./llm');
-const { createSearchProvider } = require('./search');
+const { createSearchProvider, createWebSearch } = require('./search');
 const { runOnboarding } = require('./run');
 const { persistResult } = require('./persist');
 const { crawlPage } = require('./crawl');
@@ -16,6 +16,6 @@ const { sanitizePreview } = require('./sanitize');
 const { normalizeProfile, normalizeCandidates, normalizeLibraryDoc } = require('./normalize');
 
 module.exports = {
-  createSiliconFlowClient, createSearchProvider, runOnboarding, persistResult, crawlPage,
+  createSiliconFlowClient, createSearchProvider, createWebSearch, runOnboarding, persistResult, crawlPage,
   sanitizePreview, normalizeProfile, normalizeCandidates, normalizeLibraryDoc,
 };

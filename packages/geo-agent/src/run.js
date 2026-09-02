@@ -38,9 +38,35 @@ async function runOnboarding(deps, input, onEvent) {
       { ok: site.ok, title: site.title, error: site.error || undefined });
   }
 
+  // ---- 1.5 联网取证（配了搜索 key 才跑；工具循环：模型发 web_search 调用 → 我们执行真实搜索 → 结果回填） ----
+  let evidence = '';
+  if (deps.webSearch) {
+    stage('web_research');
+    const research = await deps.llm.chatToolLoop({
+      system: '你是检索助手。目标：为一个品牌收集公开信息（官网定位、产品能力、竞品、行业玩家）。可多次调用 web_search（每次给不同角度的中文查询词，2~4 次为宜），然后输出 150~300 字的证据要点汇总（含来源 URL）。',
+      user: `品牌：${input.brand_name || '未知'}\n官网：${input.website || '未提供'}\n介绍：${input.business_desc || '未提供'}`,
+      tools: [ { type: 'function', function: {
+        name: 'web_search',
+        description: '搜索互联网，返回结果列表（title/url/snippet）',
+        parameters: { type: 'object', properties: { query: { type: 'string', description: '搜索查询词' } }, required: ['query'] },
+      } } ],
+      handlers: {
+        web_search: async ({ query }) => {
+          push('search_query', { query: String(query || '') }, { engine: deps.webSearch.name, phase: 'web_research' });
+          return { results: await deps.webSearch.search(String(query || '')) };
+        },
+      },
+      maxRounds: 4,
+    });
+    evidence = (research.content || '').trim();
+    usage.push({ step: 'web_research', usage: research.usage });
+    push('llm_output', {}, { step: 'web_research', tool_calls: research.calls.length, degraded: !!research.degraded });
+    if (onEvent && research.calls.length) onEvent({ type: 'research', searches: research.calls.length });
+  }
+
   // ---- 2. 画像抽取 ----
   stage('analyze');
-  const p = profilePrompts(input, site);
+  const p = profilePrompts(input, site, evidence);
   const prof = await deps.llm.chatJson({ system: p.sys, user: p.user, schemaHint: p.schemaHint });
   usage.push({ step: 'profile', usage: prof.usage });
   push('llm_output', {}, { step: 'profile', input_chars: p.user.length, raw_chars: (prof.content || '').length });
@@ -51,6 +77,7 @@ async function runOnboarding(deps, input, onEvent) {
   stage('queries');
   const limit = Math.max(3, Math.min(10, parseInt(input.query_limit, 10) || 8));
   const qp = queriesPrompts(profile, profile.keywords, limit);
+  if (evidence) qp.user += `\n\n联网检索证据要点：\n${evidence.slice(0, 1500)}`;
   const qr = await deps.llm.chatJson({ system: qp.sys, user: qp.user, schemaHint: qp.schemaHint });
   usage.push({ step: 'queries', usage: qr.usage });
   push('llm_output', {}, { step: 'queries', input_chars: qp.user.length, raw_chars: (qr.content || '').length });
@@ -84,6 +111,7 @@ async function runOnboarding(deps, input, onEvent) {
     candidates,
     library_doc: lib,
     weight_source: source,
+    search_grounded: !!evidence,   // true=画像/候选经联网证据佐证（DeepSeek 经 function calling 主动调了 web_search）
     traces,
     usage,
     llm_model: deps.llm.model || null,
