@@ -10,11 +10,7 @@
     "esModuleInterop": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
-    "noEmit": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["apps/web/src/*"]
-    }
+    "noEmit": true
   },
   "exclude": ["node_modules", "dist"]
 }
