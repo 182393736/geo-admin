@@ -22,6 +22,20 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value);
   const activeBrand = computed(() => brands.value.find(b => b.brand_id === activeBrandId.value));
+  const brandsLoaded = ref(false);          // 本次会话是否已从后端拉过品牌列表
+  const hasBrand = computed(() => brands.value.length > 0);
+
+  /** 拉取/刷新品牌列表（登录返回、onboarding 完成、页面刷新恢复会话时调用） */
+  async function refreshBrands() {
+    const list = await userApi.brands();
+    brands.value = list || [];
+    brandsLoaded.value = true;
+    if (!activeBrandId.value || !brands.value.some(b => b.brand_id === activeBrandId.value)) {
+      activeBrandId.value = brands.value[0]?.brand_id || '';
+      localStorage.setItem(LS_BRAND, activeBrandId.value);
+    }
+    return brands.value;
+  }
 
   async function login(account: string, password: string) {
     const resp = await userApi.login(account, password);
@@ -29,6 +43,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = resp.accessToken;
     user.value = resp.user;
     brands.value = resp.brands || [];
+    brandsLoaded.value = true;
     activeBrandId.value = resp.brands?.[0]?.brand_id || '';
     localStorage.setItem(LS_TOKEN, token.value);
     localStorage.setItem(LS_USER, JSON.stringify(user.value));
@@ -43,6 +58,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function logout() {
     token.value = ''; user.value = null; activeBrandId.value = '';
+    brands.value = []; brandsLoaded.value = false;
     localStorage.removeItem(LS_TOKEN); localStorage.removeItem(LS_USER); localStorage.removeItem(LS_BRAND);
   }
 
@@ -54,5 +70,6 @@ export const useAuthStore = defineStore('auth', () => {
     } catch { return false; }
   });
 
-  return { token, user, brands, activeBrandId, activeBrand, isAuthenticated, login, logout, switchBrand, expSoon };
+  return { token, user, brands, brandsLoaded, hasBrand, activeBrandId, activeBrand,
+    isAuthenticated, login, logout, switchBrand, refreshBrands, expSoon };
 });

@@ -9,4 +9,9 @@ module.exports = app => {
   router.post('/user/login', controller.auth.login);
   router.get('/user/info', jwtAuth, controller.auth.info);
   router.post('/api/auth/logout', jwtAuth, controller.auth.logout);
+
+  // ============ 首次品牌分析（onboarding 状态机） ============
+  router.post('/user/brands/analyze', jwtAuth, controller.onboarding.analyze);
+  router.get('/user/onboarding/status', jwtAuth, controller.onboarding.status);
+  router.get('/user/brands', jwtAuth, controller.onboarding.brands);
 };

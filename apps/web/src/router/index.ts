@@ -8,6 +8,13 @@ const routes = [
     meta: { title: '登录' },
   },
   {
+    // 首次品牌分析：登录后没有任何品牌时强制进入（独立全屏页，不带侧边栏）
+    path: '/trial',
+    name: 'Trial',
+    component: () => import('@/views/trial/index.vue'),
+    meta: { title: '免费分析' },
+  },
+  {
     path: '/',
     component: () => import('@/layout/MainLayout.vue'),
     redirect: '/dashboard/overview',
@@ -211,12 +218,41 @@ const router = createRouter({
 
 export default router;
 
-// 登录守卫：无 token 进登录页；401 后 http.ts 会自动跳出
+// 登录守卫 + 首次分析引导：
+//  - 无 token 进登录页；401 后 http.ts 会自动跳出
+//  - 已登录但无品牌（首次未分析）→ 强制 /trial
+//  - 已有品牌访问 /trial → 回到工作台
 import { useAuthStore } from '@/stores/auth';
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore();
-  if (to.path !== '/login' && !auth.isAuthenticated) return { path: '/login' };
-  if (to.path === '/login' && auth.isAuthenticated) return { path: '/dashboard/overview' };
+  if (to.path === '/login') {
+    if (auth.isAuthenticated) {
+      await ensureBrands(auth);
+      return { path: auth.hasBrand ? '/dashboard/overview' : '/trial' };
+    }
+    return true;
+  }
+  if (!auth.isAuthenticated) return { path: '/login' };
+
+  await ensureBrands(auth); // 刷新/F5 后会话恢复：从后端拉一次品牌列表
+
+  if (to.path === '/trial') {
+    // 有品牌不允许重复进入引导页（对齐线上反向跳转逻辑）
+    if (auth.hasBrand) return { path: '/dashboard/overview' };
+  } else if (!auth.hasBrand) {
+    return { path: '/trial' };
+  }
+
   document.title = `${(to.meta.title as string) || ''} · GEO 管理平台`;
   return true;
 });
+
+/** 会话恢复兜底：token 在但品牌列表未加载时拉取一次（失败不阻塞路由） */
+async function ensureBrands(auth: ReturnType<typeof useAuthStore>) {
+  if (auth.brandsLoaded) return;
+  try {
+    await auth.refreshBrands();
+  } catch {
+    auth.brandsLoaded = true; // 网络异常时视为无品牌，由 /trial 页内自行兜底
+  }
+}

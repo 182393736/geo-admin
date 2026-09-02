@@ -1,6 +1,7 @@
 /** 用户/鉴权模块（实测路径：POST /user/login 有效） */
 import { get, post } from '../http';
-import type { LoginResp, UserInfo, MenuItem, BrandBrief, CreditAccount, Subscription } from '../types';
+import type { LoginResp, UserInfo, MenuItem, BrandBrief, CreditAccount, Subscription,
+  AnalyzeBrandReq, AnalyzeBrandResp, OnboardingStatus } from '../types';
 
 export const userApi = {
   login: (account: string, password: string) =>
@@ -22,4 +23,8 @@ export const userApi = {
 
   creditAccount: () => get<CreditAccount>('/credit/account'),
   subscription: () => get<Subscription>('/payment/subscription/current'),
+
+  // --- 首次品牌分析（onboarding）---
+  analyzeBrand: (p: AnalyzeBrandReq) => post<AnalyzeBrandResp>('/user/brands/analyze', p),
+  onboardingStatus: (task_id: string) => get<OnboardingStatus>(`/user/onboarding/status?task_id=${encodeURIComponent(task_id)}`),
 };
