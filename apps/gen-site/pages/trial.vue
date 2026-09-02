@@ -4,8 +4,10 @@
       <TrialDecor />
       <TrialNav />
       <div class="trial-page">
-        <TrialHero />
+        <TrialChat />
       </div>
+      <!-- 登录弹窗（Teleported）；表单提交时若未登录会自动唤起，成功后接续分析 -->
+      <SiteAuthModal />
     </div>
   </div>
 </template>

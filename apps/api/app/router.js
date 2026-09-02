@@ -14,4 +14,9 @@ module.exports = app => {
   router.post('/user/brands/analyze', jwtAuth, controller.onboarding.analyze);
   router.get('/user/onboarding/status', jwtAuth, controller.onboarding.status);
   router.get('/user/brands', jwtAuth, controller.onboarding.brands);
+
+  // ============ 首登分析 Agent（geo-agent：完整字段集 + 流式实况） ============
+  router.post('/agent/onboarding/run', jwtAuth, controller.agent.run);
+  router.post('/agent/onboarding/stream', jwtAuth, controller.agent.stream);
+  router.post('/agent/onboarding/confirm', jwtAuth, controller.agent.confirm);
 };

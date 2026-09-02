@@ -16,8 +16,14 @@ module.exports = app => {
     question_list: [{ user_friendly: String, platform_query: String }],
     query_type: { type: String, enum: ['industry', 'brand'], index: true },  // 排名题/口碑题
     is_golden: { type: Boolean, default: false },
-    golden_query_ranking: Number,
-    weight: { type: Number, default: 1 },
+    // 实测契约：引擎→{rank,score} 的映射对象，非数字。
+    // rank 三态锚点：-99=未检测 / -2=检测未提及 / -1=综合权重位（all）；score 为归一分
+    golden_query_ranking: { type: Schema.Types.Mixed, default: null },
+    weight: { type: Number, default: 1 },  // 实测契约：AI 按母词真实搜索热度打分，10/9/8… 递减截断
+    // 实测契约（/user/info.key_words）：各引擎实际发问口径，默认同 query；平台差异化改写时覆盖
+    platform_prompt: String,
+    // 实测契约：AI 生成的"热度·场景"分类标签，如 "高热度 · 工具选择"/"核心场景 · 科研绘图"
+    query_description: String,
     query_status: { type: Boolean, default: true },  // 启用开关
     query_is_execute: { type: Boolean, default: true },  // 是否参与次日采集
     effective_to: Date,  // 生效截止
