@@ -44,8 +44,8 @@ class AgentController extends Controller {
   async stream() {
     const { ctx } = this;
     const b = ctx.request.body || {};
-    if (!b.brand_name || !String(b.brand_name).trim()) {
-      ctx.status = 400; ctx.body = { code: 400, msg: 'brand_name 必填' }; return;
+    if (![b.brand_name, b.website, b.business_desc].some(v => v && String(v).trim())) {
+      ctx.status = 400; ctx.body = { code: 400, msg: 'brand_name / website / business_desc 至少填一个' }; return;
     }
     const userId = ctx.state.user && (ctx.state.user.id || ctx.state.user.sub);
     if (!userId) { ctx.status = 401; ctx.body = { code: 401, msg: 'unauthorized' }; return; }
