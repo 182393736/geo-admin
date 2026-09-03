@@ -1,0 +1,24 @@
+// 目标站设计系统 - Tailwind indigo 色系
+$primary-color: #4338ca;       // indigo-700
+$primary-hover: #6366f1;       // indigo-500
+$primary-light: #eef2ff;       // indigo-50
+$success-color: #16a34a;
+$warning-color: #ea580c;
+$danger-color: #dc2626;
+
+// 文字色
+$text-primary: #111827;        // gray-900
+$text-secondary: #4b5563;     // gray-600
+$text-tertiary: #6b7280;       // gray-500
+$text-disabled: #9ca3af;      // gray-400
+
+// 边框/背景
+$border-color: #e5e7eb;        // gray-200
+$bg-page: #ffffff;
+$bg-card: #ffffff;
+$bg-hover: #f9fafb;           // gray-50
+
+// 侧边栏 - 白色窄栏
+$sidebar-bg: #ffffff;
+$sidebar-width: 80px;
+$sidebar-collapsed-width: 48px;

@@ -18,3 +18,4 @@ apps/api/run
 .output/
 noetBrett-onboarding/
 .tmp-geo
+apps/api/logs/
