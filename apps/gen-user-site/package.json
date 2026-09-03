@@ -1,5 +1,5 @@
 {
-  "name": "@geo-admin/gen-site",
+  "name": "@geo-admin/gen-user-site",
   "private": true,
   "type": "module",
   "scripts": {

@@ -1,6 +1,6 @@
 'use strict';
 /**
- * CORS：gen-site 等前端直连 API 场景（非 nitro 代理）兜底。
+ * CORS：gen-user-site 等前端直连 API 场景（非 nitro 代理）兜底。
  * 鉴权走 Authorization 头（无 Cookie），回显 Origin 即可；OPTIONS 预检短路。
  */
 module.exports = () => {

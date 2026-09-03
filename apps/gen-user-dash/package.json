@@ -1,5 +1,5 @@
 {
-  "name": "@geo-admin/web",
+  "name": "@geo-admin/gen-user-dash",
   "version": "0.1.0",
   "private": true,
   "type": "module",
