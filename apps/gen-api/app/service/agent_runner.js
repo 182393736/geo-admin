@@ -11,8 +11,10 @@ class AgentRunnerService extends Service {
     const { app } = this;
     const cfg = app.config.siliconflow || {};
     const llm = createSiliconFlowClient({ apiKey: cfg.apiKey, baseURL: cfg.baseURL, model: cfg.model });
-    // 联网取证按 TAVILY_API_KEY 自动降级；热度验证 Provider 暂缺（SerpAPI/Bing 已停用，自建搜索后接入）→ 诚实保持 llm_estimate
-    return { llm, searchProvider: createSearchProvider({}), webSearch: createWebSearch({}) };
+    // 联网取证：优先用 config.tavily.apiKey（env > dev-keys 内置测试密钥），为空则自动降级不联网
+    // 热度验证 Provider 暂缺（SerpAPI/Bing 已停用，自建搜索后接入）→ 诚实保持 llm_estimate
+    const tavilyKey = (app.config.tavily || {}).apiKey || '';
+    return { llm, searchProvider: createSearchProvider({}), webSearch: createWebSearch({ tavilyKey }) };
   }
 
   /** 只跑分析不落库：返回完整 result（预览/调试用） */

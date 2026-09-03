@@ -14,6 +14,7 @@ process.env.TMPDIR = GEO_TMP;
 
 process.env.EGG_SERVER_ENV = process.env.EGG_SERVER_ENV || 'unittest';
 process.env.EGG_LOG = process.env.EGG_LOG || 'none';
+process.env.GEO_DISABLE_DEV_KEYS = '1'; // 屏蔽 dev-keys.js 内置测试密钥，冒烟必须零外网
 process.env.SILICONFLOW_API_KEY = 'stub-key';
 
 // ===== 全局 fetch 桩：硅基流动 chat/completions + 官网页面 =====
