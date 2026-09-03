@@ -13,7 +13,9 @@ GEO 首登分析 Agent：**品牌名 + 官网（可选）→ 完整字段集**�
 | `SILICONFLOW_API_KEY` | ✅ | 硅基流动密钥，**只走环境变量，不进代码库** |
 | `SILICONFLOW_BASE_URL` | | 默认 `https://api.siliconflow.cn/v1` |
 | `SILICONFLOW_MODEL` | | 默认 `deepseek-ai/DeepSeek-V4-Flash` |
-| `SERPAPI_KEY` / `BING_SEARCH_KEY` | | 配置后候选问题按**真实搜索命中量**重排赋权（10/9/8…）；未配置则保留 LLM 估计并在 trace 标 `llm_estimate` |
+| `TAVILY_API_KEY` | | 联网取证（`web_research` 工具循环）。配置后 DeepSeek 经 `web_search` 工具调 **Tavily** 真实检索，结果标 `search_grounded: true`；未配置不联网、诚实标 `llm_estimate`。basic 档 1 credit/次，免费额度 1000 credits/月 |
+
+> 热度验证（候选问题按真实命中量重排）的 Provider **暂缺**：SerpAPI 已停用、Bing Search API 已于 2025-08-11 退役、Tavily 不返回总命中数（语义不匹配）。当前 `weight_source` 恒为 `llm_estimate`，自建搜索就绪后在 `src/search.js` 的 `createSearchProvider` 恢复分支即可（返回 `{ name, query(q) → number\|null }`）。
 
 ## 用法
 
@@ -42,7 +44,7 @@ await persistResult(models, {                // models = egg-mongoose 的 ctx.mo
 
 ## 联网取证（Function Calling，非托管开关）
 
-DeepSeek/硅基流动的 OpenAI 兼容接口没有"联网开关"参数；联网的正解是**工具调用循环**：模型主动发起 `web_search(query)` → 本库执行真实搜索（`createWebSearch`，SERPAPI/Bing）→ 结果以 tool 消息回填 → 画像/候选生成基于证据。约束：JSON Mode 与 tools 互斥，循环结束后才走结构化抽取。配置了 `SERPAPI_KEY`/`BING_SEARCH_KEY` 时结果标 `search_grounded: true`、检索词全部落 `onboarding_traces`；未配置则不联网且保持 `llm_estimate`，不假装验证过。
+DeepSeek/硅基流动的 OpenAI 兼容接口没有"联网开关"参数；联网的正解是**工具调用循环**：模型主动发起 `web_search(query)` → 本库执行真实搜索（`createWebSearch`，当前为 **Tavily**，返回清洗后正文而非 SERP 摘要）→ 结果以 tool 消息回填 → 画像/候选生成基于证据。约束：JSON Mode 与 tools 互斥，循环结束后才走结构化抽取。配置了 `TAVILY_API_KEY` 时结果标 `search_grounded: true`、检索词全部落 `onboarding_traces`；未配置则不联网且保持 `llm_estimate`，不假装验证过。SerpAPI 分支已注释停用（Bing Search API 已于 2025-08-11 退役），自建搜索上线后在 `src/search.js` 恢复/替换。
 
 ## 测试
 

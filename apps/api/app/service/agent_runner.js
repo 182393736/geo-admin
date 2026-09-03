@@ -11,7 +11,7 @@ class AgentRunnerService extends Service {
     const { app } = this;
     const cfg = app.config.siliconflow || {};
     const llm = createSiliconFlowClient({ apiKey: cfg.apiKey, baseURL: cfg.baseURL, model: cfg.model });
-    // 联网取证/热度验证两条腿都按 key 自动降级：无 SERPAPI_KEY/BING_SEARCH_KEY → 诚实保持 llm_estimate
+    // 联网取证按 TAVILY_API_KEY 自动降级；热度验证 Provider 暂缺（SerpAPI/Bing 已停用，自建搜索后接入）→ 诚实保持 llm_estimate
     return { llm, searchProvider: createSearchProvider({}), webSearch: createWebSearch({}) };
   }
 

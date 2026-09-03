@@ -1,10 +1,10 @@
 'use strict';
 /**
- * 真机验证（需要 SILICONFLOW_API_KEY）：
- *   SILICONFLOW_API_KEY=sk-xxx node test/live_run.js [品牌名] [官网]
+ * 真机验证（需要 SILICONFLOW_API_KEY；可选 TAVILY_API_KEY 开联网取证）：
+ *   SILICONFLOW_API_KEY=sk-xxx TAVILY_API_KEY=tvly-xxx node test/live_run.js [品牌名] [官网]
  * 默认样本：HANYUAI 图像助理 / hanyuai.com
  */
-const { createSiliconFlowClient, runOnboarding } = require('../src/index');
+const { createSiliconFlowClient, createWebSearch, runOnboarding } = require('../src/index');
 
 async function main() {
   if (!process.env.SILICONFLOW_API_KEY) {
@@ -14,11 +14,12 @@ async function main() {
   const brand_name = process.argv[2] || 'HANYUAI 图像助理';
   const website = process.argv[3] || 'hanyuai.com';
   const llm = createSiliconFlowClient({});
-  console.log(`run: brand=${brand_name} site=${website} model=${llm.model}`);
+  const webSearch = createWebSearch({}); // 未配 TAVILY_API_KEY 时为 null → 不联网、诚实 llm_estimate
+  console.log(`run: brand=${brand_name} site=${website} model=${llm.model} webSearch=${webSearch ? webSearch.name : 'off'}`);
 
   const t0 = Date.now();
   const result = await runOnboarding(
-    { llm },
+    { llm, webSearch },
     { brand_name, website, query_limit: 8 },
     e => { if (e.type === 'stage') console.log(`  ·stage ${e.stage}  (${((Date.now() - t0) / 1000).toFixed(1)}s)`); },
   );
@@ -41,7 +42,7 @@ async function main() {
   console.log('===== 留痕/记账 =====');
   const kinds = {};
   for (const t of result.traces) kinds[t.kind] = (kinds[t.kind] || 0) + 1;
-  console.log('  traces:', kinds, '| weight_source:', result.weight_source);
+  console.log('  traces:', kinds, '| weight_source:', result.weight_source, '| search_grounded:', result.search_grounded);
   console.log('  usage:', JSON.stringify(result.usage.map(u => ({ step: u.step, total: u.usage && u.usage.total_tokens }))));
   console.log(`\nLIVE OK in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 }

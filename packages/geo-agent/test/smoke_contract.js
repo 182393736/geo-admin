@@ -133,7 +133,32 @@ async function main() {
   assert.ok(sq.every(t => t.meta.engine === 'fake-serp'), '检索来源留痕');
   assert.ok(r3.usage.some(u => u.step === 'web_research'), '联网步记账');
 
-  console.log('CONTRACT OK: 完整字段集 + 联网工具循环（tool-calling）两条路径全部通过');
+  // ===== Tavily 执行器契约：createWebSearch 走 Tavily 分支（content→snippet 截断）；未配 key 全部降级 null =====
+  const { createWebSearch, createSearchProvider } = require('../src/search');
+  const tavilyFetch = async (url, init = {}) => {
+    assert.strictEqual(url, 'https://api.tavily.com/search', 'Tavily 端点');
+    assert.ok(String(init.headers.Authorization || '').startsWith('Bearer tvly-stub'), 'Bearer 鉴权');
+    const body = JSON.parse(init.body);
+    assert.ok(body.query && body.max_results >= 1, 'query/max_results 传参');
+    assert.strictEqual(body.include_answer, false, '不要 Tavily 答案摘要（推理留给自家 LLM）');
+    return { ok: true, status: 200, json: async () => ({ results: [
+      { title: '结果A', url: 'https://example.com/a', content: 'A'.repeat(900) },
+      { title: '结果B', url: 'https://example.com/b', content: '正文B' },
+      { title: '无URL', url: '', content: '应被过滤' },
+    ] }) };
+  };
+  const ws = createWebSearch({ tavilyKey: 'tvly-stub-key', fetchImpl: tavilyFetch });
+  assert.strictEqual(ws.name, 'tavily');
+  const tavilyResults = await ws.search('免费AI绘图工具哪个好用');
+  assert.strictEqual(tavilyResults.length, 2, '空 url 过滤');
+  assert.strictEqual(tavilyResults[0].snippet.length, 500, 'content 截断 500 字符为 snippet');
+  assert.strictEqual(tavilyResults[1].snippet, '正文B');
+  assert.ok(tavilyResults.every(r => r.title && r.url), 'title/url 契约');
+  // 降级链：无 TAVILY_API_KEY → webSearch null；热度 Provider 现阶段恒 null（SerpAPI/Bing 已停用）
+  assert.strictEqual(createWebSearch({ fetchImpl: tavilyFetch }), null, '未配 TAVILY_API_KEY → null 不联网');
+  assert.strictEqual(createSearchProvider({ serpApiKey: 'x', bingKey: 'y' }), null, '热度 Provider 恒 null → 诚实 llm_estimate');
+
+  console.log('CONTRACT OK: 完整字段集 + 联网工具循环（tool-calling）+ Tavily 执行器三条路径全部通过');
 }
 
 main().catch(e => { console.error('CONTRACT FAIL:', e); process.exit(1); });
