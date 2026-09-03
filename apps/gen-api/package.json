@@ -1,13 +1,13 @@
 {
-  "name": "@geo-admin/api",
+  "name": "@geo-admin/gen-api",
   "version": "0.1.0",
   "private": true,
   "description": "GEO 监测平台后台（Egg.js + Mongoose，逆向契约驱动）",
   "scripts": {
     "dev": "egg-bin dev",
     "dev:memory": "node scripts/dev-memory.js",
-    "start": "egg-scripts start --daemon --title=geo-api",
-    "stop": "egg-scripts stop --title=geo-api",
+    "start": "egg-scripts start --daemon --title=gen-api",
+    "stop": "egg-scripts stop --title=gen-api",
     "test": "egg-bin test"
   },
   "dependencies": {

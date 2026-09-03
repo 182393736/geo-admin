@@ -35,13 +35,13 @@ export default defineNuxtConfig({
   // 容器 / 代理域名下访问 dev server 时放行（Vite 默认拒绝未知 host）
   vite: { server: { allowedHosts: true } },
 
-  // GEO API（apps/api, Egg.js）接线：
+  // GEO API（apps/gen-api, Egg.js）接线：
   //  - 开发/Node 运行时走同域代理 /geo-api/**（规避 CORS，SSE 可流式透传）
   //  - 静态部署时把 NUXT_PUBLIC_API_BASE 指到完整 API 地址（API 侧已开 CORS 兜底）
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/geo-api',
-      // 分析完成后「前往控制台」落地地址：控制台 = apps/web 用户后台（vite dev 默认 5173），可用 NUXT_PUBLIC_CONSOLE_URL 覆盖
+      // 分析完成后「前往控制台」落地地址：控制台 = apps/gen-user-dash 用户后台（vite dev 默认 5173），可用 NUXT_PUBLIC_CONSOLE_URL 覆盖
       consoleUrl: process.env.NUXT_PUBLIC_CONSOLE_URL || 'http://127.0.0.1:5173',
     },
   },

@@ -12,10 +12,10 @@ dist-ssr
 .pnpm-store
 coverage
 *.tsbuildinfo
-apps/api/run
+apps/gen-api/run
 **/run/
 .nuxt/
 .output/
 noetBrett-onboarding/
 .tmp-geo
-apps/api/logs/
+apps/gen-api/logs/

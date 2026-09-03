@@ -4,17 +4,17 @@
   "private": true,
   "description": "GEO Platform Admin Monorepo",
   "scripts": {
-    "dev": "pnpm --filter web dev",
-    "build": "pnpm --filter web build",
-    "preview": "pnpm --filter web preview",
+    "dev": "pnpm --filter @geo-admin/gen-user-dash dev",
+    "build": "pnpm --filter @geo-admin/gen-user-dash build",
+    "preview": "pnpm --filter @geo-admin/gen-user-dash preview",
     "lint": "pnpm -r lint",
     "format": "prettier --write .",
-    "dev:web": "pnpm --filter web dev",
-    "dev:api": "pnpm --filter @geo-admin/api dev",
-    "dev:site": "pnpm --filter @geo-admin/gen-site dev",
-    "build:web": "pnpm --filter web build",
-    "build:site": "pnpm --filter @geo-admin/gen-site build",
-    "preview:site": "pnpm --filter @geo-admin/gen-site preview"
+    "dev:web": "pnpm --filter @geo-admin/gen-user-dash dev",
+    "dev:api": "pnpm --filter @geo-admin/gen-api dev",
+    "dev:site": "pnpm --filter @geo-admin/gen-user-site dev",
+    "build:web": "pnpm --filter @geo-admin/gen-user-dash build",
+    "build:site": "pnpm --filter @geo-admin/gen-user-site build",
+    "preview:site": "pnpm --filter @geo-admin/gen-user-site preview"
   },
   "engines": {
     "node": ">=20.0.0"

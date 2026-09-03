@@ -1,7 +1,7 @@
 /**
  * 登录态（真实接口版）
  *
- * 已接入 apps/api 的 POST /user/login（账号密码 → JWT）。
+ * 已接入 apps/gen-api 的 POST /user/login（账号密码 → JWT）。
  * 对外暴露的 isLoggedIn / user / login / logout 签名与模拟版一致，
  * 站点各处（SiteAuthModal 等）无需改动。token 另存 'geo.token' 供 useGeoApi 使用。
  * 手机验证码通道待 API 侧短信能力接入后启用（弹窗手机 tab 会提示先用账号密码）。

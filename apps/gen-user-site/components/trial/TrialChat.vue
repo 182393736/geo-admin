@@ -315,7 +315,7 @@ async function start(userText: string, brandName: string, website: string) {
       return
     }
     if (status === 404) {
-      push({ type: 'ai', text: '分析服务未就绪（404）：本地 API 运行的不是最新代码，请重启 API（pnpm --filter @geo-admin/api run dev:memory）后再试。' })
+      push({ type: 'ai', text: '分析服务未就绪（404）：本地 API 运行的不是最新代码，请重启 API（pnpm --filter @geo-admin/gen-api run dev:memory）后再试。' })
     } else {
       push({ type: 'ai', text: `分析中断：${(e as Error)?.message || '网络异常'}。请稍后重试。` })
     }

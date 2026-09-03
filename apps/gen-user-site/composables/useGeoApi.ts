@@ -1,5 +1,5 @@
 /**
- * GEO API 客户端（apps/api, Egg.js）
+ * GEO API 客户端（apps/gen-api, Egg.js）
  * - apiPost：普通 JSON POST（Bearer token 自动带）
  * - sse：POST + ReadableStream 解析 SSE 帧（EventSource 不支持 POST/自定义头，故手写）
  * token 存 localStorage 'geo.token'，由 useAuth.login 写入

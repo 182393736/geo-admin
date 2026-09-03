@@ -24,7 +24,7 @@ pnpm build:site
 或在应用目录内：
 
 ```bash
-cd apps/gen-site
+cd apps/gen-user-site
 pnpm dev            # http://localhost:3002
 pnpm build && pnpm preview
 ```

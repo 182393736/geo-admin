@@ -4,7 +4,7 @@ GEO 首登分析 Agent：**品牌名 + 官网（可选）→ 完整字段集**�
 
 - 纯 CJS、**零运行时依赖**（Node ≥20 全局 fetch）；不 import egg/mongoose，模型与配置由宿主注入
 - 大模型走**硅基流动** OpenAI 兼容协议，默认模型 `deepseek-ai/DeepSeek-V4-Flash`
-- 选型说明：先以 zero-build CJS 库落地（当前唯一宿主 apps/api 是 CJS Egg；`dist/` 不进工作区快照，避免构建产物丢失）。出现 ESM 消费者（如 Nuxt server route）时再加 tsup 双格式。
+- 选型说明：先以 zero-build CJS 库落地（当前唯一宿主 apps/gen-api 是 CJS Egg；`dist/` 不进工作区快照，避免构建产物丢失）。出现 ESM 消费者（如 Nuxt server route）时再加 tsup 双格式。
 
 ## 配置（环境变量）
 

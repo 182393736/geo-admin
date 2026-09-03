@@ -1,7 +1,7 @@
 'use strict';
 /**
  * 本地一键开发：自动拉起内存 MongoDB 再以 dev 模式启动 Egg API
- * 用法：pnpm --filter @geo-admin/api run dev:memory
+ * 用法：pnpm --filter @geo-admin/gen-api run dev:memory
  * 需要真实 LLM 时：SILICONFLOW_API_KEY=sk-xxx pnpm run dev:memory
  */
 const { spawn } = require('node:child_process');
