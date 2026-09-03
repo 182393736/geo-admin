@@ -19,6 +19,7 @@ docs/                         接口分析 · 业务闭环 · 数据库设计 ·
 ```bash
 pnpm install
 pnpm dev:api        # 后端（需 MONGO_URL / SILICONFLOW_API_KEY，或 node scripts/dev-memory.js 内存库）
+                    #   可选 TAVILY_API_KEY：首登 Agent 联网取证（不配则诚实降级 llm_estimate）
 pnpm dev:site       # 官网 gen-site（http://localhost:3002）
 ```
 
