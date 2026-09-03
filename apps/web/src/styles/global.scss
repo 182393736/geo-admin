@@ -1,0 +1,126 @@
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.err-msg {
+  color: #ef4444;
+  font-size: 13px;
+  margin: 4px 0 8px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background-color: $bg-page;
+  color: $text-primary;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.page-container {
+  padding: 16px 24px;
+}
+
+// 覆盖Arco主色为 indigo-700
+body {
+  --primary-1: 238 242 255;
+  --primary-2: 224 231 255;
+  --primary-3: 199 210 254;
+  --primary-4: 165 180 252;
+  --primary-5: 129 140 248;
+  --primary-6: 99 102 241;
+  --primary-7: 79 70 229;
+  --primary-8: 67 56 202;
+  --primary-9: 55 48 163;
+  --primary-10: 49 46 129;
+}
+
+.arco-btn-primary {
+  background-color: #4338ca !important;
+  border-color: #4338ca !important;
+  
+  &:hover {
+    background-color: #6366f1 !important;
+    border-color: #6366f1 !important;
+  }
+}
+
+// Tab 激活色
+.arco-tabs-tab-active {
+  .arco-tabs-tab-title,
+  .arco-tabs-tab-title-text {
+    color: #4338ca !important;
+  }
+}
+
+.arco-link {
+  color: #4338ca;
+}
+
+.arco-tabs-tab-active::before {
+  background-color: #4338ca !important;
+}
+
+// 分页
+.arco-pagination-active .arco-pagination-item-button {
+  background-color: #4338ca;
+}
+
+// Switch
+.arco-switch-checked {
+  background-color: #4338ca;
+}
+
+// Radio
+.arco-radio-checked .arco-radio-icon {
+  color: #4338ca;
+}
+
+// Checkbox  
+.arco-checkbox-checked .arco-checkbox-icon {
+  color: #4338ca;
+}
+
+// Card 无边框
+.arco-card {
+  border: none !important;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+}
+
+// Table
+.arco-table-th {
+  background-color: #f9fafb !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+// Input focus
+.arco-input:focus,
+.arco-input-wrapper:focus-within {
+  border-color: #4338ca !important;
+}
+
+// Select
+.arco-select-view:focus,
+.arco-select-view.arco-select-view-focus {
+  border-color: #4338ca !important;
+}
