@@ -6,13 +6,21 @@ GEO 首登分析 Agent：**品牌名 + 官网（可选）→ 完整字段集**�
 - 大模型走**硅基流动** OpenAI 兼容协议，默认模型 `deepseek-ai/DeepSeek-V4-Flash`
 - 选型说明：先以 zero-build CJS 库落地（当前唯一宿主 apps/gen-api 是 CJS Egg；`dist/` 不进工作区快照，避免构建产物丢失）。出现 ESM 消费者（如 Nuxt server route）时再加 tsup 双格式。
 
-## 配置（环境变量）
+## 配置（密钥）
+
+解析优先级：**显式入参 > 环境变量 > `src/dev-keys.js` 内置测试密钥**。
+本仓库为私有仓库，`src/dev-keys.js` 里内置了一组**仅供开发/联调**的测试密钥，开箱即用；
+生产环境只需在部署环境里设置同名环境变量即可自动覆盖（内置值不会生效）。
+需要验证"无密钥降级"行为时设 `GEO_DISABLE_DEV_KEYS=1` 屏蔽内置值。
+
+> ⚠️ 上生产前请把 `src/dev-keys.js` 的值清空或替换，并确保运行环境注入了真实密钥。
 
 | 变量 | 必填 | 说明 |
 |---|---|---|
-| `SILICONFLOW_API_KEY` | ✅ | 硅基流动密钥，**只走环境变量，不进代码库** |
+| `SILICONFLOW_API_KEY` | ✅ | 硅基流动密钥（dev-keys.js 已内置测试值，生产用 env 覆盖） |
 | `SILICONFLOW_BASE_URL` | | 默认 `https://api.siliconflow.cn/v1` |
 | `SILICONFLOW_MODEL` | | 默认 `deepseek-ai/DeepSeek-V4-Flash` |
+| `GEO_DISABLE_DEV_KEYS` | | 设为 `1` 时忽略 `src/dev-keys.js` 内置密钥（测试降级路径用） |
 | `TAVILY_API_KEY` | | 联网取证（`web_research` 工具循环）。配置后 DeepSeek 经 `web_search` 工具调 **Tavily** 真实检索，结果标 `search_grounded: true`；未配置不联网、诚实标 `llm_estimate`。basic 档 1 credit/次，免费额度 1000 credits/月 |
 
 > 热度验证（候选问题按真实命中量重排）的 Provider **暂缺**：SerpAPI 已停用、Bing Search API 已于 2025-08-11 退役、Tavily 不返回总命中数（语义不匹配）。当前 `weight_source` 恒为 `llm_estimate`，自建搜索就绪后在 `src/search.js` 的 `createSearchProvider` 恢复分支即可（返回 `{ name, query(q) → number\|null }`）。
@@ -22,7 +30,7 @@ GEO 首登分析 Agent：**品牌名 + 官网（可选）→ 完整字段集**�
 ```js
 const { createSiliconFlowClient, runOnboarding, persistResult } = require('@geo-admin/geo-agent');
 
-const llm = createSiliconFlowClient({ apiKey: process.env.SILICONFLOW_API_KEY });
+const llm = createSiliconFlowClient({}); // 不传则按 env > dev-keys.js 内置测试密钥解析
 const result = await runOnboarding(
   { llm },                                   // searchProvider? fetchImpl? 可选
   { brand_name: 'HANYUAI 图像助理', website: 'hanyuai.com', query_limit: 8 },
@@ -50,5 +58,5 @@ DeepSeek/硅基流动的 OpenAI 兼容接口没有"联网开关"参数；联网�
 
 ```bash
 pnpm --filter @geo-admin/geo-agent test          # 离线契约桩（含工具循环场景，零网络）
-SILICONFLOW_API_KEY=sk-*** pnpm --filter @geo-admin/geo-agent test:live   # 真机
+pnpm --filter @geo-admin/geo-agent test:live     # 真机（默认用 dev-keys.js 内置测试密钥；可用 env 覆盖）
 ```

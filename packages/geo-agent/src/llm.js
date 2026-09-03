@@ -4,8 +4,10 @@
  * 端点：POST {baseURL}/chat/completions   默认模型：deepseek-ai/DeepSeek-V4-Flash
  * 契约：chatJson 强制 JSON 输出（response_format json_object，400 时不带该参数自动降级重试）；
  *       chatStream 走 SSE(stream:true) 逐 token 回调，用于过程实况/长文生成。
- * 密钥只从宿主注入（env SIICONFLOW_API_KEY），本库不落任何默认密钥。
+ * 密钥解析：显式入参 > 环境变量 SILICONFLOW_API_KEY > src/dev-keys.js 内置测试密钥（私有仓库，生产用 env 覆盖）。
  */
+
+const { resolveKey } = require('./dev-keys');
 
 function extractJson(content) {
   if (!content) return null;
@@ -17,9 +19,9 @@ function extractJson(content) {
 }
 
 function createSiliconFlowClient(opts = {}) {
-  const apiKey = opts.apiKey || process.env.SILICONFLOW_API_KEY || '';
-  const baseURL = (opts.baseURL || process.env.SILICONFLOW_BASE_URL || 'https://api.siliconflow.cn/v1').replace(/\/+$/, '');
-  const model = opts.model || process.env.SILICONFLOW_MODEL || 'deepseek-ai/DeepSeek-V4-Flash';
+  const apiKey = resolveKey('SILICONFLOW_API_KEY', opts.apiKey);
+  const baseURL = resolveKey('SILICONFLOW_BASE_URL', opts.baseURL).replace(/\/+$/, '');
+  const model = resolveKey('SILICONFLOW_MODEL', opts.model);
   const doFetch = opts.fetchImpl || globalThis.fetch;
   if (!doFetch) throw new Error('geo-agent: 需要 Node>=20 的全局 fetch，或由宿主注入 fetchImpl');
 

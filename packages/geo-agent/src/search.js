@@ -1,14 +1,16 @@
 'use strict';
 /**
- * 搜索（可插拔，密钥只走环境变量，严禁入库）：
+ * 搜索（可插拔；密钥优先级：显式入参 > 环境变量 > src/dev-keys.js 内置测试密钥）：
  *  - 联网取证 createWebSearch：Tavily（LLM 专用检索，返回清洗后正文而非 SERP 摘要）
  *      · 工具循环里 DeepSeek 主动调 web_search → 本模块执行真实 Tavily 检索 → 结果回填
- *      · 未配 TAVILY_API_KEY 返回 null（调用侧降级不联网，诚实标 llm_estimate）
+ *      · 密钥解析：显式入参 > env TAVILY_API_KEY > src/dev-keys.js 内置测试密钥；全部为空才返回 null（降级不联网，诚实标 llm_estimate）
  *  - 热度验证 createSearchProvider：现阶段无 Provider（诚实降级 llm_estimate）
  *      · Tavily 不返回"总命中数"，与热度语义不匹配，不挪用
  *      · Bing Search API 已于 2025-08-11 退役（存量 key 全部失效）；SerpAPI 待定
  *      · 自建搜索就绪后：恢复/新增分支，返回 { name, query(q) -> number|null } 即可
  */
+
+const { resolveKey } = require('./dev-keys');
 
 function createSearchProvider(opts = {}) {
   void opts; // 现阶段恒 null；保留入参签名，自建搜索接入时恢复下方分支
@@ -68,7 +70,7 @@ async function reweightBySearch(candidates, provider, trace) {
  */
 function createWebSearch(opts = {}) {
   const fetchImpl = opts.fetchImpl || globalThis.fetch;
-  const tavilyKey = opts.tavilyKey || process.env.TAVILY_API_KEY || '';
+  const tavilyKey = resolveKey('TAVILY_API_KEY', opts.tavilyKey);
   const limit = opts.limit || 6;
 
   if (tavilyKey) {

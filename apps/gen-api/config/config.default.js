@@ -1,4 +1,6 @@
 'use strict';
+const { resolveKey } = require('@geo-admin/geo-agent');
+
 module.exports = () => ({
   mongoose: {
     client: {
@@ -10,12 +12,15 @@ module.exports = () => ({
   security: { csrf: { enable: false } }, // API 走 JWT Bearer，无表单 CSRF 面
   keys: 'geo-secret',
   deepseek: { apiKey: process.env.DEEPSEEK_API_KEY || '' },
-  // 首登分析 Agent（packages/geo-agent）：硅基流动 OpenAI 兼容协议。密钥只走环境变量，严禁入库。
+  // 首登分析 Agent（packages/geo-agent）：硅基流动 OpenAI 兼容协议。
+  // 密钥优先级：环境变量 > packages/geo-agent/src/dev-keys.js 内置测试密钥（私有仓库开发用，生产用 env 覆盖）。
   siliconflow: {
-    apiKey: process.env.SILICONFLOW_API_KEY || '',
-    baseURL: process.env.SILICONFLOW_BASE_URL || 'https://api.siliconflow.cn/v1',
-    model: process.env.SILICONFLOW_MODEL || 'deepseek-ai/DeepSeek-V4-Flash',
+    apiKey: resolveKey('SILICONFLOW_API_KEY'),
+    baseURL: resolveKey('SILICONFLOW_BASE_URL'),
+    model: resolveKey('SILICONFLOW_MODEL'),
   },
+  // 联网取证（Tavily）：同样支持 env 覆盖内置测试密钥，未配置则降级不联网
+  tavily: { apiKey: resolveKey('TAVILY_API_KEY') },
   // Agent 交互约束：免费版候选问题确认上限（对齐对标 free 套餐 query_limit=3）
   geoAgent: { freeQueryLimit: Number(process.env.GEO_FREE_QUERY_LIMIT || 3) },
   // CORS 兜底（前端直连场景；nitro 代理路径下同源不需要但无害）

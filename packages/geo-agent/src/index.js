@@ -14,8 +14,10 @@ const { persistResult } = require('./persist');
 const { crawlPage } = require('./crawl');
 const { sanitizePreview } = require('./sanitize');
 const { normalizeProfile, normalizeCandidates, normalizeLibraryDoc } = require('./normalize');
+const { DEV_KEYS, resolveKey, devKeysEnabled } = require('./dev-keys');
 
 module.exports = {
   createSiliconFlowClient, createSearchProvider, createWebSearch, runOnboarding, persistResult, crawlPage,
   sanitizePreview, normalizeProfile, normalizeCandidates, normalizeLibraryDoc,
+  DEV_KEYS, resolveKey, devKeysEnabled,
 };

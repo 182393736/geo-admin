@@ -19,8 +19,9 @@ docs/                         接口分析 · 业务闭环 · 数据库设计 ·
 ```bash
 pnpm install
 pnpm dev:web        # 用户后台 web（默认 mock 数据，http://localhost:5173）
-pnpm dev:api        # 后端（需 MONGO_URL / SILICONFLOW_API_KEY，或 node scripts/dev-memory.js 内存库）
-                    #   可选 TAVILY_API_KEY：首登 Agent 联网取证（不配则诚实降级 llm_estimate）
+pnpm dev:api        # 后端（需 MONGO_URL，或 node scripts/dev-memory.js 内存库）
+                    #   LLM/联网取证密钥已内置于 packages/geo-agent/src/dev-keys.js（私有仓库测试用，开箱即用）
+                    #   生产：设置 SILICONFLOW_API_KEY / TAVILY_API_KEY 环境变量即自动覆盖内置值
 pnpm dev:site       # 官网 gen-user-site（http://localhost:3002）
 ```
 

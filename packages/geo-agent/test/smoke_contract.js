@@ -155,7 +155,13 @@ async function main() {
   assert.strictEqual(tavilyResults[1].snippet, '正文B');
   assert.ok(tavilyResults.every(r => r.title && r.url), 'title/url 契约');
   // 降级链：无 TAVILY_API_KEY → webSearch null；热度 Provider 现阶段恒 null（SerpAPI/Bing 已停用）
+  // dev-keys.js 内置了测试用 TAVILY_API_KEY，验证"无密钥降级"路径需显式关闭内置值
+  process.env.GEO_DISABLE_DEV_KEYS = '1';
+  const savedTavily = process.env.TAVILY_API_KEY;
+  delete process.env.TAVILY_API_KEY;
   assert.strictEqual(createWebSearch({ fetchImpl: tavilyFetch }), null, '未配 TAVILY_API_KEY → null 不联网');
+  delete process.env.GEO_DISABLE_DEV_KEYS;
+  if (savedTavily) process.env.TAVILY_API_KEY = savedTavily;
   assert.strictEqual(createSearchProvider({ serpApiKey: 'x', bingKey: 'y' }), null, '热度 Provider 恒 null → 诚实 llm_estimate');
 
   console.log('CONTRACT OK: 完整字段集 + 联网工具循环（tool-calling）+ Tavily 执行器三条路径全部通过');

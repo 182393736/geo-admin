@@ -1,20 +1,22 @@
 'use strict';
 /**
- * 真机验证（需要 SILICONFLOW_API_KEY；可选 TAVILY_API_KEY 开联网取证）：
- *   SILICONFLOW_API_KEY=sk-xxx TAVILY_API_KEY=tvly-xxx node test/live_run.js [品牌名] [官网]
+ * 真机验证：密钥按 env > src/dev-keys.js 内置测试密钥解析，直接跑即可
+ *   node test/live_run.js [品牌名] [官网]
+ *   覆盖密钥：SILICONFLOW_API_KEY=sk-xxx TAVILY_API_KEY=tvly-xxx node test/live_run.js
  * 默认样本：HANYUAI 图像助理 / hanyuai.com
  */
 const { createSiliconFlowClient, createWebSearch, runOnboarding } = require('../src/index');
 
 async function main() {
-  if (!process.env.SILICONFLOW_API_KEY) {
-    console.error('缺少 SILICONFLOW_API_KEY（export 后再跑）');
+  const { resolveKey } = require('../src/dev-keys');
+  if (!resolveKey('SILICONFLOW_API_KEY')) {
+    console.error('缺少 SILICONFLOW_API_KEY（export 后再跑，或恢复 src/dev-keys.js 内置值）');
     process.exit(1);
   }
   const brand_name = process.argv[2] || 'HANYUAI 图像助理';
   const website = process.argv[3] || 'hanyuai.com';
   const llm = createSiliconFlowClient({});
-  const webSearch = createWebSearch({}); // 未配 TAVILY_API_KEY 时为 null → 不联网、诚实 llm_estimate
+  const webSearch = createWebSearch({}); // 无任何 Tavily 密钥时为 null → 不联网、诚实 llm_estimate
   console.log(`run: brand=${brand_name} site=${website} model=${llm.model} webSearch=${webSearch ? webSearch.name : 'off'}`);
 
   const t0 = Date.now();
