@@ -49,6 +49,29 @@ await persistResult(models, {                // models = egg-mongoose 的 ctx.mo
 ## 事件流（onEvent / SSE）
 
 `stage(crawl→analyze→queries→weigh→library→done)`、`trace`（kind ∈ search_query/page_read/keyword_weight/llm_output，user_confirm 在 persist 侧）、`profile`、`candidates`、`library`、`done`。
+`candidates` 事件额外带 `filtered_out`：因含品牌名被闸门剔除的条数。
+
+## 监控问题「品牌中立」硬约束
+
+监控问题一律**行业中立**：不得出现品牌名、别名、英文名、公司主体名、官网域名主体。
+理由——客户测的是「行业里的真实用户问 AI 时，AI 会不会主动提到我的品牌」；
+问题里一旦带了品牌名，AI 必然顺着提到该品牌，提及率/排名/口碑全部失真（自问自答），监测失去意义。
+因此**不再产出 `query_type='brand'` 口碑题**，口碑改由中立问题里 AI **自发提及**的品牌拆解得出。
+
+提示词（`NEUTRAL_RULES`）之外还有代码级兜底 `src/neutral.js`：
+
+| 导出 | 作用 |
+|---|---|
+| `buildBrandTokens({name, company, aliases, website, extra})` | 构造归一化黑名单（全角→半角、转小写、去空白标点）；`GENERIC` 通用词豁免，防品牌名叫「智能」时误杀正常问法 |
+| `findBrandToken(text, tokens)` / `findBrandTokenInCandidate(c, tokens)` | 命中返回具体指纹，否则 `null` |
+| `filterBrandMentions(candidates, tokens)` / `filterBrandMentionStrings(list, tokens)` | 批量过闸门 → `{ kept, dropped }`（宿主侧自己生成问题时应复用同一口径） |
+
+- `normalizeCandidates(raw, { limit, brandTokens, onDrop })` 传入 `brandTokens` 即启用剔除。
+  检查范围覆盖 `query` / `platform_prompt` / `question_list[].user_friendly` / `question_list[].platform_query`。
+- `run.js` 与 `sanitizePreview` **都已接入**：后者是防用户在确认落库前手工塞自问自答题把指标做假。
+- 剔除后不足 3 条会自动带被剔样本重试一轮（最多一次），避免候选清零。
+- 剔除动作落 `onboarding_traces`（kind=`llm_output`, meta.step=`queries_brand_filter`），供 badcase 归因。
+- 黑名单**不含产品名与关键词**：产品名常与品类词重合（「图生图」「图像助理」），纳入会误杀正常行业问法。
 
 ## 联网取证（Function Calling，非托管开关）
 

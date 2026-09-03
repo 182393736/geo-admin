@@ -49,8 +49,9 @@ async function main() {
       'Canva AI', // 字符串形态兼容
     ],
     keywords: ['AI绘图', '图生图', '科研配图'],
-    industry_queries: ['免费AI绘图工具哪个好用', '在线AI生成图片用什么工具', '科研论文配图用什么工具画'],
-    brand_queries: ['HANYUAI 图像助理怎么样，口碑好不好'],
+    // 后 2 条是「模型不守中立约束」的固定用例：分别踩中品牌名与别名 → 必须被中立闸门剔除，不落库
+    industry_queries: ['免费AI绘图工具哪个好用', '在线AI生成图片用什么工具', '科研论文配图用什么工具画',
+      'HANYUAI 图像助理怎么样，口碑好不好', '涵语AI好不好用'],
   };
   const DeepseekProto = app.serviceClasses.llm.deepseek.prototype;
   const originChatJson = DeepseekProto.chatJson;
@@ -68,11 +69,11 @@ async function main() {
   assert.strictEqual(comps[2].compet_point, '', '字符串形态竞品 compet_point 为空串');
 
   const qs = await M('MonitorQuery').find({ brand_id: b1 }).sort({ query_id: 1 }).lean();
-  assert.strictEqual(qs.length, 4, '监控问题 3 行业 + 1 口碑');
+  assert.strictEqual(qs.length, 3, '5 条候选落库 3 条：含品牌名/别名的 2 条被中立闸门剔除');
   assert.ok(qs.every(q => q.platform_prompt === q.query), 'platform_prompt 默认应等于 query');
   assert.ok(qs.every(q => q.task_id === t1), 'task_id 溯源应写入');
-  assert.strictEqual(qs[0].query_type, 'industry');
-  assert.strictEqual(qs[3].query_type, 'brand');
+  assert.ok(qs.every(q => q.query_type === 'industry'), '监控问题一律行业中立，不再落 brand 口碑题');
+  assert.ok(qs.every(q => !/hanyuai|涵语/i.test(q.query)), '落库问题不得含品牌名/别名（避免自问自答）');
   assert.ok(qs[0].query_id > 0, 'query_id 自增序列');
 
   // ---- 实测契约字段直写回读：golden_query_ranking 为引擎映射对象（旧 Number 类型的修正点） ----
@@ -97,6 +98,7 @@ async function main() {
   const qs2 = await M('MonitorQuery').find({ brand_id: b2 }).lean();
   assert.ok(qs2.length >= 5, '降级路径模板合成行业问题');
   assert.ok(qs2.every(q => q.platform_prompt === q.query), '降级路径 platform_prompt 也应默认=query');
+  assert.ok(qs2.every(q => !q.query.includes('测试降级品牌')), '降级路径模板问题同样不得含品牌名');
 
   // ================= 场景3：brand_library / onboarding_trace 契约字段 =================
   const lib = await M('BrandLibrary').create({

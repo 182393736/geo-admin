@@ -111,23 +111,33 @@
 - **触发**：onboarding query 段 · **落库**：`monitor_queries`（8 条内，遵守 subscription.query_limit）+ `mined_topics`（候选池多余部分 status=candidate）
 - **temperature**: 0.4
 
+> **⚠️ 口径变更（重要）**：监控问题**一律行业中立，不得出现品牌名/别名/英文名/公司主体名/官网域名**。
+> 客户要测的是「行业里的真实用户问 AI 时，AI 会不会主动提到我的品牌」——问题里一旦带了品牌名，
+> AI 必然顺着提到该品牌，提及率/排名/口碑全部失真（等于自问自答），监测就失去意义。
+> 因此**不再产出 `query_type='brand'` 的口碑题**；口碑改由中立问题里 AI **自发提及**的品牌拆解得出（流水线 B）。
+> 该约束不只写在提示词里，还有**代码级硬闸门**兜底（见下）。
+
 **System**
 ```
-你是中文 AI 搜索行为研究专家。要为一个品牌生成「真实用户会向 AI 助手提的采购类问题」。
-每个问题输出两种形态：
+你是中文 AI 搜索行为研究专家。为「AI 搜索可见性监测」生成监控问题候选集：
+模拟一个不认识该品牌的普通用户向 AI 助手提问，用来观察 AI 会不会自己提到该品牌。
+每条问题输出两种形态：
 - user_friendly：给用户看的短形态（名词+需求，如"礼堂椅厂家推荐"）
 - platform_query：实际发给 AI 的完整问句（带采购场景，如"采购礼堂椅厂家推荐"）
-问题分两类：industry（品类对比/厂家推荐类，喂排名监测）、brand（直接问该品牌口碑，如"XX怎么样，口碑好不好"）。
-禁止生成带绝对化词汇（最好/第一）和违规词的问句。
+【硬性禁止】query / user_friendly / platform_query 三段文本里都不得出现：品牌名、品牌简称或别名、英文名、公司主体名、产品名。
+  反例（禁止）：「XX怎么样，口碑好不好」「XX和YY哪个好用」「XX官网入口」
+  正例（照此写）：「礼堂椅厂家推荐」「报告厅座椅怎么选」「学校课桌椅采购要注意什么」
+【角度覆盖】品类推荐 / 场景选型 / 功能对比 / 价格预算 / 避坑评价，尽量分散。
+禁止生成带绝对化词汇（最好/第一/最强）和违规词的问句。
 ```
 
 **User 模板**
 ```
-品牌：{company_name}（别名：{aliases}）
+品牌（仅用于理解业务，禁止出现在问题里）：{company_name}
 行业关键词：{keywords}
 客群：{target_customers}
-请生成 {quota} 条监控问题（industry 题占大多数，brand 题至少 1 条），
-每条附 intent 分类与 weight(1~5 优先级)。
+【禁止出现的词】{brand_tokens}（含大小写变体、简称与中英文混写）
+请生成 {quota} 条监控问题，全部为行业中立问法，每条附 intent 分类与 weight(1~10 热度)。
 ```
 
 **输出结构（对齐实测 `/query/list` 字段）**
@@ -138,14 +148,30 @@
       "query_type": "industry",
       "question_list": [{"user_friendly": "礼堂椅厂家推荐", "platform_query": "采购礼堂椅厂家推荐"}],
       "intent": "厂家推荐",
-      "weight": 5
+      "weight": 10
     },
-    { "query_type": "brand",
-      "question_list": [{"user_friendly": "宏祥盛誉口碑", "platform_query": "宏祥盛誉怎么样，口碑好不好"}],
-      "intent": "口碑调研", "weight": 5 }
+    {
+      "query_type": "industry",
+      "question_list": [{"user_friendly": "报告厅座椅怎么选", "platform_query": "报告厅座椅怎么选，有哪些注意事项"}],
+      "intent": "场景选型",
+      "weight": 8
+    }
   ]
 }
 ```
+
+**代码级硬闸门（提示词之外的兜底，实现在 `packages/geo-agent/src/neutral.js`）**
+
+LLM 不保证听话，所以生成后必须再过一遍黑名单：
+
+| 环节 | 做法 |
+|---|---|
+| 黑名单构造 | `buildBrandTokens({ name, company, aliases, website, extra })` → 品牌名 + 公司主体 + 别名 + 官网域名主体 + 用户原始入参，归一化（全角→半角、转小写、去空白标点）后去重 |
+| 通用词豁免 | 品牌名恰好叫「智能」「推荐」这类词时不进黑名单，避免误杀正常行业问法 |
+| 剔除范围 | 一条候选的 `query` / `platform_prompt` / `question_list[].user_friendly` / `question_list[].platform_query` 任一命中即整条剔除 |
+| 剔除留痕 | `onboarding_traces`（kind=`llm_output`, meta.step=`queries_brand_filter`）记录被剔问题与命中的指纹，供 badcase 归因 |
+| 纠偏重试 | 剔除后不足 3 条时，带被剔样本再要一轮（最多一次），避免候选清零 |
+| 确认前复检 | 浏览器回传的 `preview` 属不可信输入，`sanitizePreview` 用重建后的画像再过一遍闸门，防止用户手工塞自问自答题把指标做假 |
 
 ---
 
