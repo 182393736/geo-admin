@@ -29,6 +29,9 @@ const canned = {
   queries: { candidates: [
     { query: '免费AI绘图工具哪个好用', query_type: 'industry', weight: 10, is_golden: true, query_description: '高热度 · 工具选择' },
     { query: '科研论文配图用什么工具画', query_type: 'industry', weight: 8, is_golden: true, query_description: '核心场景 · 科研绘图' },
+    { query: 'AI图生图工具有哪些推荐', query_type: 'industry', weight: 6, query_description: '功能对比 · 图生图' },
+    { query: '在线AI生成图片用什么工具', query_type: 'industry', weight: 5, query_description: '场景决策' },
+    // 模型不守中立约束的固定用例：含品牌名 → 必须被闸门剔除，既不出现在 result 也不落库
     { query: 'HANYUAI口碑怎么样', query_type: 'brand', weight: 4, query_description: '品牌口碑 · 综合' },
   ] },
 };
@@ -69,9 +72,11 @@ async function main() {
   assert.strictEqual(r1.status, 200, `run 200，实际 ${r1.status}: ${JSON.stringify(r1.body).slice(0, 300)}`);
   const { result, saved } = r1.body.data;
   assert.strictEqual(result.brand.name, 'HANYUAI 图像助理');
-  assert.strictEqual(result.candidates.length, 3);
+  assert.strictEqual(result.candidates.length, 4, '含品牌名的候选被中立闸门剔除（5 → 4）');
+  assert.ok(result.candidates.every(c => !/hanyuai/i.test(c.query) && c.query_type === 'industry'),
+    '候选一律行业中立、不含品牌名');
   assert.strictEqual(result.library_doc.source, '品牌挖掘');
-  assert.ok(saved.counts.queries === 3 && saved.counts.competitors === 1 && saved.counts.library === 1, '落库计数');
+  assert.ok(saved.counts.queries === 4 && saved.counts.competitors === 1 && saved.counts.library === 1, '落库计数');
   const brandId = saved.brand_id;
 
   const M = n => app.mongoose.model(n);
@@ -82,7 +87,8 @@ async function main() {
   assert.strictEqual(comps[0].source, '品牌挖掘');
   assert.ok(comps[0].compet_point.includes('·'));
   const qs = await M('MonitorQuery').find({ brand_id: brandId }).sort({ weight: -1 }).lean();
-  assert.strictEqual(qs.length, 3);
+  assert.strictEqual(qs.length, 4, '含品牌名的问题不落库');
+  assert.ok(qs.every(q => q.query_type === 'industry' && !/hanyuai/i.test(q.query)), 'monitor_queries 全部中立');
   assert.strictEqual(qs[0].platform_prompt, qs[0].query);
   assert.strictEqual(qs[0].query_description, '高热度 · 工具选择');
   assert.ok(qs[0].query_id > 0, 'query_id 自增');

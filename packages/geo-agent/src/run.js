@@ -10,6 +10,7 @@
 const { crawlPage } = require('./crawl');
 const { profilePrompts, queriesPrompts, libraryPrompts } = require('./prompts');
 const { normalizeProfile, normalizeCandidates, normalizeLibraryDoc } = require('./normalize');
+const { buildBrandTokens } = require('./neutral');
 const { reweightBySearch } = require('./search');
 
 /**
@@ -73,15 +74,44 @@ async function runOnboarding(deps, input, onEvent) {
   const profile = normalizeProfile(prof.data, input);
   if (onEvent) onEvent({ type: 'profile', brand: profile.brand, competitors: profile.competitors.length, aliases: profile.aliases });
 
-  // ---- 3. 监控问题候选 ----
+  // ---- 3. 监控问题候选（一律行业中立：不得含品牌名/别名/公司名/域名主体） ----
   stage('queries');
   const limit = Math.max(3, Math.min(10, parseInt(input.query_limit, 10) || 8));
-  const qp = queriesPrompts(profile, profile.keywords, limit);
-  if (evidence) qp.user += `\n\n联网检索证据要点：\n${evidence.slice(0, 1500)}`;
-  const qr = await deps.llm.chatJson({ system: qp.sys, user: qp.user, schemaHint: qp.schemaHint });
-  usage.push({ step: 'queries', usage: qr.usage });
-  push('llm_output', {}, { step: 'queries', input_chars: qp.user.length, raw_chars: (qr.content || '').length });
-  let candidates = normalizeCandidates(qr.data, { limit });
+  // 品牌指纹黑名单 = 画像品牌名 + 公司主体 + 别名 + 官网域名主体 + 用户原始入参
+  const brandTokens = buildBrandTokens({
+    name: profile.brand.name,
+    company: profile.brand.company,
+    aliases: profile.aliases,
+    website: profile.profile.website || profile.brand.website,
+    extra: [input.brand_name],
+  });
+  const ask = Math.min(12, limit + 2);  // 多要 2 条，给闸门剔除留余量
+  const drops = [];                     // 被闸门剔除的问法（留痕用）
+  const genOnce = async (retryNote, want) => {
+    const qp = queriesPrompts(profile, profile.keywords, want, { forbidden: brandTokens, retryNote });
+    if (evidence) qp.user += `\n\n联网检索证据要点：\n${evidence.slice(0, 1500)}`;
+    const qr = await deps.llm.chatJson({ system: qp.sys, user: qp.user, schemaHint: qp.schemaHint });
+    usage.push({ step: 'queries', usage: qr.usage });
+    push('llm_output', {}, { step: 'queries', input_chars: qp.user.length, raw_chars: (qr.content || '').length });
+    return normalizeCandidates(qr.data, {
+      limit, brandTokens,
+      onDrop: (c, token) => drops.push({ query: c.query, token }),
+    });
+  };
+  let candidates = await genOnce('', ask);
+  // 纠偏重试（最多一次）：剔除后所剩无几，说明模型没守住中立约束 → 带上被剔样本再要一轮
+  if (candidates.length < Math.min(3, limit) && drops.length) {
+    const firstRoundDrops = drops.length;
+    const retryNote = `\n\n【上一轮不合格的问法（含品牌信息，禁止再出现同类写法）】${drops.slice(0, 5).map(d => d.query).join('；')}\n请全部改写为不含品牌名的行业中立问法。`;
+    candidates = await genOnce(retryNote, ask);
+    push('llm_output', {}, { step: 'queries_retry', dropped_first_round: firstRoundDrops, kept_after: candidates.length });
+  }
+  if (drops.length) {
+    push('llm_output', {}, {
+      step: 'queries_brand_filter', kept: candidates.length, dropped_total: drops.length,
+      dropped: drops.slice(0, 10).map(d => ({ query: String(d.query || '').slice(0, 120), hit: d.token })),
+    });
+  }
 
   // ---- 4. 热度验证（配置了搜索 key 才真实重排，否则诚实标记 llm_estimate） ----
   stage('weigh');
@@ -89,7 +119,8 @@ async function runOnboarding(deps, input, onEvent) {
   for (const c of candidates) {
     push('keyword_weight', { keyword: c.query, weight: c.weight }, { source, is_golden: c.is_golden, query_description: c.query_description });
   }
-  if (onEvent) onEvent({ type: 'candidates', count: candidates.length, weight_source: source, candidates });
+  // filtered_out：因含品牌名被闸门剔除的条数（前端可据此提示「已自动改写为中立问法」）
+  if (onEvent) onEvent({ type: 'candidates', count: candidates.length, weight_source: source, filtered_out: drops.length, candidates });
 
   // ---- 5. 情报文（知识库 text 文档，长文本不走 JSON Mode） ----
   stage('library');

@@ -6,6 +6,7 @@
  */
 
 const { normalizeProfile, normalizeCandidates, normalizeLibraryDoc } = require('./normalize');
+const { buildBrandTokens } = require('./neutral');
 
 const TRACE_KINDS = new Set(['search_query', 'page_read', 'keyword_weight', 'llm_output', 'user_confirm']);
 const str = (x, max) => (typeof x === 'string' && x ? x.slice(0, max) : undefined);
@@ -44,7 +45,15 @@ function sanitizePreview(p) {
     platform_query: (c && c.platform_query) || (c && c.question_list && c.question_list[0] && c.question_list[0].platform_query),
     user_friendly: (c && c.user_friendly) || (c && c.question_list && c.question_list[0] && c.question_list[0].user_friendly),
   }));
-  const candidates = normalizeCandidates({ candidates: rawCandidates }, { limit: 10 });
+  // 品牌中立闸门：浏览器回传的 preview 属不可信输入，按重建后的画像再过一遍黑名单
+  // （否则用户可在确认前手工塞进「XX品牌怎么样」这类自问自答题，把监测指标做假）
+  const brandTokens = buildBrandTokens({
+    name: norm.brand.name,
+    company: norm.brand.company,
+    aliases: norm.aliases,
+    website: norm.profile.website || norm.brand.website,
+  });
+  const candidates = normalizeCandidates({ candidates: rawCandidates }, { limit: 10, brandTokens });
 
   // 情报文段：正文重新计字数；slug 由品牌名重新生成（幂等 upsert 键）
   const lib0 = p.library_doc || {};

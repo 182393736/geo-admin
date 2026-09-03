@@ -75,7 +75,7 @@
             <div v-for="(c, i) in m.candidates" :key="c.query" class="trial-tc">
               <span class="trial-tc-num">{{ i + 1 }}</span>
               <div style="flex:1">
-                <div class="trial-tc-dim">{{ c.is_golden ? '★ 金标 · ' : '' }}热度 {{ c.weight }} · {{ c.query_type === 'industry' ? '行业' : '口碑' }}<template v-if="c.query_description"> · {{ c.query_description }}</template></div>
+                <div class="trial-tc-dim">{{ c.is_golden ? '★ 金标 · ' : '' }}热度 {{ c.weight }} · 行业中立<template v-if="c.query_description"> · {{ c.query_description }}</template></div>
                 <div class="trial-tc-q">{{ c.query }}</div>
               </div>
             </div>
@@ -108,7 +108,7 @@
             <span class="trial-cp-dismiss" @click="skipConfirm">暂不选择</span>
           </div>
           <div class="trial-cp-body">
-            <div class="trial-cp-title">AI 推荐 · 按搜索热度排序</div>
+            <div class="trial-cp-title">AI 推荐 · 按搜索热度排序（均为不含品牌名的行业中立问法）</div>
             <div
               v-for="c in preview.candidates"
               :key="c.query"
@@ -121,7 +121,7 @@
               <div class="trial-bc-desc">引擎发问口径：{{ c.question_list?.[0]?.platform_query || c.query }}</div>
               <div class="trial-bc-tags">
                 <span class="trial-bc-tag">热度 {{ c.weight }}</span>
-                <span class="trial-bc-tag">{{ c.query_type === 'industry' ? '行业排名' : '品牌口碑' }}</span>
+                <span class="trial-bc-tag">行业排名</span>
                 <span v-if="c.is_golden" class="trial-bc-tag">金标</span>
               </div>
             </div>
@@ -367,7 +367,9 @@ function onEvent(ev: string, data: any) {
   }
   if (ev === 'candidates' && Array.isArray(data?.candidates)) {
     closeBlock()
-    push({ type: 'ai', text: `基于真实提问习惯生成了 ${data.count} 条候选监控问题，热度 ${data.weight_source === 'real_search' ? '已由搜索数据验证' : '为模型预估'}，按热度从高到低：`, })
+    // 问题一律行业中立：带品牌名的问法会让 AI 必然提到该品牌，监测结果失真，已在服务端剔除
+    const filtered = data.filtered_out ? `另有 ${data.filtered_out} 条含品牌名的问法已自动剔除。` : ''
+    push({ type: 'ai', text: `基于真实提问习惯生成了 ${data.count} 条候选监控问题（均为不含品牌名的行业中立问法），热度${data.weight_source === 'real_search' ? '已由搜索数据验证' : '为模型预估'}，按热度从高到低：${filtered}` })
     push({ type: 'topics', candidates: data.candidates })
     return
   }

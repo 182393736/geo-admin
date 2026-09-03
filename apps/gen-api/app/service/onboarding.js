@@ -9,6 +9,8 @@
  * 无 DEEPSEEK_API_KEY 时走确定性降级解析，保证链路可演示。
  */
 const { Service } = require('egg');
+// 监控问题「品牌中立」闸门：与 packages/geo-agent 共用同一套黑名单口径
+const { buildBrandTokens, findBrandToken, filterBrandMentionStrings, NEUTRAL_RULES } = require('@geo-admin/geo-agent');
 
 class OnboardingService extends Service {
   /** 开启一次首次分析。返回 { task_id, brand_id } */
@@ -113,6 +115,21 @@ class OnboardingService extends Service {
     const parsed = await this.analyzeWithLLM(actx, input, siteTitle)
       .catch(() => this.fallbackParse(input, siteTitle));
 
+    // ---- 阶段2.5 品牌中立闸门：问题里不得出现品牌名/别名/公司名 ----
+    // 客户测的是「行业用户问 AI 时，AI 会不会主动提到我」，问题带了品牌名等于自问自答，指标失真
+    const brandTokens = buildBrandTokens({
+      name: parsed.brand_name || input.brand_name,
+      aliases: parsed.aliases,
+      website: input.website,
+      extra: [input.brand_name],
+    });
+    const neutral = filterBrandMentionStrings(parsed.industry_queries || [], brandTokens);
+    if (neutral.dropped.length) {
+      this.app.coreLogger.info('[onboarding] 剔除含品牌名的监控问题 %j',
+        neutral.dropped.map(d => ({ query: d.query, hit: d.token })));
+    }
+    parsed.industry_queries = neutral.kept;
+
     // ---- 阶段3 query：写品牌档案、别名、监控问题 ----
     await M('Brand').updateOne({ brand_id: task.brand_id }, {
       $set: {
@@ -157,15 +174,8 @@ class OnboardingService extends Service {
         query_type: 'industry', query_order: ++order, task_id: taskId,
       });
     }
-    for (const q of parsed.brand_queries || []) {
-      const qid = await this.nextSeq('monitor_query');
-      await M('MonitorQuery').create({
-        query_id: qid, user_id: task.user_id, brand_id: task.brand_id,
-        query: q, question_list: [{ user_friendly: q, platform_query: q }],
-        platform_prompt: q,
-        query_type: 'brand', query_order: ++order, task_id: taskId,
-      });
-    }
+    // 注：不再落 query_type='brand' 的口碑题。口碑题必然含品牌名（「XX怎么样」），
+    // AI 回答必然提到该品牌，等于自问自答；口碑改由中立问题里 AI 自发提及的品牌拆解得出（流水线B）。
 
     // ---- done ----
     await M('Brand').updateOne({ brand_id: task.brand_id }, { $set: { status: 'active' } });
@@ -178,8 +188,8 @@ class OnboardingService extends Service {
   async analyzeWithLLM(actx, input, siteTitle) {
     if (!this.app.config.deepseek.apiKey) throw new Error('no deepseek key, use fallback');
     const { data } = await actx.service.llm.deepseek.chatJson({
-      system: '你是一个品牌信息分析助手。根据用户提供的品牌介绍与官网信息，抽取品牌的核心要素，并为一个“AI 搜索可见性监测平台”生成首批监控问题。',
-      user: `品牌名称：${input.brand_name || '未知'}\n官网：${input.website || '未提供'}${siteTitle ? `（页面标题：${siteTitle}）` : ''}\n品牌介绍：${input.business_desc || '未提供'}\n\n请输出结构化结果。`,
+      system: '你是一个品牌信息分析助手。根据用户提供的品牌介绍与官网信息，抽取品牌的核心要素，并为一个“AI 搜索可见性监测平台”生成首批监控问题。\n\n' + NEUTRAL_RULES,
+      user: `品牌名称（仅用于理解业务，禁止出现在 industry_queries 里）：${input.brand_name || '未知'}\n官网：${input.website || '未提供'}${siteTitle ? `（页面标题：${siteTitle}）` : ''}\n品牌介绍：${input.business_desc || '未提供'}\n\n请输出结构化结果。`,
       schemaHint: `{
   "brand_name": "品牌的正式名称",
   "industry": "所属行业，如 公共家具制造",
@@ -187,8 +197,7 @@ class OnboardingService extends Service {
   "aliases": ["品牌的常用简称/别名，0~3个"],
   "competitors": [{"name": "竞品名称", "compet_point": "一句话竞争定位（品类 · 差异点），如 '电商AI设计工具 · 阿里旗下电商 AI 设计工具，电商场景强'"}, "0~5个"],
   "keywords": ["核心业务关键词，3~6个"],
-  "industry_queries": ["用户会向 AI 提问的行业排名类问题，5~8个，如 '公共座椅厂家推荐'"],
-  "brand_queries": ["关于该品牌口碑的问题，1~2个，如 'XX品牌怎么样，口碑好不好'"]
+  "industry_queries": ["用户会向 AI 提问的行业中立问题，5~8个，如 '公共座椅厂家推荐'；一律不得出现品牌名/别名/公司名"]
 }`,
     });
     return {
@@ -202,15 +211,17 @@ class OnboardingService extends Service {
       ).filter(c => (typeof c === 'string' ? c : c.name)).slice(0, 5),
       keywords: (data.keywords || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 6),
       industry_queries: (data.industry_queries || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 8),
-      brand_queries: (data.brand_queries || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 2),
     };
   }
 
   /** 无 LLM 时的确定性降级：从表单文本提取 + 模板合成监控问题 */
   fallbackParse(input, siteTitle) {
     const name = (input.brand_name || this.guessName(input.business_desc) || '未命名品牌').trim();
+    const tokens = buildBrandTokens({ name, aliases: [], website: input.website, extra: [input.brand_name] });
+    // 母词取自介绍文本，而介绍常以品牌名开头 → 先剔掉含品牌指纹的词，
+    // 否则会合成出「XX厂家推荐」这类自问自答题（下游闸门也会剔，但那样就一条不剩了）
     const kw = (input.business_desc || siteTitle || '产品服务').replace(/[，。,.!！?\s]+/g, ' ').split(' ')
-      .filter(Boolean).slice(0, 4);
+      .filter(Boolean).filter(w => !findBrandToken(w, tokens)).slice(0, 4);
     const head = kw[0] || '产品';
     return {
       brand_name: name,
@@ -223,7 +234,7 @@ class OnboardingService extends Service {
         `${head}厂家推荐`, `${head}品牌哪个好`, `靠谱的${head}供应商有哪些`,
         `${head}怎么选`, `${head}公司排名`,
       ],
-      brand_queries: [`${name}怎么样，口碑好不好`],
+      // 不再生成 brand_queries：口碑题必然含品牌名，会让监测变成自问自答
     };
   }
 
