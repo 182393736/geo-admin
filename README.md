@@ -8,7 +8,6 @@
 apps/
 ├── web       @geo-admin/web        用户后台控制台（Vue3 + Vite + Pinia + Arco Design + ECharts，默认 mock 驱动）
 ├── api       @geo-admin/api        Egg.js + Mongoose 后台（46 model + 3 schedule + 7 pipeline service + LLM 封装）
-├── main-web  @geo-admin/main-web   官网首页（手写复刻版）
 └── gen-site  @geo-admin/gen-site   官网首页（对照线上真实样式表逐像素复刻）
 packages/
 └── geo-agent @geo-admin/geo-agent  首登分析 Agent（纯 CJS 零依赖，硅基流动 + 联网取证）
