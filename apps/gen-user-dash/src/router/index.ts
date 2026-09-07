@@ -8,13 +8,6 @@ const routes = [
     meta: { title: '登录' },
   },
   {
-    // 首次品牌分析：登录后没有任何品牌时强制进入（独立全屏页，不带侧边栏）
-    path: '/trial',
-    name: 'Trial',
-    component: () => import('@/views/trial/index.vue'),
-    meta: { title: '免费分析' },
-  },
-  {
     path: '/',
     component: () => import('@/layout/MainLayout.vue'),
     redirect: '/dashboard/overview',
@@ -220,15 +213,23 @@ export default router;
 
 // 登录守卫 + 首次分析引导：
 //  - 无 token 进登录页；401 后 http.ts 会自动跳出
-//  - 已登录但无品牌（首次未分析）→ 强制 /trial
-//  - 已有品牌访问 /trial → 回到工作台
+//  - 已登录但无品牌（首次未分析）→ 跳到官网 /trial（Nuxt 站，本应用不再自建 /trial 页）
+//  - 已有品牌 → 正常进入工作台
 import { useAuthStore } from '@/stores/auth';
+import { siteTrialUrl } from '@/utils/site';
+
+/** 无品牌 → 整页跳转到官网 /trial（Nuxt），携带 token 免二次登录 */
+function goToTrial(auth: ReturnType<typeof useAuthStore>) {
+  window.location.assign(siteTrialUrl(auth.token));
+  return false;
+}
+
 router.beforeEach(async (to) => {
   const auth = useAuthStore();
   if (to.path === '/login') {
     if (auth.isAuthenticated) {
       await ensureBrands(auth);
-      return { path: auth.hasBrand ? '/dashboard/overview' : '/trial' };
+      return auth.hasBrand ? { path: '/dashboard/overview' } : goToTrial(auth);
     }
     return true;
   }
@@ -236,12 +237,11 @@ router.beforeEach(async (to) => {
 
   await ensureBrands(auth); // 刷新/F5 后会话恢复：从后端拉一次品牌列表
 
+  // 旧书签直接访问后台 /trial：有品牌回工作台，无品牌去官网站
   if (to.path === '/trial') {
-    // 有品牌不允许重复进入引导页（对齐线上反向跳转逻辑）
-    if (auth.hasBrand) return { path: '/dashboard/overview' };
-  } else if (!auth.hasBrand) {
-    return { path: '/trial' };
+    return auth.hasBrand ? { path: '/dashboard/overview' } : goToTrial(auth);
   }
+  if (!auth.hasBrand) return goToTrial(auth);
 
   document.title = `${(to.meta.title as string) || ''} · GEO 管理平台`;
   return true;

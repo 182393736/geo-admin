@@ -38,10 +38,42 @@ function persist(next: AuthUser | null) {
   }
 }
 
+/**
+ * 吸收用户后台（gen-user-dash）跳转带回的登录态：
+ * 后台判定无品牌 → 跳本页 /trial#token=...（hash 不进服务器日志），
+ * 这里在挂载时读出来写入 geo.token + timus.auth，免去二次登录，
+ * 并立即清除 URL 里的 token 防泄漏 / 刷新重复使用。
+ */
+function applyHandoffToken() {
+  try {
+    const m = window.location.hash.match(/[#&]?token=([^&]+)/)
+    if (!m) return
+    const token = decodeURIComponent(m[1])
+    if (!token) return
+    const { setToken } = useGeoApi()
+    setToken(token)
+    // 从 JWT 解出账号（apps/gen-api sign 载荷 { sub, jti, name }），重建最小登录态
+    let account = ''
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+      account = payload?.name || ''
+    } catch { /* 忽略 */ }
+    if (account) {
+      const next: AuthUser = { account, initial: account.slice(0, 1).toUpperCase() }
+      user.value = next
+      persist(next)
+    }
+    const url = new URL(window.location.href)
+    url.hash = url.hash.replace(/[?&]?token=[^&]*/g, '')
+    history.replaceState(null, '', url.pathname + url.search + url.hash)
+  } catch { /* 忽略 */ }
+}
+
 export function useAuth() {
   // 登录态只能在客户端读取；onMounted 后赋值避免 SSR/CSR hydration 不一致回滚。
   onMounted(() => {
     if (!ready.value) {
+      applyHandoffToken() // 后台跳转带回的 token 优先吸收
       user.value = read()
       ready.value = true
     }

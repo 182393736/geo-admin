@@ -90,7 +90,7 @@
             </p>
             <p style="margin:0 0 14px;font-size:12px;color:#999">明日起每日自动采集各 AI 引擎回答，生成排名与口碑报告。</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <a :href="consoleUrl" target="_blank" rel="noopener" class="trial-cp-btn-ok" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;padding:9px 18px;flex:none">前往控制台 →</a>
+              <a :href="consoleLink" target="_blank" rel="noopener" class="trial-cp-btn-ok" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;padding:9px 18px;flex:none">前往控制台 →</a>
               <button class="trial-cp-btn-skip" type="button" @click="reset">再分析一个品牌</button>
             </div>
           </div>
@@ -165,6 +165,12 @@ const { isLoggedIn } = useAuth()
 const authModal = useAuthModal()
 const config = useRuntimeConfig()
 const consoleUrl = String((config.public as Record<string, unknown>).consoleUrl || '#')
+/** 「前往控制台」落地地址：携带 token（#token=）让后台免二次登录 */
+const consoleLink = computed(() => {
+  const base = consoleUrl.split('#')[0]
+  const tk = getToken()
+  return tk ? `${base}#token=${encodeURIComponent(tk)}` : base
+})
 
 const QUICK = ['小鹏汽车', '完美日记', '格力空调', '维乐口腔']
 const quickChips = QUICK

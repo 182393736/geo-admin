@@ -221,6 +221,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { toast } from '@/lib/toast';
+import { siteTrialUrl } from '@/utils/site';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -312,8 +313,12 @@ async function handleSubmit() {
     try {
       const resp = await auth.login(account.value.trim(), password.value);
       toast.success('登录成功', resp?.user?.username ? `欢迎回来，${resp.user.username}` : undefined);
-      // 无品牌（首次未分析）→ 进入 /trial 引导页；有品牌 → 工作台
-      router.push(auth.hasBrand ? '/dashboard/overview' : '/trial');
+      // 无品牌（首次未分析）→ 跳到官网 /trial（Nuxt）；有品牌 → 工作台
+      if (auth.hasBrand) {
+        router.push('/dashboard/overview');
+      } else {
+        window.location.assign(siteTrialUrl(auth.token));
+      }
     } catch (e: any) {
       const msg = e?.message || '网络异常，请确认后端已启动（:7001）';
       errMsg.value = msg;
