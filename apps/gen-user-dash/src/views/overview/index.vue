@@ -4,7 +4,7 @@
     <header class="rp-page-header">
       <div>
         <h1>报告</h1>
-        <p>当前品牌：佛山市宏祥家具实业有限公司 · 周报 每周日截止、月报 每月月末截止后次日自动生成</p>
+        <p>当前品牌：{{ brandName }} · 周报 每周日截止、月报 每月月末截止后次日自动生成</p>
       </div>
       <button class="rp-template-trigger">报告模板 标准版</button>
     </header>
@@ -17,15 +17,16 @@
           <div class="ov2-mark">佛</div>
           <div class="ov2-hero-id">
             <div class="ov2-brand">
-              佛山市宏祥家具实业有限公司
-              <span class="ov2-live normal" title="采集槽位 35/35，完整度 100.0%"><i></i>采集正常</span>
+              {{ brandName }}
+              <span v-if="pendingCollection" class="ov2-live wait" title="首次采集将于次日 00:30 自动进行"><i></i>等待首次采集</span>
+              <span v-else class="ov2-live normal" title="采集槽位 35/35，完整度 100.0%"><i></i>采集正常</span>
             </div>
             <div class="ov2-meta">
-              <span class="ov2-mchip pri">公共家具制造</span>
-              <span class="ov2-mchip">未设置官网</span>
-              <button type="button" class="ov2-mchip">2 个识别词</button>
-              <button type="button" class="ov2-mchip">8 个监控问题</button>
-              <button type="button" class="ov2-mchip">6 个竞品</button>
+              <span class="ov2-mchip pri">{{ industry || '未识别行业' }}</span>
+              <span class="ov2-mchip">{{ website || '未设置官网' }}</span>
+              <button type="button" class="ov2-mchip">{{ aliasCount }} 个识别词</button>
+              <button type="button" class="ov2-mchip">{{ industryQueryCount }} 个监控问题</button>
+              <button type="button" class="ov2-mchip">{{ competitorCount }} 个竞品</button>
             </div>
           </div>
           <button type="button" class="ov2-hero-link">品牌档案
@@ -33,10 +34,10 @@
           </button>
         </div>
         <div class="ov2-facts2">
-          <div class="ov2-fact"><b>40</b><span>当日采集查询</span></div>
-          <div class="ov2-fact"><b>196</b><span>引用源</span></div>
+          <div class="ov2-fact"><b>{{ pendingCollection ? '—' : '40' }}</b><span>当日采集查询</span></div>
+          <div class="ov2-fact"><b>{{ pendingCollection ? '—' : '196' }}</b><span>引用源</span></div>
           <div class="ov2-fact"><b>0</b><span>已发稿件</span></div>
-          <span class="ov2-upd">统计日期 2026-08-28 · 更新于 2026-08-29 13:03</span>
+          <span class="ov2-upd">{{ pendingCollection ? `等待首次采集 · 预计 ${queryStatus?.expected_slots || 0} 槽位（${queryStatus?.enabled_queries || 0} 问题 × 5 引擎）` : '统计日期 2026-08-28 · 更新于 2026-08-29 13:03' }}</span>
         </div>
       </div>
       <!-- 右：快捷动作 -->
@@ -82,6 +83,7 @@
     </section>
 
     <!-- ============ 3. 周报/月报 Tabs + 元信息 section.rp-top ============ -->
+    <template v-if="!pendingCollection">
     <section class="rp-top">
       <div class="rp-typeseg">
         <button class="on">周报</button>
@@ -329,11 +331,56 @@
       </section>
 
     </div>
+    </template>
+
+    <!-- ============ 采集之前空态：尚无周报/月报数据 ============ -->
+    <section v-else class="rp-pending">
+      <div class="rp-pending-ic">📡</div>
+      <div class="rp-pending-t">尚未开始数据采集</div>
+      <div class="rp-pending-s">
+        品牌档案已建立：{{ brandName }} · {{ industryQueryCount }} 个监控问题（预计 {{ queryStatus?.expected_slots || 0 }} 采集槽位）。
+        首次采集将于次日 00:30 自动进行，采集 → 分析 → 入库完成后，此处将展示周报/月报数据。
+      </div>
+      <div class="rp-pending-flow">
+        <span>注册 ✓</span><i>→</i><span>建档 ✓</span><i>→</i><span>次日 00:30 采集</span><i>→</i><span>凌晨分析入库</span><i>→</i><span>报告展示</span>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { brandApi } from '@/api/modules/brand';
+import { monitorApi } from '@/api/modules/monitor';
+import type { BrandSummary, QueryStatus } from '@/api/types';
+
+const auth = useAuthStore();
+
+// ============ 品牌档案 + 采集状态（采集之前：仅品牌卡有数据，报告模块为空态） ============
+const summary = ref<BrandSummary | null>(null);
+const queryStatus = ref<QueryStatus | null>(null);
+const loadError = ref('');
+
+const brandName = computed(() => summary.value?.brand?.name || '—');
+const industry = computed(() => summary.value?.brand?.industry || '');
+const website = computed(() => summary.value?.brand?.website || '');
+const aliasCount = computed(() => summary.value?.aliases?.length || 0);
+const industryQueryCount = computed(() => summary.value?.queries?.industry?.length || 0);
+const competitorCount = computed(() => summary.value?.competitors?.length || 0);
+/** 是否等待首次采集（采集之前恒为 true；首次采集后 collect_tasks 有值则翻 false） */
+const pendingCollection = computed(() => queryStatus.value?.pending ?? true);
+
+async function loadBrand() {
+  try {
+    summary.value = await brandApi.summary(auth.activeBrandId || undefined);
+    queryStatus.value = await monitorApi.queryStatus();
+  } catch (e: any) {
+    loadError.value = e?.message || '品牌数据加载失败';
+  }
+}
+
+onMounted(loadBrand);
 
 const competitors = ref([
   { brand: '育才控股', rate: '8.16%', top3: '7.35%', first: '6.53%' },
@@ -380,6 +427,29 @@ const citationPlatforms = ref([
   padding: 0 0 48px;
   font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   color: #17182b;
+}
+
+/* ====== 采集之前空态 ====== */
+.rp-pending {
+  margin-top: 18px;
+  background: #fff;
+  border: 1px solid #e7e9f0;
+  border-radius: 14px;
+  padding: 46px 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.rp-pending-ic { font-size: 34px; }
+.rp-pending-t { font-size: 16.5px; font-weight: 800; color: #17182b; }
+.rp-pending-s { font-size: 13px; color: #8b8d9d; line-height: 1.8; max-width: 640px; }
+.rp-pending-flow {
+  margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 12px; color: #4f3fd3;
+  span { background: #f3f1ff; border-radius: 999px; padding: 4px 12px; }
+  i { color: #c6c2ea; font-style: normal; }
 }
 
 /* ====== 1. 头部 ====== */
@@ -498,6 +568,12 @@ const citationPlatforms = ref([
     height: 6px;
     border-radius: 50%;
     background: #0fb5a6;
+  }
+
+  &.wait {
+    color: #b5800a;
+    background: #fdf4dd;
+    i { background: #e6a23c; }
   }
 }
 

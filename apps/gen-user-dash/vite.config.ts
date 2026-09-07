@@ -29,10 +29,13 @@ export default defineConfig({
     open: false,
     // 沙箱/远程预览域名放行（e2b 预览代理）
     allowedHosts: ['.e2b.app', 'localhost', '127.0.0.1'],
-    // 开发代理：/user/* 与 /api/auth/* → Egg api（:7001）
+    // 开发代理：用户后台全部前缀 → Egg api（:7001）
     proxy: {
       '/user': { target: 'http://127.0.0.1:7001', changeOrigin: true },
       '/api': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/payment': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/credit': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/publish': { target: 'http://127.0.0.1:7001', changeOrigin: true },
     },
   },
   css: {

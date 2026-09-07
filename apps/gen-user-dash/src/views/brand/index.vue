@@ -15,7 +15,7 @@
           <div class="field-label-row">
             <span class="field-name">品牌名</span>
             <span class="badge-required">必填</span>
-            <span class="field-hint">剩余修改次数 <strong>3</strong> 次</span>
+            <span class="field-hint">剩余修改次数 <strong>{{ renameRemaining }}</strong> 次</span>
             <button class="field-edit-btn">
               <icon-edit :size="11" />
               修改
@@ -277,27 +277,44 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, ref } from 'vue';
+import { reactive, computed, ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { IconEdit, IconPlus, IconDelete, IconSearch, IconDown } from '@arco-design/web-vue/es/icon';
-import { brandInfo } from '@/mock/data';
+import { brandApi } from '@/api/modules/brand';
 
 const route = useRoute();
 const currentTab = computed(() => route.name as string);
 
 const form = reactive({
-  name: brandInfo.name,
-  industry: brandInfo.industry,
-  protocol: brandInfo.protocol || 'https://',
-  urlPath: brandInfo.website || '',
-  description: brandInfo.description,
-  aliases: brandInfo.aliases || [],
+  name: '',
+  industry: '',
+  protocol: 'https://',
+  urlPath: '',
+  description: '',
+  aliases: [] as string[],
 });
+const renameRemaining = ref(0);
 
-const products = reactive((brandInfo.products || []).map(p => ({ ...p })));
-
-const competitors = reactive((brandInfo.competitors || []).map(c => ({ ...c })));
+const products = reactive<{ id: string; name: string; desc: string }[]>([]);
+const competitors = reactive<{ id: string; name: string; desc: string; aliases: string[] }[]>([]);
 const compSearch = ref('');
+
+onMounted(async () => {
+  try {
+    const s = await brandApi.summary();
+    if (!s) return;
+    form.name = s.brand?.name || '';
+    form.industry = s.brand?.industry || '';
+    form.urlPath = s.brand?.website || '';
+    form.description = s.profile?.description || s.brand?.business_desc || '';
+    form.aliases = (s.aliases || []).map(a => a.alias);
+    renameRemaining.value = s.brand?.rename_remaining ?? 0;
+    products.splice(0, products.length,
+      ...(s.products || []).map((p, i) => ({ id: `prod${i + 1}`, name: p.name, desc: p.category || '' })));
+    competitors.splice(0, competitors.length,
+      ...(s.competitors || []).map((c, i) => ({ id: `comp${i + 1}`, name: c.name, desc: c.compet_point || '', aliases: [] })));
+  } catch { /* 拉取失败保持空态 */ }
+});
 </script>
 
 <style lang="scss" scoped>

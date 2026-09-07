@@ -7,7 +7,7 @@
         <p>查看当前的套餐权益、用量与账单记录 · 统计周期：实时</p>
       </div>
       <div class="pp-header-right">
-        <button class="pp-credit-btn">账户积分 ✦ 330</button>
+        <button class="pp-credit-btn">账户积分 ✦ {{ credit }}</button>
         <button class="pp-topup-btn">充值积分</button>
       </div>
     </header>
@@ -17,27 +17,27 @@
       <div class="pp-current-left">
         <div class="pp-current-label">
           <svg class="pp-ic-layers" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></svg>
-          当前套餐 · 佛山市宏祥家具实业有限公司
+          当前套餐 · {{ brandName }}
         </div>
-        <div class="pp-current-name">入门版-月付</div>
-        <div class="pp-current-expiry">有效期至 2026/9/20</div>
+        <div class="pp-current-name">{{ sub?.plan_name || '暂无订阅' }}</div>
+        <div class="pp-current-expiry">有效期至 {{ expireText }}</div>
       </div>
       <div class="pp-current-right">
         <div class="pp-quota">
           <div class="pp-quota-head">
             <svg class="pp-ic-layers" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></svg>
             <span class="pp-quota-label">监控问题配额</span>
-            <span class="pp-quota-value">8 / 8</span>
+            <span class="pp-quota-value">{{ sub?.query_count ?? 0 }} / {{ sub?.query_limit ?? 0 }}</span>
           </div>
-          <div class="pp-quota-bar"><div class="pp-quota-fill red" style="width: 100%"></div></div>
+          <div class="pp-quota-bar"><div class="pp-quota-fill red" :style="{ width: quotaPct + '%' }"></div></div>
         </div>
         <div class="pp-quota">
           <div class="pp-quota-head">
             <svg class="pp-ic-layers" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></svg>
             <span class="pp-quota-label">覆盖大模型平台</span>
-            <span class="pp-quota-value">5 / 5</span>
+            <span class="pp-quota-value">{{ platformCount }} / 5</span>
           </div>
-          <div class="pp-quota-bar"><div class="pp-quota-fill green" style="width: 100%"></div></div>
+          <div class="pp-quota-bar"><div class="pp-quota-fill green" :style="{ width: platformPct + '%' }"></div></div>
         </div>
       </div>
     </div>
@@ -48,7 +48,7 @@
         <svg class="pp-ic-zap-amber" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
         监控会员套餐
       </div>
-      <div class="pp-st-sub">监控会员套餐按品牌独立开通 · 当前品牌：佛山市宏祥家具实业有限公司 · 可用账户积分或现金支付</div>
+      <div class="pp-st-sub">监控会员套餐按品牌独立开通 · 当前品牌：{{ brandName }} · 可用账户积分或现金支付</div>
     </div>
 
     <!-- ============ 4. 套餐卡片网格 ============ -->
@@ -171,44 +171,55 @@
 </template>
 
 <script setup lang="ts">
-interface Feature {
-  text: string;
-  included: boolean;
-}
+import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { paymentApi } from '@/api/modules/payment';
+import type { PlansGrouped, PlanItem } from '@/api/modules/payment';
+import { userApi } from '@/api/modules/user';
+import type { CreditAccount, Subscription } from '@/api/types';
 
-interface BillingPeriod {
-  label: string;
-  discount?: string;
-}
-
+interface Feature { text: string; included: boolean }
+interface BillingPeriod { label: string; discount?: string }
 interface Plan {
-  id: string;
-  name: string;
-  icon?: string;
-  price: number | null;
-  priceText?: string;
-  unit?: string;
-  subtitle?: string;
-  current?: boolean;
-  highlighted?: boolean;
-  banner?: string;
-  hasAISection?: boolean;
-  features: Feature[];
-  customFeatures?: string[];
-  billingPeriods?: BillingPeriod[];
+  id: string; name: string; icon?: string;
+  price: number | null; priceText?: string; unit?: string; subtitle?: string;
+  current?: boolean; highlighted?: boolean; banner?: string; hasAISection?: boolean;
+  features: Feature[]; customFeatures?: string[]; billingPeriods?: BillingPeriod[];
   primaryBtn?: { text: string; type: 'primary' | 'green' | 'disabled' };
   secondaryBtn?: { text: string };
 }
 
-const plans: Plan[] = [
-  {
-    id: 'free',
-    name: '免费版',
-    price: 0,
-    unit: '',
-    features: [
-      { text: '真实账号抓取', included: true },
-      { text: '监控问题数量 3 个', included: true },
+const auth = useAuthStore();
+const credit = ref(0);
+const sub = ref<Subscription | null>(null);
+const grouped = ref<PlansGrouped | null>(null);
+
+const brandName = computed(() => auth.activeBrand?.name || '当前品牌');
+const expireText = computed(() => (sub.value?.expire_date || '').replace(/-/g, '/') || '—');
+const quotaPct = computed(() => {
+  const s = sub.value; if (!s || !s.query_limit) return 0;
+  return Math.min(100, Math.round((s.query_count / s.query_limit) * 100));
+});
+const platformCount = computed(() => sub.value?.platform_list?.length ?? 0);
+const platformPct = computed(() => Math.min(100, Math.round((platformCount.value / 5) * 100)));
+
+/* ---- 后端套餐 → 展示卡片（价目/额度来自 GET /payment/plans/grouped） ---- */
+const TIER_ORDER: { type: string; name: string; icon?: string; subtitle?: string; highlighted?: boolean; banner?: string }[] = [
+  { type: 'free', name: '免费版' },
+  { type: 'starter', name: '入门版', subtitle: '按月灵活订阅' },
+  { type: 'pro', name: '专业版', icon: '👑', subtitle: '按月灵活订阅', highlighted: true, banner: '最受欢迎 · 性价比之选' },
+  { type: 'custom', name: '定制版', icon: '★', subtitle: '根据企业需求量身定制' },
+];
+
+const CUSTOM_FEATURES = ['更多监控问题查询', '批量品牌诊断', 'AI 模型定制', '产品 OEM 定制', 'API 接口输出', '功能定制', '监控代运营服务', '等等……'];
+
+function featuresFor(type: string, limit: number): Feature[] {
+  const list: Feature[] = [
+    { text: '真实账号抓取', included: true },
+    { text: `监控问题数量 ${limit} 个`, included: true },
+  ];
+  if (type === 'free') {
+    list.push(
       { text: '3 个网页端 AI 引擎', included: true },
       { text: '品牌排名分析', included: true },
       { text: '品牌舆情分析', included: true },
@@ -217,119 +228,90 @@ const plans: Plan[] = [
       { text: '数据导出报告', included: false },
       { text: '稿件中心撰稿', included: false },
       { text: '稿件中心发稿', included: false },
-    ],
-    primaryBtn: { text: '免费版', type: 'disabled' },
-  },
-  {
-    id: 'starter',
-    name: '入门版',
-    price: 79,
-    unit: '/月',
-    subtitle: '按月灵活订阅',
-    current: true,
-    hasAISection: true,
-    features: [
-      { text: '真实账号抓取', included: true },
-      { text: '监控问题数量 8 个', included: true },
+    );
+  } else {
+    list.push(
+      { text: '5 大主流 AI 引擎', included: true },
       { text: '监测频率 1 天 1 次', included: true },
       { text: '品牌排名分析', included: true },
       { text: '品牌舆情分析', included: true },
       { text: '搜索快照下载', included: true },
       { text: '引用源情报洞察', included: true },
       { text: '数据导出报告', included: true },
+    );
+    if (type === 'pro') {
+      list.push({ text: '专属客户经理', included: true }, { text: '7×24 小时技术支持', included: true });
+    }
+    list.push(
       { text: '解锁撰稿功能（需额外消耗积分）', included: true },
       { text: '解锁发稿功能（需额外消耗积分）', included: true },
-    ],
-    billingPeriods: [
-      { label: '1 个月' },
-      { label: '3 个月', discount: '8 折' },
-      { label: '12 个月', discount: '7 折' },
-    ],
-    primaryBtn: { text: '支付 ¥79 续费', type: 'primary' },
-    secondaryBtn: { text: '积分支付 ✦ 790' },
-  },
-  {
-    id: 'basic',
-    name: '基础版',
-    price: 199,
-    unit: '/月',
-    subtitle: '按月灵活订阅',
-    hasAISection: true,
-    features: [
-      { text: '真实账号抓取', included: true },
-      { text: '监控问题数量 30 个', included: true },
-      { text: '监测频率 1 天 1 次', included: true },
-      { text: '品牌排名分析', included: true },
-      { text: '品牌舆情分析', included: true },
-      { text: '搜索快照下载', included: true },
-      { text: '引用源情报洞察', included: true },
-      { text: '数据导出报告', included: true },
-      { text: '专属客户经理', included: true },
-      { text: '解锁撰稿功能（需额外消耗积分）', included: true },
-      { text: '解锁发稿功能（需额外消耗积分）', included: true },
-    ],
-    billingPeriods: [
-      { label: '1 个月' },
-      { label: '3 个月', discount: '8 折' },
-      { label: '12 个月', discount: '7 折' },
-    ],
-    primaryBtn: { text: '直接支付 ¥199', type: 'primary' },
-    secondaryBtn: { text: '积分支付 ✦ 1,990' },
-  },
-  {
-    id: 'pro',
-    name: '专业版',
-    icon: '👑',
-    price: 499,
-    unit: '/月',
-    subtitle: '按月灵活订阅',
-    highlighted: true,
-    banner: '最受欢迎 · 性价比之选',
-    hasAISection: true,
-    features: [
-      { text: '真实账号抓取', included: true },
-      { text: '监控问题数量 100 个', included: true },
-      { text: '监测频率 1 天 1 次', included: true },
-      { text: '品牌排名分析', included: true },
-      { text: '品牌舆情分析', included: true },
-      { text: '搜索快照下载', included: true },
-      { text: '引用源情报洞察', included: true },
-      { text: '数据导出报告', included: true },
-      { text: '专属客户经理', included: true },
-      { text: '7×24 小时技术支持', included: true },
-      { text: '解锁撰稿功能（需额外消耗积分）', included: true },
-      { text: '解锁发稿功能（需额外消耗积分）', included: true },
-    ],
-    billingPeriods: [
-      { label: '1 个月' },
-      { label: '3 个月', discount: '8 折' },
-      { label: '12 个月', discount: '7 折' },
-    ],
-    primaryBtn: { text: '直接支付 ¥499', type: 'primary' },
-    secondaryBtn: { text: '积分支付 ✦ 4,990' },
-  },
-  {
-    id: 'custom',
-    name: '定制版',
-    icon: '★',
-    price: null,
-    priceText: '按需定价',
-    subtitle: '根据企业需求量身定制',
-    features: [],
-    customFeatures: [
-      '更多监控问题查询',
-      '批量品牌诊断',
-      'AI 模型定制',
-      '产品 OEM 定制',
-      'API 接口输出',
-      '功能定制',
-      '监控代运营服务',
-      '等等……',
-    ],
-    primaryBtn: { text: '联系客服', type: 'green' },
-  },
-];
+    );
+  }
+  return list;
+}
+
+function discountLabel(price: number, original: number): string | undefined {
+  if (original <= 0 || price >= original) return undefined;
+  const z = Math.round((price / original) * 100) / 10;
+  return `${z % 1 === 0 ? z : z.toFixed(1)} 折`;
+}
+
+function billingPeriodsFor(items: PlanItem[]): BillingPeriod[] | undefined {
+  const order: Record<string, number> = { monthly: 0, quarterly: 1, yearly: 2 };
+  const label: Record<string, string> = { monthly: '1 个月', quarterly: '3 个月', yearly: '12 个月' };
+  const periods = items
+    .filter(i => i.billing_cycle && i.billing_cycle !== 'permanent')
+    .map(i => ({ label: label[i.billing_cycle] || i.billing_cycle, discount: discountLabel(i.price, i.original_price), o: order[i.billing_cycle] ?? 9 }))
+    .sort((a, b) => a.o - b.o)
+    .map(({ label: l, discount: d }) => ({ label: l, discount: d }));
+  return periods.length ? periods : undefined;
+}
+
+const plans = computed<Plan[]>(() => {
+  const g = grouped.value;
+  if (!g) return [];
+  const groups = g as unknown as Record<string, PlanItem[]>;
+  return TIER_ORDER.map(t => {
+    if (t.type === 'custom') {
+      return {
+        id: 'custom', name: t.name, icon: t.icon, price: null, priceText: '按需定价',
+        subtitle: t.subtitle, features: [], customFeatures: CUSTOM_FEATURES,
+        primaryBtn: { text: '联系客服', type: 'green' as const },
+      } as Plan;
+    }
+    const items = groups[t.type];
+    if (!items || !items.length) return null;
+    const base = items.find(i => i.billing_cycle === 'monthly') || items[0];
+    const price = base.price ?? 0;
+    const current = sub.value?.vip_level === t.type;
+    return {
+      id: t.type, name: t.name, icon: t.icon, price, unit: t.type === 'free' ? '' : '/月',
+      subtitle: t.subtitle, current, highlighted: t.highlighted, banner: t.banner,
+      hasAISection: t.type !== 'free',
+      features: featuresFor(t.type, base.query_limit || 0),
+      billingPeriods: billingPeriodsFor(items),
+      primaryBtn: t.type === 'free'
+        ? { text: '免费版', type: 'disabled' as const }
+        : { text: current ? `支付 ¥${price} 续费` : `直接支付 ¥${price}`, type: 'primary' as const },
+      secondaryBtn: t.type === 'free' ? undefined : { text: `积分支付 ✦ ${(price * 10).toLocaleString()}` },
+    } as Plan;
+  }).filter((x): x is Plan => !!x);
+});
+
+onMounted(async () => {
+  try {
+    const [creditRes, subRes, planRes] = await Promise.all([
+      userApi.creditAccount().catch(() => null),
+      userApi.subscription().catch(() => null),
+      paymentApi.plansGrouped().catch(() => null),
+    ]);
+    credit.value = (creditRes as CreditAccount | null)?.available ?? (creditRes as CreditAccount | null)?.balance ?? 0;
+    sub.value = subRes as Subscription | null;
+    grouped.value = planRes as PlansGrouped | null;
+  } catch { /* 保持降级空态 */ }
+});
 </script>
+
 
 <style lang="scss" scoped>
 /* ================================================================

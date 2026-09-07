@@ -22,6 +22,7 @@ declare module 'vue' {
     ATable: typeof import('@arco-design/web-vue')['Table']
     ATableColumn: typeof import('@arco-design/web-vue')['TableColumn']
     ATag: typeof import('@arco-design/web-vue')['Tag']
+    PreCollectionEmpty: typeof import('./components/PreCollectionEmpty.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ToastHost: typeof import('./components/ToastHost.vue')['default']

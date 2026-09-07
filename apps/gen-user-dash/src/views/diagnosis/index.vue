@@ -72,7 +72,6 @@
 </template>
 
 <script setup lang="ts">
-import { engines } from '@/mock/data';
 import {
   IconFile,
   IconBarChart,
@@ -87,11 +86,17 @@ const diagnosisFeatures = [
   { label: 'PDF报告', icon: IconShareAlt },
 ];
 
-const diagnosisRecords = [
-  { id: '1', name: 'HANYUAI品牌诊断报告_0826', brand: 'HANYUAI', engineCount: 5, createdAt: '2026-08-26 10:30', status: 'completed' },
-  { id: '2', name: '美图云品牌诊断报告_0825', brand: '美图云', engineCount: 5, createdAt: '2026-08-25 15:20', status: 'completed' },
-  { id: '3', name: '可灵AI品牌诊断报告_0825', brand: '可灵AI', engineCount: 3, createdAt: '2026-08-25 09:10', status: 'completed' },
+// 诊断引擎覆盖 = 平台真实配置（config.platforms 五大国产大模型）
+const engines = [
+  { key: 'doubao', label: '豆包', color: '#165dff', locked: false },
+  { key: 'deepseek', label: 'DeepSeek', color: '#722ed1', locked: false },
+  { key: 'wenxin', label: '文心一言', color: '#00b42a', locked: false },
+  { key: 'qwen', label: '通义千问', color: '#eb2f96', locked: false },
+  { key: 'yuanbao', label: '元宝', color: '#f53f3f', locked: false },
 ];
+
+// 诊断记录：采集前无任何记录（真实空态，前端不再造示例数据）
+const diagnosisRecords: never[] = [];
 </script>
 
 <style lang="scss" scoped>

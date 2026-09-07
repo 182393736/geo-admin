@@ -14,7 +14,7 @@
           <div class="qm-quota-label-row">
             <span class="qm-quota-label">总占用 · 全部分类</span>
           </div>
-          <span class="qm-quota-value qm-quota-value--red">8 <span class="qm-quota-suffix">/ 8</span></span>
+          <span class="qm-quota-value qm-quota-value--red">{{ totalUsed }} <span class="qm-quota-suffix">/ {{ totalLimit }}</span></span>
         </div>
         <!-- 本页 · 口碑词 -->
         <div class="qm-quota-item qm-quota-item--page">
@@ -24,7 +24,7 @@
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
             </span>
           </div>
-          <span class="qm-quota-value qm-quota-value--indigo">7 <span class="qm-quota-suffix">个</span></span>
+          <span class="qm-quota-value qm-quota-value--indigo">{{ brandCount }} <span class="qm-quota-suffix">个</span></span>
         </div>
         <!-- 待释放 -->
         <div class="qm-quota-item qm-quota-item--pending">
@@ -48,7 +48,7 @@
       <div class="qm-card-header">
         <div class="qm-card-title">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></svg>
-          <span>问题列表 ({{ monitorQuestions.length }})</span>
+          <span>问题列表 ({{ rows.length }})</span>
         </div>
         <div class="qm-card-actions">
           <div class="qm-search-wrap">
@@ -73,7 +73,7 @@
       <div class="qm-tabs-row">
         <button class="qm-tab qm-tab--active">全部</button>
         <button class="qm-tab">
-          未分组 <b class="qm-tab-count">7</b>
+          未分组 <b class="qm-tab-count">{{ brandCount }}</b>
         </button>
         <button class="qm-tab qm-tab--new">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
@@ -91,10 +91,10 @@
       </div>
       <!-- 行列表 -->
       <div class="qm-rows">
-        <div v-for="q in monitorQuestions" :key="q.id" class="qm-row">
+        <div v-for="q in rows" :key="q.id" class="qm-row">
           <span class="qm-row-bar"></span>
           <div class="qm-td qm-td--type">
-            <span class="qm-type-badge">{{ q.type }}</span>
+            <span class="qm-type-badge">{{ q.typeLabel }}</span>
           </div>
           <div class="qm-td qm-td--question">
             <span class="qm-question-text">{{ q.content }}</span>
@@ -110,7 +110,7 @@
           <div class="qm-td qm-td--status">
             <span class="qm-status-badge">
               <span class="qm-status-dot"></span>
-              {{ q.status }}
+              {{ q.statusLabel }}
             </span>
           </div>
           <div class="qm-td qm-td--action">
@@ -128,7 +128,42 @@
 </template>
 
 <script setup lang="ts">
-import { monitorQuestions } from '@/mock/data';
+import { ref, computed, onMounted } from 'vue';
+import { monitorApi } from '@/api/modules/monitor';
+import { userApi } from '@/api/modules/user';
+
+interface QRow { id: number; typeLabel: string; content: string; group: string; date: string; statusLabel: string }
+
+const TYPE_LABEL: Record<string, string> = { industry: '排名词', brand: '口碑词' };
+const fmtDate = (d: string) => (d || '').slice(0, 10).replace(/-/g, '/');
+
+// 口碑词 = query_type='brand' 的监控问题（采集前为 0，属真实状态）
+const rows = ref<QRow[]>([]);
+const totalUsed = ref(0);   // 全部启用问题数（行业+口碑）
+const totalLimit = ref(0);  // 套餐额度
+
+const brandCount = computed(() => rows.value.length);
+
+onMounted(async () => {
+  try {
+    const [listResp, sub] = await Promise.all([
+      monitorApi.queryList('brand').catch(() => null),
+      userApi.subscription().catch(() => null),
+    ]);
+    rows.value = (listResp?.list || []).map(q => ({
+      id: q.id,
+      typeLabel: TYPE_LABEL[q.query_type] || q.query_type,
+      content: q.query,
+      group: q.group_id ? String(q.group_id) : '未分组',
+      date: fmtDate(q.created_at),
+      statusLabel: q.query_status ? '监控中' : '已停用',
+    }));
+    if (sub) {
+      totalUsed.value = sub.query_count ?? 0;
+      totalLimit.value = sub.query_limit ?? 0;
+    }
+  } catch { /* 保持空态 */ }
+});
 </script>
 
 <style lang="scss" scoped>

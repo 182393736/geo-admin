@@ -79,7 +79,32 @@
 </template>
 
 <script setup lang="ts">
-import { recognitionData } from '@/mock/data';
+import { reactive, onMounted } from 'vue';
+import { brandApi } from '@/api/modules/brand';
+
+// 采集前识别管理：品牌名 / 别名 / 行业 / 官网 / 简介均来自 GET /api/brand/summary
+const recognitionData = reactive({
+  remainingEdits: 0,
+  brandName: '',
+  aliases: [] as string[],
+  industry: '',
+  websiteProtocol: 'https://',
+  websiteUrl: '',
+  brandIntro: '',
+});
+
+onMounted(async () => {
+  try {
+    const s = await brandApi.summary();
+    if (!s) return;
+    recognitionData.brandName = s.brand?.name || '';
+    recognitionData.remainingEdits = s.brand?.rename_remaining ?? 0;
+    recognitionData.aliases = (s.aliases || []).map(a => a.alias);
+    recognitionData.industry = s.brand?.industry || '';
+    recognitionData.websiteUrl = s.brand?.website || '';
+    recognitionData.brandIntro = s.profile?.description || s.brand?.business_desc || '';
+  } catch { /* 保持空态 */ }
+});
 </script>
 
 <style lang="scss" scoped>

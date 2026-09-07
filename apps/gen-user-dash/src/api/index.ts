@@ -9,11 +9,13 @@ export { userApi } from './modules/user';
 export { monitorApi } from './modules/monitor';
 export { reportApi, publishApi } from './modules/report';
 export { brandApi } from './modules/brand';
+export { paymentApi } from './modules/payment';
 export * from './types';
 
 import { userApi } from './modules/user';
 import { monitorApi } from './modules/monitor';
 import { reportApi, publishApi } from './modules/report';
 import { brandApi } from './modules/brand';
+import { paymentApi } from './modules/payment';
 
-export const api = { user: userApi, monitor: monitorApi, report: reportApi, publish: publishApi, brand: brandApi };
+export const api = { user: userApi, monitor: monitorApi, report: reportApi, publish: publishApi, brand: brandApi, payment: paymentApi };

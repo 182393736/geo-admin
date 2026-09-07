@@ -53,7 +53,7 @@
       </section>
 
       <!-- ============ 阶段二：分析进度 ============ -->
-      <section v-else class="card">
+      <section v-else-if="phase === 'running'" class="card">
         <h1 class="title">智能分析进行中</h1>
         <p class="subtitle">正在为「{{ brandLabel }}」建立品牌档案并生成监控问题，全程约 1~2 分钟。</p>
 
@@ -78,6 +78,56 @@
           <button class="ghost-btn" @click="reset">重新填写</button>
         </div>
       </section>
+
+      <!-- ============ 阶段三：建档结果（分析完成 → 展示） ============ -->
+      <section v-else-if="phase === 'result'" class="card result-card">
+        <h1 class="title">品牌档案已建立 ✓</h1>
+        <p class="subtitle">以下内容由 AI 分析生成并已入库，进入工作台后可继续维护。</p>
+
+        <template v-if="result">
+          <!-- 品牌画像 -->
+          <div class="rb-name">
+            {{ result.brand.name }}
+            <span v-if="result.brand.industry" class="rb-industry">{{ result.brand.industry }}</span>
+            <span v-else class="rb-industry dim">未识别行业</span>
+          </div>
+          <p v-if="result.profile?.description" class="rb-desc">{{ result.profile.description }}</p>
+          <p v-else-if="result.brand.business_desc" class="rb-desc">{{ result.brand.business_desc }}</p>
+          <p v-else class="rb-desc dim">分析未生成品牌简介（可进入工作台补充）</p>
+
+          <!-- 识别词 -->
+          <div class="rb-sec">
+            <div class="rb-sec-t">识别词 <i>{{ result.aliases.length }}</i></div>
+            <div class="rb-chips">
+              <span v-if="result.aliases.length === 0" class="rb-empty">未生成识别词（可手动补充）</span>
+              <span v-for="a in result.aliases" :key="a.alias" class="rb-chip">{{ a.alias }}</span>
+            </div>
+          </div>
+
+          <!-- 竞品 -->
+          <div class="rb-sec">
+            <div class="rb-sec-t">竞品 <i>{{ result.competitors.length }}</i></div>
+            <div class="rb-chips">
+              <span v-if="result.competitors.length === 0" class="rb-empty">未生成竞品（可手动登记）</span>
+              <span v-for="c in result.competitors" :key="c.name" class="rb-chip">{{ c.name }}</span>
+            </div>
+          </div>
+
+          <!-- 监控问题 -->
+          <div class="rb-sec">
+            <div class="rb-sec-t">监控问题 <i>{{ result.queries.industry.length }}</i><span class="rb-sec-hint">首批行业中立问题，次日 00:30 起自动采集</span></div>
+            <ol class="rb-queries">
+              <li v-for="q in result.queries.industry" :key="q.id">
+                <span class="rb-q-text">{{ q.query }}</span>
+                <span v-if="q.query_description" class="rb-q-tag">{{ q.query_description }}</span>
+              </li>
+            </ol>
+          </div>
+        </template>
+        <p v-else class="rb-desc dim">结果加载失败，但品牌档案已入库，可直接进入工作台查看。</p>
+
+        <button class="primary-btn" @click="enterDashboard">进入工作台 →</button>
+      </section>
     </main>
   </div>
 </template>
@@ -92,15 +142,16 @@ import { ref, computed, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { userApi } from '@/api/modules/user';
+import { brandApi } from '@/api/modules/brand';
 import { toast } from '@/lib/toast';
-import type { OnboardingStage } from '@/api/types';
+import type { OnboardingStage, BrandSummary } from '@/api/types';
 
 const router = useRouter();
 const auth = useAuthStore();
 
 defineOptions({ name: 'TrialPage' });
 
-const phase = ref<'form' | 'running'>('form');
+const phase = ref<'form' | 'running' | 'result'>('form');
 const submitting = ref(false);
 const errorMsg = ref('');
 const fileName = ref('');
@@ -122,6 +173,9 @@ function onPickFile(e: Event) {
   const f = (e.target as HTMLInputElement).files?.[0];
   fileName.value = f ? f.name : '';
 }
+
+// ---- 建档结果（分析完成后展示） ----
+const result = ref<BrandSummary | null>(null);
 
 // ---- 进度状态机（与后端 stage 对应） ----
 const stage = ref<OnboardingStage>('crawl');
@@ -181,7 +235,13 @@ async function poll(task_id: string) {
       };
       toast.success('分析完成', `品牌「${s.brand.name}」档案已建立`);
       await auth.refreshBrands().catch(() => []);
-      timer = setTimeout(() => router.push('/dashboard/overview'), 1200);
+      // 拉取建档结果 → 进入「建档结果页」展示
+      try {
+        result.value = await brandApi.summary(auth.activeBrandId || undefined);
+      } catch (e) {
+        result.value = null;
+      }
+      phase.value = 'result';
       return;
     }
     if (s.stage === 'fail') {
@@ -201,6 +261,12 @@ function reset() {
   errorMsg.value = '';
   stage.value = 'crawl';
   summary.value = { done: false, aliases: 0, industry: 0, brand: 0 };
+  result.value = null;
+}
+
+/** 建档结果页 → 进入工作台（概览页） */
+function enterDashboard() {
+  router.push('/dashboard/overview');
 }
 
 function handleLogout() {
@@ -298,4 +364,37 @@ onUnmounted(() => { if (timer) clearTimeout(timer); });
   color: #ffa3a3; border-radius: 10px; padding: 12px 16px; font-size: 13.5px;
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
 }
+
+/* ============ 阶段三：建档结果 ============ */
+.result-card { width: 680px; max-width: 94vw; padding: 34px 38px; max-height: 88vh; overflow-y: auto; }
+.rb-name { font-size: 20px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.rb-industry {
+  font-size: 12px; font-weight: 600; color: #c9bfff; background: rgba(143,123,255,.18);
+  border: 1px solid rgba(143,123,255,.4); border-radius: 999px; padding: 2px 10px;
+  &.dim { color: #8b86ae; background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); }
+}
+.rb-desc { font-size: 13px; color: #a9a4c8; line-height: 1.7; margin: 0 0 16px; &.dim { color: #6b6694; } }
+.rb-sec { margin-bottom: 16px; }
+.rb-sec-t { font-size: 13px; font-weight: 700; color: #c8c3e4; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rb-sec-t i { font-style: normal; color: #8f7bff; }
+.rb-sec-hint { font-size: 11.5px; font-weight: 400; color: #8b86ae; }
+.rb-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.rb-chip {
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16); color: #e6e2ff;
+  border-radius: 999px; padding: 4px 13px; font-size: 12.5px;
+}
+.rb-empty { font-size: 12.5px; color: #6b6694; }
+.rb-queries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; counter-reset: q; }
+.rb-queries li {
+  counter-increment: q; display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px; padding: 8px 12px;
+}
+.rb-queries li::before {
+  content: counter(q); flex: none; width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(123,97,255,.35); color: #d8d2ff; font-size: 11.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.rb-q-text { font-size: 13px; color: #eceaf6; flex: 1; }
+.rb-q-tag { flex: none; font-size: 11px; color: #8f7bff; background: rgba(143,123,255,.14); border-radius: 6px; padding: 2px 8px; }
 </style>

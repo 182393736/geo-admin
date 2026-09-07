@@ -4,7 +4,7 @@
     <div class="ml-header">
       <div class="ml-title-block">
         <h2 class="ml-title">信源库</h2>
-        <p class="ml-desc">全库 156,991 家在这些源上发的内容，更容易被 AI 引用</p>
+        <p class="ml-desc">全库 {{ total }} 家在这些源上发的内容，更容易被 AI 引用</p>
       </div>
       <div class="ml-header-actions">
         <button class="ml-btn ml-btn--indigo" type="button">
@@ -88,7 +88,7 @@
           <!-- 计数 -->
           <div class="ml-count-tabs">
             <button class="ml-count-tab ml-count-tab--active" type="button">
-              全部 <b class="ml-count-num">156,991</b>
+              全部 <b class="ml-count-num">{{ total }}</b>
             </button>
             <button class="ml-count-tab" type="button">
               我的收藏 <b class="ml-count-num">0</b>
@@ -125,14 +125,14 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in mediaLibraryList" :key="item.id" class="ml-tr">
+            <tr v-for="item in rows" :key="item.id" class="ml-tr">
               <td class="ml-td ml-td--check"><input type="checkbox" class="ml-checkbox" /></td>
               <td class="ml-td ml-td--media">
                 <div class="ml-media-cell">
                   <div class="ml-media-logo">{{ item.logo }}</div>
                   <div class="ml-media-info">
                     <div class="ml-media-name">{{ item.name }}</div>
-                    <div class="ml-media-cat">{{ item.category }} · {{ item.fans }}</div>
+                    <div class="ml-media-cat">{{ item.categoryText }} · {{ item.enginePref.length }} 引擎收录</div>
                   </div>
                 </div>
               </td>
@@ -153,12 +153,12 @@
                 <div class="ml-cite-cell">
                   <span class="ml-cite-num">{{ item.citeIndex }}</span>
                   <div class="ml-cite-bar">
-                    <div class="ml-cite-bar-fill" :style="{ width: item.citeIndex + '%' }"></div>
+                    <div class="ml-cite-bar-fill" :style="{ width: item.citePct + '%' }"></div>
                   </div>
                 </div>
               </td>
               <td class="ml-td ml-td--price">
-                <span class="ml-price">¥{{ item.price }}</span>
+                <span class="ml-price">¥{{ item.priceYuan }}</span>
               </td>
               <td class="ml-td ml-td--cert">
                 <span class="ml-cert-badge">{{ item.certStatus }}</span>
@@ -176,17 +176,15 @@
 
       <!-- 分页 -->
       <div class="ml-pagination">
-        <span class="ml-page-info">共 156,991 条</span>
+        <span class="ml-page-info">共 {{ total }} 条</span>
         <div class="ml-page-btns">
           <button class="ml-page-btn ml-page-btn--nav" type="button" disabled>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
           <button class="ml-page-btn ml-page-btn--active" type="button">1</button>
-          <button class="ml-page-btn" type="button">2</button>
-          <button class="ml-page-btn" type="button">3</button>
-          <span class="ml-page-ellipsis">…</span>
-          <button class="ml-page-btn" type="button">19,625</button>
-          <button class="ml-page-btn ml-page-btn--nav" type="button">
+          <span class="ml-page-ellipsis" v-if="totalPages > 1">…</span>
+          <button v-if="totalPages > 1" class="ml-page-btn" type="button">{{ totalPages }}</button>
+          <button class="ml-page-btn ml-page-btn--nav" type="button" disabled>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
           </button>
         </div>
@@ -196,13 +194,21 @@
 </template>
 
 <script setup lang="ts">
-import { mediaLibraryList } from '@/mock/data';
+import { ref, computed, onMounted } from 'vue';
+import { publishApi } from '@/api/modules/report';
+
+interface MediaRow {
+  id: string; name: string; logo: string; type: string;
+  categoryText: string; enginePref: string[]; citeIndex: number; citePct: number;
+  priceYuan: number; certStatus: string;
+}
 
 const engineMap: Record<string, { label: string; class: string }> = {
   doubao: { label: '豆包', class: 'ml-engine-tag--blue' },
   deepseek: { label: 'DeepSeek', class: 'ml-engine-tag--purple' },
   yuanbao: { label: '元宝', class: 'ml-engine-tag--red' },
   wenxin: { label: '文心一言', class: 'ml-engine-tag--green' },
+  qwen: { label: '千问', class: 'ml-engine-tag--pink' },
   qianwen: { label: '千问', class: 'ml-engine-tag--pink' },
 };
 
@@ -219,6 +225,35 @@ function getTypeClass(type: string): string {
   if (type.includes('问答')) return 'ml-type-badge--green';
   return 'ml-type-badge--gray';
 }
+
+// 信源库：真实渠道数据来自 POST /publish/media/list（价格单位=分 → 元）
+const rows = ref<MediaRow[]>([]);
+const total = ref(0);
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 50)));
+
+onMounted(async () => {
+  try {
+    const resp = await publishApi.mediaList(1, 50);
+    total.value = resp?.total ?? 0;
+    const list = resp?.list || [];
+    const maxRef = Math.max(1, ...list.map(m => m.ref_count || 0));
+    rows.value = list.map(m => {
+      const ref = m.ref_count || 0;
+      return {
+        id: m.media_key,
+        name: m.name,
+        logo: (m.name || '').replace(/\s/g, '').slice(0, 2),
+        type: m.type || '自媒体',
+        categoryText: m.categories && m.categories.length ? m.categories.join(' / ') : '综合',
+        enginePref: m.indexed_engines || [],
+        citeIndex: ref,
+        citePct: Math.min(100, Math.round((ref / maxRef) * 100)),
+        priceYuan: Math.round((m.sell_price || 0) / 100),
+        certStatus: '认证',
+      };
+    });
+  } catch { /* 保持空态 */ }
+});
 </script>
 
 <style lang="scss" scoped>

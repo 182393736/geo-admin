@@ -1,8 +1,12 @@
 /** 品牌域（geoarticle 域带 /api 前缀） */
 import { get, post } from '../http';
+import type { BrandSummary } from '../types';
 
 const art = { base: 'article' as const };
 export const brandApi = {
+  // 品牌档案聚合（gen-api 主域）：建档结果页 / 概览页品牌卡
+  summary: (brand_id?: string) =>
+    get<BrandSummary>(`/api/brand/summary${brand_id ? `?brand_id=${encodeURIComponent(brand_id)}` : ''}`),
   intro: () => get('/api/brand/intro', art),
   products: () => get('/api/brand/products', art),
   aliases: () => get('/api/brand/aliases', art),

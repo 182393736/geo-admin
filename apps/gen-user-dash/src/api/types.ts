@@ -46,6 +46,32 @@ export interface OnboardingStatus {
   brand: { brand_id: string; name: string; industry: string; status: string } | null;
 }
 
+// ---- 品牌档案聚合（GET /api/brand/summary：建档结果页 / 概览页品牌卡） ----
+export interface BrandSummary {
+  brand: {
+    brand_id: string; name: string; industry: string; website: string;
+    business_desc: string; status: string; is_first_brand: boolean; platforms: string[];
+    rename_remaining: number;
+  };
+  profile: { description: string; slogan: string; tone: unknown; scripts: string[] } | null;
+  aliases: { alias: string; source: string; enabled: boolean }[];
+  products: { name: string; category: string; specs: unknown; price_range: string }[];
+  competitors: { name: string; compet_point: string; source: string }[];
+  queries: {
+    industry: MonitorQuery[];
+    brand: MonitorQuery[];
+  };
+}
+
+// ---- 采集状态（GET /user/get_query_status：概览页采集状态卡） ----
+export interface QueryStatus {
+  list: Record<string, { expected?: number; actual?: number; failed?: number }>;
+  last_date: string;
+  pending: boolean;         // true = 等待首次采集
+  enabled_queries: number;  // 启用中的监控问题数
+  expected_slots: number;   // 预计采集槽位 = 问题 × 引擎数
+}
+
 // ---- 监控问题 ----
 export type QueryType = 'industry' | 'brand';
 export interface MonitorQuery {
@@ -54,11 +80,13 @@ export interface MonitorQuery {
   question_list: { user_friendly: string; platform_query: string }[];
   query_type: QueryType; is_golden: boolean; weight: number;
   query_status: boolean; query_is_execute: boolean; query_order: number;
-  task_id: string; group_id?: string; effective_to: string | null;
+  query_description?: string;     // AI 生成的热度·场景标签
+  platform_prompt?: string;       // 平台差异化改写（默认同 query）
+  task_id?: string; group_id?: string; effective_to: string | null;
   created_at: string; updated_at: string;
 }
 export interface QueryGroupResp { groups: any[]; ungrouped_count: number; total: number; query_map: Record<string, any> }
-export interface QueryStatusResp { list: Record<string, any>; last_date: string }
+export interface QueryStatusResp extends QueryStatus { }
 
 // ---- 排名/口碑指标（分母=槽位）----
 export interface RateBucket { denominator: number; numerator: number; rate: number }
@@ -162,8 +190,10 @@ export interface Subscription {
 // ---- 发稿 ----
 export interface MediaChannelItem {
   media_key: string; name: string; type: string; favicon?: string;
+  site_url?: string; categories?: string[]; indexed_engines?: string[];
   list_price: number; sell_price: number; discount_rate: number;
-  ref_count: number; article_count: number; cost_per_citation: number | null;
+  ref_count: number; article_count: number; query_count?: number;
+  cost_per_citation: number | null; stats_window_days?: number;
 }
 export interface MediaListResp {
   list: MediaChannelItem[]; total: number; page: number;

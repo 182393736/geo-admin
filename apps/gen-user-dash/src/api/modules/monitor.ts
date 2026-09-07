@@ -12,7 +12,7 @@ const TREND_BODY = (start: string, end: string) => ({
 
 export const monitorApi = {
   // --- 监控问题 ---
-  queryList: (query_type: 'industry' | 'brand') => get<{ list: MonitorQuery[] }>(`/query/list?query_type=${query_type}`),
+  queryList: (query_type: 'industry' | 'brand') => get<{ list: MonitorQuery[] }>(`/api/query/list?query_type=${query_type}`),
   queryStatus: () => get<QueryStatusResp>('/user/get_query_status'),
   queryGroupList: (query_type: string) => post<QueryGroupResp>('/query-group/list', { query_type }),
 
