@@ -1,10 +1,11 @@
 'use strict';
 /**
- * 大模型客户端 —— 硅基流动（SiliconFlow）OpenAI 兼容协议
+ * 大模型客户端 —— OpenAI 兼容协议（默认硅基流动，可切 Agnes/DeepSeek 等任一 OpenAI 兼容供应商）
  * 端点：POST {baseURL}/chat/completions   默认模型：deepseek-ai/DeepSeek-V4-Flash
  * 契约：chatJson 强制 JSON 输出（response_format json_object，400 时不带该参数自动降级重试）；
  *       chatStream 走 SSE(stream:true) 逐 token 回调，用于过程实况/长文生成。
  * 密钥解析：显式入参 > 环境变量 SILICONFLOW_API_KEY > src/dev-keys.js 内置测试密钥（私有仓库，生产用 env 覆盖）。
+ * 供应商扩展：opts.chatTemplateKwargs（如 { enable_thinking:false }）随每个请求体下发，用于关闭推理模型的思考模式。
  */
 
 const { resolveKey } = require('./dev-keys');
@@ -23,19 +24,22 @@ function createSiliconFlowClient(opts = {}) {
   const baseURL = resolveKey('SILICONFLOW_BASE_URL', opts.baseURL).replace(/\/+$/, '');
   const model = resolveKey('SILICONFLOW_MODEL', opts.model);
   const doFetch = opts.fetchImpl || globalThis.fetch;
+  // 供应商扩展字段（如 Agnes 的 chat_template_kwargs: { enable_thinking:false }），随每个请求体一并下发
+  const chatTemplateKwargs = opts.chatTemplateKwargs || null;
   if (!doFetch) throw new Error('geo-agent: 需要 Node>=20 的全局 fetch，或由宿主注入 fetchImpl');
 
   async function post(path, body, { timeoutMs = 90000, stream = false } = {}) {
-    if (!apiKey) throw new Error('geo-agent: 缺少 SILICONFLOW_API_KEY');
+    if (!apiKey) throw new Error('geo-agent: 缺少 LLM API Key（LLM_PROVIDER 对应的 *_API_KEY 环境变量未配置）');
+    const finalBody = chatTemplateKwargs ? { ...body, chat_template_kwargs: chatTemplateKwargs } : body;
     const resp = await doFetch(`${baseURL}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify(body),
+      body: JSON.stringify(finalBody),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
-      const err = new Error(`siliconflow ${resp.status}: ${text.slice(0, 300)}`);
+      const err = new Error(`llm ${resp.status}: ${text.slice(0, 300)}`);
       err.status = resp.status;
       throw err;
     }

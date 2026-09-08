@@ -1,7 +1,37 @@
 'use strict';
 const { resolveKey } = require('@geo-admin/geo-agent');
 
-module.exports = () => ({
+/**
+ * 大模型供应商预设（OpenAI 兼容协议）
+ * - 切换：环境变量 LLM_PROVIDER=siliconflow | agnes | deepseek（默认 siliconflow）
+ * - 各供应商可再用 *_API_KEY / *_BASE_URL / *_MODEL 环境变量覆盖
+ * - agnes 默认关闭思考模式（enable_thinking:false，降延迟省 token），AGNES_ENABLE_THINKING=1 打开
+ */
+const LLM_PROVIDERS = {
+  siliconflow: {
+    apiKey: resolveKey('SILICONFLOW_API_KEY'),
+    baseURL: resolveKey('SILICONFLOW_BASE_URL'),
+    model: resolveKey('SILICONFLOW_MODEL'),
+    chatTemplateKwargs: null,
+  },
+  agnes: {
+    apiKey: process.env.AGNES_API_KEY || '',
+    baseURL: process.env.AGNES_BASE_URL || 'https://apihub.agnes-ai.com/v1',
+    model: process.env.AGNES_MODEL || 'agnes-3.0-flash',
+    chatTemplateKwargs: process.env.AGNES_ENABLE_THINKING === '1' ? null : { enable_thinking: false },
+  },
+  deepseek: {
+    apiKey: process.env.DEEPSEEK_API_KEY || '',
+    baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+    model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+    chatTemplateKwargs: null,
+  },
+};
+
+module.exports = () => {
+  const provider = process.env.LLM_PROVIDER || 'siliconflow';
+  const active = LLM_PROVIDERS[provider] || LLM_PROVIDERS.siliconflow;
+  return {
   mongoose: {
     client: {
       url: process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/geo',
@@ -11,13 +41,25 @@ module.exports = () => ({
   },
   security: { csrf: { enable: false } }, // API 走 JWT Bearer，无表单 CSRF 面
   keys: 'geo-secret',
-  deepseek: { apiKey: process.env.DEEPSEEK_API_KEY || '' },
-  // 首登分析 Agent（packages/geo-agent）：硅基流动 OpenAI 兼容协议。
-  // 密钥优先级：环境变量 > packages/geo-agent/src/dev-keys.js 内置测试密钥（私有仓库开发用，生产用 env 覆盖）。
+  // 统一 LLM 配置：gen-api 所有大模型调用唯一入口（首登 Agent / 解析流水线 / 报告等）
+  llm: {
+    provider,
+    apiKey: active.apiKey,
+    baseURL: active.baseURL,
+    model: active.model,
+    chatTemplateKwargs: active.chatTemplateKwargs,
+    providers: LLM_PROVIDERS,
+  },
+  // 向后兼容旧字段（agent_runner 等历史引用）
   siliconflow: {
-    apiKey: resolveKey('SILICONFLOW_API_KEY'),
-    baseURL: resolveKey('SILICONFLOW_BASE_URL'),
-    model: resolveKey('SILICONFLOW_MODEL'),
+    apiKey: LLM_PROVIDERS.siliconflow.apiKey,
+    baseURL: LLM_PROVIDERS.siliconflow.baseURL,
+    model: LLM_PROVIDERS.siliconflow.model,
+  },
+  deepseek: {
+    apiKey: LLM_PROVIDERS.deepseek.apiKey,
+    baseURL: LLM_PROVIDERS.deepseek.baseURL,
+    model: LLM_PROVIDERS.deepseek.model,
   },
   // 联网取证（Tavily）：同样支持 env 覆盖内置测试密钥，未配置则降级不联网
   tavily: { apiKey: resolveKey('TAVILY_API_KEY') },
@@ -31,4 +73,5 @@ module.exports = () => ({
   loginDelayMs: process.env.NODE_ENV === 'production' ? 0 : 2000,
   rankWeights: [40, 20, 20, 16, 16, 13.33, 10, 10, 8, 8], // 实测逆向的位次权重（第1~10名），可配置校准
   platforms: ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'],
-});
+  };
+};

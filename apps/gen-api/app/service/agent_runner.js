@@ -1,7 +1,8 @@
 'use strict';
 /**
  * AgentRunner：@geo-admin/geo-agent 的 Egg 薄适配层
- * 职责：注入硅基流动配置/搜索 Provider/mongoose models/nextSeq，其余编排全在库里。
+ * 职责：注入 LLM 供应商配置（config.llm 统一入口，OpenAI 兼容，可切 siliconflow/agnes/deepseek）、
+ *       搜索 Provider/mongoose models/nextSeq，其余编排全在库里。
  */
 const { Service } = require('egg');
 const { createSiliconFlowClient, createSearchProvider, createWebSearch, runOnboarding, persistResult, sanitizePreview } = require('@geo-admin/geo-agent');
@@ -9,8 +10,12 @@ const { createSiliconFlowClient, createSearchProvider, createWebSearch, runOnboa
 class AgentRunnerService extends Service {
   buildDeps() {
     const { app } = this;
-    const cfg = app.config.siliconflow || {};
-    const llm = createSiliconFlowClient({ apiKey: cfg.apiKey, baseURL: cfg.baseURL, model: cfg.model });
+    // config.llm：当前供应商的 apiKey/baseURL/model/chatTemplateKwargs；向后兼容 config.siliconflow
+    const cfg = app.config.llm || app.config.siliconflow || {};
+    const llm = createSiliconFlowClient({
+      apiKey: cfg.apiKey, baseURL: cfg.baseURL, model: cfg.model,
+      chatTemplateKwargs: cfg.chatTemplateKwargs,
+    });
     // 联网取证：优先用 config.tavily.apiKey（env > dev-keys 内置测试密钥），为空则自动降级不联网
     // 热度验证 Provider 暂缺（SerpAPI/Bing 已停用，自建搜索后接入）→ 诚实保持 llm_estimate
     const tavilyKey = (app.config.tavily || {}).apiKey || '';
