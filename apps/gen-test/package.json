@@ -1,0 +1,22 @@
+{
+  "name": "@geo-admin/gen-test",
+  "version": "0.1.0",
+  "private": true,
+  "description": "端到端测试程序：网页添加测试任务 → Playwright 逐步执行首登流程 → 验证采集前数据展示 → 一键删除任务数据",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node src/server.js",
+    "start": "node src/server.js",
+    "test": "node test/smoke.js"
+  },
+  "dependencies": {
+    "@geo-admin/contracts": "workspace:*",
+    "express": "^4.19.2",
+    "mongodb": "^6.8.0",
+    "playwright": "^1.49.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "UNLICENSED"
+}

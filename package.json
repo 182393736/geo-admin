@@ -12,6 +12,7 @@
     "dev:web": "pnpm --filter @geo-admin/gen-user-dash dev",
     "dev:api": "pnpm --filter @geo-admin/gen-api dev",
     "dev:site": "pnpm --filter @geo-admin/gen-user-site dev",
+    "dev:test": "pnpm --filter @geo-admin/gen-test dev",
     "build:web": "pnpm --filter @geo-admin/gen-user-dash build",
     "build:site": "pnpm --filter @geo-admin/gen-user-site build",
     "preview:site": "pnpm --filter @geo-admin/gen-user-site preview",

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GEO 端到端测试程序</title>
+<style>
+  :root { --bg:#0f1220; --card:#181c2e; --line:#262b45; --tx:#e7e9f5; --mut:#8a90b0; --acc:#5b6cff; --ok:#22c55e; --fail:#ef4444; --run:#3b82f6; --skip:#8a90b0; }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--tx); font:14px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; padding:24px; }
+  h1 { font-size:20px; display:flex; align-items:center; gap:10px; }
+  .sub { color:var(--mut); font-size:12px; margin:4px 0 20px; }
+  .deps { display:flex; gap:12px; margin:8px 0 20px; flex-wrap:wrap; }
+  .dep { font-size:12px; padding:3px 10px; border-radius:20px; border:1px solid var(--line); color:var(--mut); }
+  .dep.ok { color:var(--ok); border-color:rgba(34,197,94,.4); }
+  .dep.bad { color:var(--fail); border-color:rgba(239,68,68,.4); }
+  .grid { display:grid; grid-template-columns: 380px 1fr; gap:20px; align-items:start; }
+  @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .card h2 { font-size:15px; margin-bottom:14px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:12px 0 6px; }
+  input[type=text], input[type=password], textarea {
+    width:100%; background:#12152a; border:1px solid var(--line); color:var(--tx);
+    border-radius:8px; padding:10px 12px; font-size:14px; outline:none; resize:vertical;
+  }
+  input:focus, textarea:focus { border-color:var(--acc); }
+  .row { display:flex; align-items:center; gap:8px; margin-top:12px; }
+  .btn { border:none; border-radius:8px; padding:9px 16px; font-size:14px; cursor:pointer; }
+  .btn-primary { background:var(--acc); color:#fff; width:100%; margin-top:16px; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .btn-mini { padding:4px 10px; font-size:12px; border-radius:6px; background:#1d2140; color:var(--tx); border:1px solid var(--line); cursor:pointer; }
+  .btn-mini:hover { border-color:var(--acc); }
+  .btn-mini.danger:hover { border-color:var(--fail); color:var(--fail); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { color:var(--mut); font-weight:500; font-size:12px; }
+  .tag { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; }
+  .tag.pending { background:#2a2f4a; color:var(--mut); }
+  .tag.running { background:rgba(59,130,246,.15); color:var(--run); }
+  .tag.passed { background:rgba(34,197,94,.15); color:var(--ok); }
+  .tag.failed { background:rgba(239,68,68,.15); color:var(--fail); }
+  .truncate { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .steps { display:flex; flex-direction:column; gap:8px; max-height:70vh; overflow:auto; padding-right:6px; }
+  .step { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:#12152a; }
+  .step .hd { display:flex; align-items:center; gap:8px; }
+  .dot { width:8px; height:8px; border-radius:50%; flex:none; }
+  .dot.ok{background:var(--ok);} .dot.fail{background:var(--fail);} .dot.running{background:var(--run);} .dot.skip{background:var(--skip);}
+  .step .name { font-weight:600; }
+  .step .detail { color:var(--mut); font-size:12px; margin-top:4px; word-break:break-all; }
+  .step img { margin-top:8px; max-width:100%; border-radius:8px; border:1px solid var(--line); cursor:zoom-in; }
+  .spinner { width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--run);border-radius:50%;animation:s .8s linear infinite; }
+  @keyframes s { to { transform:rotate(360deg); } }
+  .empty { color:var(--mut); text-align:center; padding:30px 0; }
+  .summary { margin-top:12px; padding:12px; border-radius:10px; background:#12152a; border:1px solid var(--line); font-size:13px; }
+  .lightbox { position:fixed; inset:0; background:rgba(0,0,0,.8); display:none; align-items:center; justify-content:center; z-index:50; }
+  .lightbox img { max-width:92vw; max-height:92vh; border-radius:8px; }
+  .modal-back { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; z-index:40; }
+  .drawer { position:fixed; top:0; right:-560px; width:560px; max-width:96vw; height:100vh; background:var(--card);
+            border-left:1px solid var(--line); transition:right .25s; z-index:41; padding:20px; overflow:auto; }
+  .drawer.open { right:0; }
+  .drawer .close { float:right; background:none; border:none; color:var(--mut); font-size:22px; cursor:pointer; }
+</style>
+</head>
+<body>
+  <h1>🧪 GEO 端到端测试程序</h1>
+  <div class="sub">添加测试任务 → Playwright 逐步执行「登录 → 首登建档 → 采集前数据展示验证」→ 可一键删除任务数据</div>
+  <div class="deps" id="deps"></div>
+
+  <div class="grid">
+    <!-- 左：添加任务 + 任务列表 -->
+    <div>
+      <div class="card">
+        <h2>➕ 添加测试任务</h2>
+        <label>登录账号</label>
+        <input type="text" id="f-account" placeholder="例如 newbie / 18782434390">
+        <label>登录密码</label>
+        <input type="password" id="f-password" placeholder="密码">
+        <label>首次用户输入（品牌描述）</label>
+        <textarea id="f-brand" rows="3" placeholder="我的品牌叫「华南公共座椅源头工厂」，主营礼堂椅、课桌椅，服务学校与剧院。"></textarea>
+        <div class="row">
+          <input type="checkbox" id="f-shot" checked>
+          <label for="f-shot" style="margin:0;cursor:pointer">每步截图</label>
+        </div>
+        <button class="btn btn-primary" id="f-submit">添加任务</button>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h2>📋 测试任务列表</h2>
+        <table>
+          <thead><tr><th>状态</th><th>账号</th><th>品牌输入</th><th>步骤</th><th>操作</th></tr></thead>
+          <tbody id="task-rows"></tbody>
+        </table>
+        <div class="empty" id="task-empty" style="display:none">暂无任务，先在左侧添加一个</div>
+      </div>
+    </div>
+
+    <!-- 右：任务详情 -->
+    <div class="card">
+      <h2>📄 任务详情 <span id="detail-title" style="color:var(--mut);font-weight:400"></span></h2>
+      <div class="empty" id="detail-empty">点击左侧任务的「查看」按钮</div>
+      <div id="detail-body" style="display:none">
+        <div class="summary" id="detail-summary"></div>
+        <div class="steps" id="detail-steps"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-back" id="modal-back"></div>
+  <div class="drawer" id="drawer">
+    <button class="close" id="drawer-close">×</button>
+    <h2 style="font-size:15px;margin-bottom:14px">任务详情</h2>
+    <div class="summary" id="drawer-summary"></div>
+    <div class="steps" id="drawer-steps"></div>
+  </div>
+  <div class="lightbox" id="lightbox"><img id="lightbox-img" alt=""></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let currentId = null;
+let pollTimer = null;
+
+const STATUS_TXT = { pending:'待执行', running:'执行中', passed:'通过', failed:'失败' };
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.msg || ('HTTP ' + r.status));
+  return d.data ?? d;
+}
+
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function refreshDeps() {
+  try {
+    const d = await api('/api/deps');
+    $('deps').innerHTML = Object.entries(d.deps || {}).map(([k, v]) =>
+      `<span class="dep ok">✅ ${k} ${v}</span>`).join('')
+      + (d.missing || []).map(m => `<span class="dep bad">❌ ${m}</span>`).join('');
+  } catch { $('deps').innerHTML = '<span class="dep bad">❌ 测试服务异常</span>'; }
+}
+
+async function refreshTasks() {
+  const list = await api('/api/tasks');
+  $('task-empty').style.display = list.length ? 'none' : 'block';
+  $('task-rows').innerHTML = list.map(t => {
+    const okCount = (t.steps || []).filter(s => s.status === 'ok').length;
+    const stepTxt = t.steps ? `${okCount}/${t.steps.length}` : '-';
+    return `<tr>
+      <td><span class="tag ${t.status}">${t.status === 'running' ? '<span class="spinner" style="display:inline-block;vertical-align:-2px"></span> ' : ''}${STATUS_TXT[t.status] || t.status}</span></td>
+      <td>${esc(t.account)}</td>
+      <td class="truncate" title="${esc(t.brand_input)}">${esc(t.brand_input)}</td>
+      <td>${stepTxt}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-mini" onclick="runTask('${t.id}')">▶ 执行</button>
+        <button class="btn-mini" onclick="openDetail('${t.id}')">查看</button>
+        <button class="btn-mini danger" onclick="delTask('${t.id}')">删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function runTask(id) {
+  try {
+    await api(`/api/tasks/${id}/run`, { method: 'POST' });
+    openDetail(id);
+  } catch (e) { alert('启动失败：' + e.message); }
+}
+
+async function delTask(id) {
+  const t = (await api('/api/tasks')).find(x => x.id === id);
+  const extra = t && t.cleanup && t.cleanup.user_id ? '\n（将同时清理该任务创建的账号/品牌/订阅等业务数据）' : '';
+  if (!confirm('确认删除该任务？' + extra)) return;
+  try {
+    const r = await api(`/api/tasks/${id}`, { method: 'DELETE' });
+    alert('已删除：' + JSON.stringify(r.deleted_counts || {}));
+    if (currentId === id) { closeDetail(); }
+    refreshTasks();
+  } catch (e) { alert('删除失败：' + e.message); }
+}
+
+function stepHtml(s) {
+  return `<div class="step">
+    <div class="hd"><span class="dot ${s.status}"></span><span class="name">${esc(s.name)}</span>
+      <span style="margin-left:auto;color:var(--mut);font-size:11px">${s.seq}</span></div>
+    <div class="detail">${esc(s.detail || '')}</div>
+    ${s.screenshot ? `<img loading="lazy" src="/api/tasks/${currentId}/artifacts/${s.screenshot}" onclick="zoom(this.src)">` : ''}
+  </div>`;
+}
+
+function renderDetail(t) {
+  $('detail-title').textContent = t ? `#${t.id.slice(-6)} · ${t.account}` : '';
+  if (!t) return;
+  $('detail-empty').style.display = 'none';
+  $('detail-body').style.display = 'block';
+  const r = t.result;
+  $('detail-summary').innerHTML = `<b>状态：</b><span class="tag ${t.status}">${STATUS_TXT[t.status] || t.status}</span>`
+    + (r ? `<div style="margin-top:6px">${esc(r.summary)}</div>` : '')
+    + (t.cleanup && t.cleanup.user_id ? `<div style="margin-top:6px;color:var(--mut)">🧹 清理锚点：账号=${esc(t.cleanup.account)} user_id=${esc(t.cleanup.user_id.slice(0,8))}… 品牌=${esc(t.cleanup.brand_name)}</div>` : '');
+  $('detail-steps').innerHTML = (t.steps || []).map(stepHtml).join('') || '<div class="empty">等待执行…</div>';
+  $('drawer-summary').innerHTML = $('detail-summary').innerHTML;
+  $('drawer-steps').innerHTML = $('detail-steps').innerHTML;
+}
+
+async function openDetail(id) {
+  currentId = id;
+  $('drawer').classList.add('open');
+  $('modal-back').style.display = 'block';
+  if (pollTimer) clearInterval(pollTimer);
+  const tick = async () => {
+    try {
+      const t = await api('/api/tasks/' + id);
+      renderDetail(t);
+      if (t.status !== 'running' && t.status !== 'pending') { clearInterval(pollTimer); pollTimer = null; }
+      refreshTasks();
+    } catch (e) { /* 已删除 */ }
+  };
+  await tick();
+  pollTimer = setInterval(tick, 2000);
+}
+
+function closeDetail() {
+  $('drawer').classList.remove('open');
+  $('modal-back').style.display = 'none';
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  currentId = null;
+}
+
+function zoom(src) { $('lightbox-img').src = src; $('lightbox').style.display = 'flex'; }
+$('lightbox').onclick = () => $('lightbox').style.display = 'none';
+$('modal-back').onclick = closeDetail;
+$('drawer-close').onclick = closeDetail;
+
+$('f-submit').onclick = async () => {
+  const account = $('f-account').value.trim();
+  const password = $('f-password').value;
+  const brandInput = $('f-brand').value.trim();
+  const screenshot = $('f-shot').checked;
+  if (!account || !password || !brandInput) return alert('账号、密码、品牌输入均必填');
+  try {
+    const t = await api('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account, password, brandInput, screenshot }) });
+    refreshTasks();
+    if (confirm('任务已添加，是否立即执行？')) runTask(t.id); else openDetail(t.id);
+  } catch (e) { alert('添加失败：' + e.message); }
+};
+
+refreshDeps();
+refreshTasks();
+setInterval(refreshTasks, 5000);
+setInterval(refreshDeps, 10000);
+</script>
+</body>
+</html>
