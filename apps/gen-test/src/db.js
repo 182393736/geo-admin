@@ -5,6 +5,8 @@
  * 任务集合 gen_test_tasks 与业务集合同库，便于「删除任务相关数据」时一并清理。
  */
 const { MongoClient, ObjectId } = require('mongodb');
+const bcrypt = require('bcryptjs');
+const { randomUUID } = require('node:crypto');
 
 const MONGO_URL = process.env.TEST_MONGO_URL || 'mongodb://127.0.0.1:27017/geo_dev';
 const TASKS_COLLECTION = 'gen_test_tasks';
@@ -53,6 +55,35 @@ async function createTask({ account, password, brandInput, screenshot = true, he
   return toApi(await col.findOne({ _id: insertedId }));
 }
 
+/**
+ * 添加任务前的账号预检（对齐「没有则自动插入、已有则拒绝」）：
+ *  - 账号不存在 → 按 gen-api users 结构自动插入（bcrypt 密码哈希，UUID _id），返回 { created:true }
+ *  - 账号已存在 → 抛错（status=409），调用方据此拒绝创建任务并提示
+ * 插入结构对齐 apps/gen-api/app/model/user.js（account 唯一、password_hash、status:active）。
+ */
+async function ensureTestUser(account, password) {
+  const db = await connect();
+  const users = db.collection('users');
+  const existing = await users.findOne({ account });
+  if (existing) {
+    const err = new Error(`账号「${account}」已存在，未创建任务（请换一个账号，或先删除该账号的旧任务以清理数据）`);
+    err.status = 409;
+    throw err;
+  }
+  const now = new Date();
+  await users.insertOne({
+    _id: randomUUID(),
+    account,
+    name: account,
+    password_hash: bcrypt.hashSync(password, 10),
+    is_superuser: false,
+    status: 'active',
+    created_at: now,
+    updated_at: now,
+  });
+  return { created: true, account };
+}
+
 async function listTasks() {
   const col = await tasks();
   const docs = await col.find().sort({ created_at: -1 }).toArray();
@@ -87,4 +118,4 @@ async function close() {
   if (client) { await client.close().catch(() => {}); client = null; db = null; }
 }
 
-module.exports = { connect, close, createTask, listTasks, getTask, updateTask, appendStep, removeTaskRecord, MONGO_URL };
+module.exports = { connect, close, createTask, ensureTestUser, listTasks, getTask, updateTask, appendStep, removeTaskRecord, MONGO_URL };

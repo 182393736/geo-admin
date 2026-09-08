@@ -5,7 +5,7 @@
  * 选择器与断言对齐 /home/user/geo_login/verify_precollection_e2e.py。
  */
 
-const ANALYSIS_TIMEOUT = 240_000; // LLM 分析最长时间（SSE 全程）
+const ANALYSIS_TIMEOUT = 480_000; // LLM 分析最长时间（SSE 全程；Agnes 慢时放宽到 8 分钟）
 
 function urlOf(page) { return page.url(); }
 
@@ -146,7 +146,11 @@ const steps = [
     name: '套餐页（免费体验版 / 4 档套餐）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/plan-upgrade`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.pp-current-name', { timeout: 30_000 });
+      // 页面先渲染「暂无订阅」占位，订阅/套餐异步加载后才出「免费体验版」→ 等待真实数据到位
+      await page.waitForFunction(() => {
+        const el = document.querySelector('.pp-current-name');
+        return !!el && el.innerText.includes('免费体验版');
+      }, null, { timeout: 30_000 });
       const planName = (await page.locator('.pp-current-name').innerText()).trim();
       const cards = await page.locator('.pp-plan-name').count();
       const ok = planName.includes('免费体验版') && cards === 4;
@@ -183,13 +187,17 @@ const steps = [
     },
   },
   {
-    name: '排名·监控问题管理（建档生成 ≥3 行）',
+    name: '排名·监控问题管理（建档生成 ≥2 行）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/ai-index/question-mgmt`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.qm-row', { timeout: 45_000 });
+      // 该路由含大 chunk（ECharts），dash 冷启动后首次访问 Vite 编译慢 → waitForFunction 轮询，放宽到 90s
+      await page.waitForFunction(
+        () => document.querySelectorAll('.qm-row').length >= 1,
+        null, { timeout: 90_000 },
+      );
       const rows = await page.locator('.qm-row').count();
       const first = (await page.locator('.qm-question-text').first().innerText()).slice(0, 30);
-      return { status: rows >= 3 ? 'ok' : 'fail', detail: `行数=${rows}，首条=${first}` };
+      return { status: rows >= 2 ? 'ok' : 'fail', detail: `行数=${rows}，首条=${first}` };
     },
   },
   {

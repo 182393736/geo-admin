@@ -63,12 +63,23 @@ async function deleteTask(id) {
   const c = task.cleanup || {};
   const deleted = {};
 
-  // 1) 业务库清理（只在任务记录到 user_id 时执行）
-  if (c.user_id) {
+  // 清理锚点兜底：任务尚未执行时 cleanup 为空，按 account 反查 user_id，
+  // 保证「自动创建但未执行」的任务删除后也能清掉测试账号（账号可复用，不残留）。
+  let userId = c.user_id || '';
+  if (!userId && (c.account || task.account)) {
+    try {
+      const db = await connect();
+      const u = await db.collection('users').findOne({ account: c.account || task.account });
+      userId = u ? String(u._id) : '';
+    } catch { /* 忽略 */ }
+  }
+
+  // 1) 业务库清理（只在能定位到 user_id 时执行）
+  if (userId) {
     const db = await connect();
     for (const { col, field } of CLEANUP_PLAN) {
       let val;
-      if (field === '_id' || field === 'user_id' || field === 'uid') val = c.user_id;
+      if (field === '_id' || field === 'user_id' || field === 'uid') val = userId;
       else if (field === 'brand_id') val = c.brand_id || null;
       else val = null;
       if (!val) continue;
@@ -91,7 +102,7 @@ async function deleteTask(id) {
   return {
     deleted_task: task.id,
     account: c.account || task.account,
-    user_id: c.user_id || '',
+    user_id: userId,
     brand_id: c.brand_id || '',
     brand_name: c.brand_name || '',
     deleted_counts: deleted,

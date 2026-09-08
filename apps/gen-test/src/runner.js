@@ -96,13 +96,15 @@ async function runTask(taskId) {
     let user_id = '';
     let brand_id = '';
     let brand_name = brandName;
+    let info = { href: '', token: '', userId: '' };
     try {
       // 两站 token key 不同（dash 用 geo_token，官网用 geo.token）；再兜底从 geo_user 解 id，
       // 确保「删除任务数据」的锚点 user_id 尽量可靠（步骤 15 等偶发超时不至于连锚点一起丢）。
-      const info = await page.evaluate(() => {
+      info = await page.evaluate(() => {
         let geoUser = null;
         try { geoUser = JSON.parse(localStorage.getItem('geo_user') || 'null'); } catch { /* 忽略 */ }
         return {
+          href: location.href,
           token: localStorage.getItem('geo_token') || localStorage.getItem('geo.token') || '',
           userId: (geoUser && geoUser.id) || '',
         };
@@ -130,7 +132,10 @@ async function runTask(taskId) {
           : `第 ${failedSeq} 步失败${pageErrors.length ? `；页面 JS 错误 ${pageErrors.length} 条` : ''}`,
         page_errors: pageErrors,
       },
-      cleanup: { account: task.account, user_id, brand_id, brand_name, cleaned: false, deleted_counts: null },
+      cleanup: {
+        account: task.account, user_id, brand_id, brand_name, cleaned: false, deleted_counts: null,
+        collect_debug: { href: info.href, has_token: !!info.token, has_geo_user: !!info.userId },
+      },
     });
     await bctx.close().catch(() => {});
   } finally {

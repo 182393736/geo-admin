@@ -5,7 +5,7 @@
  */
 const express = require('express');
 const path = require('node:path');
-const { listTasks, getTask, createTask, connect } = require('./db');
+const { listTasks, getTask, createTask, ensureTestUser, connect } = require('./db');
 const { tryStartTask, isRunning, checkDeps, ARTIFACTS } = require('./runner');
 const { deleteTask } = require('./cleanup');
 
@@ -26,6 +26,12 @@ app.post('/api/tasks', wrap(async (req, res) => {
   const { account, password, brandInput, screenshot, headed } = req.body || {};
   if (!account || !password || !brandInput) {
     return res.status(400).json({ code: 400, msg: '账号、密码、品牌输入均必填' });
+  }
+  // 账号预检：不存在则自动插入用户（bcrypt 密码哈希），已存在则拒绝创建任务并提示
+  try {
+    await ensureTestUser(String(account).trim(), String(password));
+  } catch (e) {
+    return res.status(e.status || 500).json({ code: e.status || 500, msg: e.message });
   }
   const t = await createTask({ account, password, brandInput, screenshot, headed });
   res.json({ code: 200, data: t });
