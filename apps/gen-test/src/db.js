@@ -32,7 +32,7 @@ function toApi(doc) {
   return { id: String(_id), ...rest };
 }
 
-async function createTask({ account, password, brandInput, screenshot = true }) {
+async function createTask({ account, password, brandInput, screenshot = true, headed = false }) {
   const col = await tasks();
   const now = new Date();
   const doc = {
@@ -40,6 +40,7 @@ async function createTask({ account, password, brandInput, screenshot = true }) 
     password: String(password || ''),
     brand_input: String(brandInput || '').trim(),
     screenshot: !!screenshot,
+    headed: !!headed,   // 有头模式：弹出真实浏览器窗口（本地有图形界面时观察交互过程）
     status: 'pending', // pending | running | passed | failed
     result: null,      // { pass: boolean, summary: string }
     steps: [],         // [{ seq, name, status, detail, screenshot, ts }]

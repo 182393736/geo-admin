@@ -53,7 +53,10 @@ async function runTask(taskId) {
     const dir = path.join(ARTIFACTS, taskId);
     fs.mkdirSync(dir, { recursive: true });
 
-    browser = await chromium.launch({ headless: true });
+    // 有头模式：弹出真实浏览器窗口供观察；配合 slowMo 放慢每步操作，便于肉眼跟进交互过程。
+    // 无头模式（默认）：静默执行，适合无人值守批量回归。
+    const headed = !!task.headed;
+    browser = await chromium.launch({ headless: !headed, slowMo: headed ? 250 : 0 });
     const bctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = await bctx.newPage();
     const pageErrors = [];
