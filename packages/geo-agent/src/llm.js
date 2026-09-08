@@ -19,6 +19,23 @@ function extractJson(content) {
   return null;
 }
 
+/** 归一化模型输出的 content 为字符串：兼容字符串 / content-parts 数组（[{type:'text',text:'..'}]）/ null */
+function asText(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content.map(p => {
+      if (typeof p === 'string') return p;
+      if (p && typeof p === 'object') {
+        if (typeof p.text === 'string') return p.text;
+        if (typeof p.content === 'string') return p.content;
+      }
+      return '';
+    }).join('');
+  }
+  if (content == null) return '';
+  return String(content);
+}
+
 function createSiliconFlowClient(opts = {}) {
   // 多 key 轮询：opts.apiKeys（数组）优先；否则单 key（opts.apiKey / SILICONFLOW_API_KEY）
   const apiKeys = resolveKeys('SILICONFLOW_API_KEY', opts.apiKeys);
@@ -104,7 +121,7 @@ function createSiliconFlowClient(opts = {}) {
     }
     const data = await resp.json();
     const choice = (data.choices && data.choices[0]) || {};
-    return { content: (choice.message && choice.message.content) || '', usage: data.usage || null };
+    return { content: asText(choice.message && choice.message.content), usage: data.usage || null };
   }
 
   /** 结构化调用：schemaHint 注入提示词，返回 {data, usage}；解析失败补救重试一次 */
@@ -145,7 +162,7 @@ function createSiliconFlowClient(opts = {}) {
         try {
           const j = JSON.parse(payload);
           const piece = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
-          if (piece) { full += piece; if (onToken) onToken(piece); }
+          if (piece) { const t = asText(piece); full += t; if (onToken) onToken(t); }
         } catch (e) { /* 半行 JSON，忽略 */ }
       }
     }
@@ -181,7 +198,7 @@ function createSiliconFlowClient(opts = {}) {
       }
       const msg = (j.choices && j.choices[0] && j.choices[0].message) || {};
       if (Array.isArray(msg.tool_calls) && msg.tool_calls.length) {
-        messages.push({ role: 'assistant', content: msg.content || '', tool_calls: msg.tool_calls });
+        messages.push({ role: 'assistant', content: asText(msg.content), tool_calls: msg.tool_calls });
         for (const tc of msg.tool_calls) {
           const name = tc.function && tc.function.name;
           const fn = handlers[name];
@@ -198,7 +215,7 @@ function createSiliconFlowClient(opts = {}) {
         }
         continue;
       }
-      return { content: msg.content || '', calls, usage: j.usage || null };
+      return { content: asText(msg.content), calls, usage: j.usage || null };
     }
     return { content: '', calls, truncated: true };
   }

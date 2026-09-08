@@ -59,7 +59,7 @@ async function runOnboarding(deps, input, onEvent) {
       },
       maxRounds: 4,
     });
-    evidence = (research.content || '').trim();
+    evidence = (typeof research.content === 'string' ? research.content : '').trim();
     usage.push({ step: 'web_research', usage: research.usage });
     push('llm_output', {}, { step: 'web_research', tool_calls: research.calls.length, degraded: !!research.degraded });
     if (onEvent && research.calls.length) onEvent({ type: 'research', searches: research.calls.length });
