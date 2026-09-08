@@ -10,21 +10,32 @@
 const { Service } = require('egg');
 
 class DeepseekService extends Service {
-  /** 当前供应商配置：config.llm（apiKey/baseURL/model/chatTemplateKwargs）> config.deepseek */
+  /** 当前供应商配置：config.llm（apiKey(s)/baseURL/model/chatTemplateKwargs）> config.deepseek */
   get cfg() {
     const llm = this.config.llm || {};
+    const keys = (Array.isArray(llm.apiKeys) && llm.apiKeys.length)
+      ? llm.apiKeys
+      : (llm.apiKey ? [llm.apiKey] : ((this.config.deepseek || {}).apiKey ? [(this.config.deepseek || {}).apiKey] : []));
     return {
-      apiKey: llm.apiKey || (this.config.deepseek || {}).apiKey || '',
+      apiKeys: keys,
       baseURL: (llm.baseURL || (this.config.deepseek || {}).baseURL || 'https://api.deepseek.com').replace(/\/+$/, ''),
       model: llm.model || (this.config.deepseek || {}).model || 'deepseek-chat',
       chatTemplateKwargs: llm.chatTemplateKwargs || null,
     };
   }
 
+  /** 多 key 轮询：每次调用取下一个 key，重试自动换 key 分摊速率限制 */
+  nextKey() {
+    const keys = this.cfg.apiKeys;
+    if (!keys.length) return '';
+    if (this._keyCursor === undefined) this._keyCursor = 0;
+    return keys[this._keyCursor++ % keys.length];
+  }
+
   async chat(messages, { model, temperature = 0.2, jsonMode = true, maxTokens = 4096 } = {}) {
     const { ctx } = this;
     const c = this.cfg;
-    if (!c.apiKey) throw new Error('LLM 未配置 API Key（请设置 LLM_PROVIDER 对应供应商的 *_API_KEY）');
+    if (!c.apiKeys.length) throw new Error('LLM 未配置 API Key（请设置 LLM_PROVIDER 对应供应商的 *_API_KEY / *_API_KEYS）');
     const body = {
       model: model || c.model, temperature, messages, max_tokens: maxTokens,
       ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
@@ -34,7 +45,7 @@ class DeepseekService extends Service {
     try {
       resp = await ctx.curl(`${c.baseURL}/chat/completions`, {
         method: 'POST', timeout: 60000,
-        headers: { Authorization: `Bearer ${c.apiKey}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${this.nextKey()}`, 'Content-Type': 'application/json' },
         contentType: 'json', data: body, dataType: 'json',
       });
     } catch (e) {
@@ -43,7 +54,7 @@ class DeepseekService extends Service {
         const { response_format, ...rest } = body;
         resp = await ctx.curl(`${c.baseURL}/chat/completions`, {
           method: 'POST', timeout: 60000,
-          headers: { Authorization: `Bearer ${c.apiKey}`, 'Content-Type': 'application/json' },
+          headers: { Authorization: `Bearer ${this.nextKey()}`, 'Content-Type': 'application/json' },
           contentType: 'json', data: rest, dataType: 'json',
         });
       } else {

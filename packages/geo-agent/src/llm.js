@@ -8,7 +8,7 @@
  * 供应商扩展：opts.chatTemplateKwargs（如 { enable_thinking:false }）随每个请求体下发，用于关闭推理模型的思考模式。
  */
 
-const { resolveKey } = require('./dev-keys');
+const { resolveKey, resolveKeys } = require('./dev-keys');
 
 function extractJson(content) {
   if (!content) return null;
@@ -20,7 +20,12 @@ function extractJson(content) {
 }
 
 function createSiliconFlowClient(opts = {}) {
-  const apiKey = resolveKey('SILICONFLOW_API_KEY', opts.apiKey);
+  // 多 key 轮询：opts.apiKeys（数组）优先；否则单 key（opts.apiKey / SILICONFLOW_API_KEY）
+  const apiKeys = resolveKeys('SILICONFLOW_API_KEY', opts.apiKeys);
+  const singleKey = resolveKey('SILICONFLOW_API_KEY', opts.apiKey);
+  const keys = apiKeys.length ? apiKeys : (singleKey ? [singleKey] : []);
+  let keyCursor = 0;
+  const pickKey = () => (keys.length ? keys[keyCursor++ % keys.length] : '');
   const baseURL = resolveKey('SILICONFLOW_BASE_URL', opts.baseURL).replace(/\/+$/, '');
   const model = resolveKey('SILICONFLOW_MODEL', opts.model);
   const doFetch = opts.fetchImpl || globalThis.fetch;
@@ -28,22 +33,45 @@ function createSiliconFlowClient(opts = {}) {
   const chatTemplateKwargs = opts.chatTemplateKwargs || null;
   if (!doFetch) throw new Error('geo-agent: 需要 Node>=20 的全局 fetch，或由宿主注入 fetchImpl');
 
-  async function post(path, body, { timeoutMs = 90000, stream = false } = {}) {
-    if (!apiKey) throw new Error('geo-agent: 缺少 LLM API Key（LLM_PROVIDER 对应的 *_API_KEY 环境变量未配置）');
+  // 单次 LLM 请求超时（毫秒）。Agnes 等供应商响应偏慢时 90s 偏紧，默认放宽到 180s；
+  // 可用 GEO_LLM_TIMEOUT_MS 覆盖（如 GEO_LLM_TIMEOUT_MS=300000）。
+  const REQ_TIMEOUT_MS = Number(process.env.GEO_LLM_TIMEOUT_MS) || 180_000;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  async function post(path, body, { timeoutMs = REQ_TIMEOUT_MS, stream = false, retries = 2 } = {}) {
+    if (!keys.length) throw new Error('geo-agent: 缺少 LLM API Key（LLM_PROVIDER 对应的 *_API_KEY/_API_KEYS 环境变量未配置）');
     const finalBody = chatTemplateKwargs ? { ...body, chat_template_kwargs: chatTemplateKwargs } : body;
-    const resp = await doFetch(`${baseURL}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify(finalBody),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => '');
-      const err = new Error(`llm ${resp.status}: ${text.slice(0, 300)}`);
-      err.status = resp.status;
-      throw err;
+    let lastErr = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const key = pickKey(); // 每次尝试轮询取 key：多 key 分摊速率限制，重试自动换下一个 key
+      let resp;
+      try {
+        resp = await doFetch(`${baseURL}${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+          body: JSON.stringify(finalBody),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+      } catch (e) {
+        // 网络中断 / 超时：留一次重试机会（供应商偶发抖动时自愈）
+        if (attempt < retries) { await sleep(1000 * (attempt + 1)); lastErr = e; continue; }
+        throw e;
+      }
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        // 5xx / 网关 520 / 429 限流等临时故障：指数退避重试（轮询自动换 key）；4xx 视为确定错误不重试
+        if ((resp.status >= 500 || resp.status === 429) && attempt < retries) {
+          await sleep(1000 * (attempt + 1));
+          lastErr = Object.assign(new Error(`llm ${resp.status}: ${text.slice(0, 300)}`), { status: resp.status });
+          continue;
+        }
+        const err = new Error(`llm ${resp.status}: ${text.slice(0, 300)}`);
+        err.status = resp.status;
+        throw err;
+      }
+      return resp;
     }
-    return resp;
+    throw lastErr;
   }
 
   /** 原始对话：messages 进，{content, usage} 出 */
@@ -79,7 +107,7 @@ function createSiliconFlowClient(opts = {}) {
   }
 
   /** 流式对话（SSE）：onToken(piece) 逐段回调，返回 {content} 全文 */
-  async function chatStream({ system, user, onToken, temperature = 0.5, maxTokens = 4096, timeoutMs = 120000 } = {}) {
+  async function chatStream({ system, user, onToken, temperature = 0.5, maxTokens = 4096, timeoutMs = REQ_TIMEOUT_MS } = {}) {
     const resp = await post('/chat/completions', {
       model, temperature, max_tokens: maxTokens, stream: true,
       messages: [ { role: 'system', content: system }, { role: 'user', content: user } ],
@@ -115,7 +143,7 @@ function createSiliconFlowClient(opts = {}) {
    *   结束后返回 { content, calls, truncated }，结构化结果由调用方再走 chatJson
    * - 兼容：模型/网关不支持 tools（400 报错）时自动降级为普通 chat 一次
    */
-  async function chatToolLoop({ system, user, tools = [], handlers = {}, maxRounds = 4, temperature = 0.3, maxTokens = 2048, timeoutMs = 120000 } = {}) {
+  async function chatToolLoop({ system, user, tools = [], handlers = {}, maxRounds = 4, temperature = 0.3, maxTokens = 2048, timeoutMs = REQ_TIMEOUT_MS } = {}) {
     const messages = [
       { role: 'system', content: system },
       { role: 'user', content: user },

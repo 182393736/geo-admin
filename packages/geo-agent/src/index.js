@@ -16,7 +16,7 @@ const { sanitizePreview } = require('./sanitize');
 const { normalizeProfile, normalizeCandidates, normalizeLibraryDoc } = require('./normalize');
 const { buildBrandTokens, findBrandToken, findBrandTokenInCandidate, filterBrandMentions, filterBrandMentionStrings } = require('./neutral');
 const { NEUTRAL_RULES } = require('./prompts');
-const { DEV_KEYS, resolveKey, devKeysEnabled } = require('./dev-keys');
+const { DEV_KEYS, resolveKey, resolveKeys, devKeysEnabled } = require('./dev-keys');
 
 module.exports = {
   createSiliconFlowClient, createSearchProvider, createWebSearch, runOnboarding, persistResult, crawlPage,
@@ -24,5 +24,5 @@ module.exports = {
   // 监控问题「品牌中立」闸门（宿主侧生成问题时应复用同一套黑名单口径）
   buildBrandTokens, findBrandToken, findBrandTokenInCandidate, filterBrandMentions, filterBrandMentionStrings,
   NEUTRAL_RULES,
-  DEV_KEYS, resolveKey, devKeysEnabled,
+  DEV_KEYS, resolveKey, resolveKeys, devKeysEnabled,
 };

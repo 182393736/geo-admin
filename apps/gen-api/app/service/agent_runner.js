@@ -13,7 +13,7 @@ class AgentRunnerService extends Service {
     // config.llm：当前供应商的 apiKey/baseURL/model/chatTemplateKwargs；向后兼容 config.siliconflow
     const cfg = app.config.llm || app.config.siliconflow || {};
     const llm = createSiliconFlowClient({
-      apiKey: cfg.apiKey, baseURL: cfg.baseURL, model: cfg.model,
+      apiKey: cfg.apiKey, apiKeys: cfg.apiKeys, baseURL: cfg.baseURL, model: cfg.model,
       chatTemplateKwargs: cfg.chatTemplateKwargs,
     });
     // 联网取证：优先用 config.tavily.apiKey（env > dev-keys 内置测试密钥），为空则自动降级不联网

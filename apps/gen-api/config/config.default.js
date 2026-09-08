@@ -1,13 +1,20 @@
 'use strict';
-const { resolveKey } = require('@geo-admin/geo-agent');
+const { resolveKey, resolveKeys } = require('@geo-admin/geo-agent');
 
 /**
  * 大模型供应商预设（OpenAI 兼容协议）
- * - 切换：环境变量 LLM_PROVIDER=siliconflow | agnes | deepseek（默认 agnes）
- * - 各供应商可再用 *_API_KEY / *_BASE_URL / *_MODEL 环境变量覆盖
+ * - 切换：环境变量 LLM_PROVIDER=mistral | siliconflow | agnes | deepseek（默认 mistral）
+ * - 各供应商可再用 *_API_KEY(S) / *_BASE_URL / *_MODEL 环境变量覆盖
+ * - mistral：ministral-3b-2512，多 key 轮询（MISTRAL_API_KEYS 支持 JSON 数组或逗号分隔）
  * - agnes 默认关闭思考模式（enable_thinking:false，降延迟省 token），AGNES_ENABLE_THINKING=1 打开
  */
 const LLM_PROVIDERS = {
+  mistral: {
+    apiKeys: resolveKeys('MISTRAL_API_KEYS'),
+    baseURL: resolveKey('MISTRAL_BASE_URL'),
+    model: resolveKey('MISTRAL_MODEL'),
+    chatTemplateKwargs: null,
+  },
   siliconflow: {
     apiKey: resolveKey('SILICONFLOW_API_KEY'),
     baseURL: resolveKey('SILICONFLOW_BASE_URL'),
@@ -28,10 +35,22 @@ const LLM_PROVIDERS = {
   },
 };
 
+/** 供应商 → 统一形态：apiKey（首个，兼容旧消费方）+ apiKeys（数组，轮询） */
+function normalizeProvider(p) {
+  const keys = Array.isArray(p.apiKeys) && p.apiKeys.length ? p.apiKeys : (p.apiKey ? [p.apiKey] : []);
+  return {
+    apiKey: keys[0] || '',
+    apiKeys: keys,
+    baseURL: p.baseURL || '',
+    model: p.model || '',
+    chatTemplateKwargs: p.chatTemplateKwargs ?? null,
+  };
+}
+
 module.exports = () => {
-  const rawProvider = process.env.LLM_PROVIDER || 'agnes';
-  const provider = LLM_PROVIDERS[rawProvider] ? rawProvider : 'agnes'; // 未知值兜底到默认 agnes
-  const active = LLM_PROVIDERS[provider];
+  const rawProvider = process.env.LLM_PROVIDER || 'mistral';
+  const provider = LLM_PROVIDERS[rawProvider] ? rawProvider : 'mistral'; // 未知值兜底到默认 mistral
+  const active = normalizeProvider(LLM_PROVIDERS[provider]);
   return {
   mongoose: {
     client: {
@@ -46,6 +65,7 @@ module.exports = () => {
   llm: {
     provider,
     apiKey: active.apiKey,
+    apiKeys: active.apiKeys,
     baseURL: active.baseURL,
     model: active.model,
     chatTemplateKwargs: active.chatTemplateKwargs,

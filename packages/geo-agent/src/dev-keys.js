@@ -19,6 +19,22 @@ const DEV_KEYS = {
   AGNES_API_KEY: 'sk-jMCSPHx7y8WRCltlLg187HomxaXCkG5YAMDtQ4hEDCJwQfir',
   AGNES_BASE_URL: 'https://apihub.agnes-ai.com/v1',
   AGNES_MODEL: 'agnes-3.0-flash',
+  // Mistral（ministral-3b-2512，多 key 轮询避速率限制；生产用 MISTRAL_API_KEYS 环境变量覆盖，
+  //   支持逗号分隔或 JSON 数组字符串，如 MISTRAL_API_KEYS='["k1","k2"]'）
+  MISTRAL_API_KEYS: [
+    'Nt6BSqSRPKlFQz0pEHbKZqDn9n6lM7Mf',
+    '3MJFpS20IyaRIRhzBtFCcgJdbuxAvKZM',
+    'EUAMVBfG5jpBzLCPHP4EAOS4A4rzFDrQ',
+    'xj9DA6YJpz3kNLjNBgR669Z0BUEKUvHP',
+    'Nk5mTWC7PqFXvIyTAMExAUe1KYB1X83Y',
+    '9iJ60P5PhfAyTfaqMqZcaE3Lhh2mZXOl',
+    'vsVEAEGNfSv1nFea2W3IuUQMD2lkdVEQ',
+    'Y6ZZYfHlSV1WhIKtVwk2w53skYSBeAYM',
+    'ELmpcVslJ8vDkKSh35xwwSwKACwd6al6',
+    'e9rcg1XNbr1coK1u6QsThgKPML0fRtRn',
+  ],
+  MISTRAL_BASE_URL: 'https://api.mistral.ai/v1',
+  MISTRAL_MODEL: 'ministral-3b-2512',
 };
 
 function devKeysEnabled() {
@@ -36,4 +52,25 @@ function resolveKey(name, explicit) {
   return devKeysEnabled() ? DEV_KEYS[name] || '' : '';
 }
 
-module.exports = { DEV_KEYS, resolveKey, devKeysEnabled };
+/**
+ * 解析一组密钥（多 key 轮询用）：显式入参 > 环境变量 > 内置开发值。
+ * 环境变量支持 JSON 数组字符串或逗号分隔；返回去空后的数组。
+ * @param {string} name  DEV_KEYS 中的键名，同时也是环境变量名
+ * @param {string[]} [explicit] 调用方显式传入的数组（空数组/undefined 视为未传）
+ */
+function resolveKeys(name, explicit) {
+  if (Array.isArray(explicit) && explicit.length) return explicit.filter(Boolean);
+  const env = process.env[name];
+  if (env) {
+    try {
+      const parsed = JSON.parse(env);
+      if (Array.isArray(parsed)) return parsed.map(s => String(s).trim()).filter(Boolean);
+    } catch { /* 不是 JSON，按逗号分隔处理 */ }
+    return env.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  const dev = devKeysEnabled() ? DEV_KEYS[name] : null;
+  if (Array.isArray(dev)) return dev.filter(Boolean);
+  return dev ? [dev] : [];
+}
+
+module.exports = { DEV_KEYS, resolveKey, resolveKeys, devKeysEnabled };
