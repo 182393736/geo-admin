@@ -35,9 +35,10 @@ const SERVICES = {
   dash:  { port: 5173,      host: '127.0.0.1', label: '用户后台',      url: 'http://localhost:5173' },
   site:  { port: 3002,      host: 'localhost', label: '官网/首登站',   url: 'http://localhost:3002' },
   test:  { port: 8787,      host: '127.0.0.1', label: '测试程序',      url: 'http://localhost:8787' },
+  admin: { port: 5180,      host: '127.0.0.1', label: '管理总后台',    url: 'http://localhost:5180' },
 };
 
-const COLORS = { mongo: '\x1b[32m', api: '\x1b[33m', dash: '\x1b[36m', site: '\x1b[35m', test: '\x1b[34m' };
+const COLORS = { mongo: '\x1b[32m', api: '\x1b[33m', dash: '\x1b[36m', site: '\x1b[35m', test: '\x1b[34m', admin: '\x1b[31m' };
 const RESET = '\x1b[0m';
 const children = new Set();
 
@@ -172,12 +173,18 @@ async function startIfFree(name, start) {
       { env: { TEST_MONGO_URL: MONGO_URL }, waitFor: '测试程序已启动' }));
   } catch (e) { console.error('[test] ❌ ' + e.message); }
 
+  try {
+    await startIfFree('admin', () => run('admin', PNPM, ['--filter', '@geo-admin/gen-admin', 'dev'],
+      { waitFor: 'ready in' }));
+  } catch (e) { console.error('[admin] ❌ ' + e.message); }
+
   console.log('');
   console.log('  ✅ 服务启动完成：');
-  for (const k of ['api', 'dash', 'site', 'test']) {
+  for (const k of ['api', 'dash', 'site', 'test', 'admin']) {
     console.log(`     ${SERVICES[k].label.padEnd(12, '　')} ${SERVICES[k].url}`);
   }
   console.log('  打开测试程序 → http://localhost:8787');
+  console.log('  管理总后台 → http://localhost:5180（管理员 123456/123456）');
   console.log('  按 Ctrl+C 停止全部服务。');
   console.log('');
 

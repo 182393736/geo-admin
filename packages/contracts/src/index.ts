@@ -14,3 +14,4 @@ export * from './entities';
 export * from './schemas';
 export * from './api';
 export * from './jwt';
+export * from './admin';

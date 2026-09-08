@@ -9,7 +9,8 @@ apps/
 ├── gen-user-dash  @geo-admin/gen-user-dash  用户后台控制台（Vue3 + Vite + Pinia + Arco Design + ECharts）
 ├── gen-api        @geo-admin/gen-api        Egg.js + Mongoose 后台（46 model + 3 schedule + 7 pipeline service + LLM 封装）
 ├── gen-user-site  @geo-admin/gen-user-site  官网首页 / 首登分析站（Nuxt，/trial 为唯一建档入口）
-└── gen-test       @geo-admin/gen-test       端到端测试程序（网页添加任务 → Playwright 执行 → 一键删除任务数据）
+├── gen-test       @geo-admin/gen-test       端到端测试程序（网页添加任务 → Playwright 执行 → 一键删除任务数据）
+└── gen-admin      @geo-admin/gen-admin      管理员总后台（Vue3 + Arco 浅色，只读监控全平台：用户/品牌/采集/解析/LLM/计费/内容/报告/首登/行为/消息/系统）
 packages/
 ├── geo-agent   @geo-admin/geo-agent  首登分析 Agent（纯 CJS 零依赖，硅基流动 + 联网取证）
 └── contracts   @geo-admin/contracts  共享契约包（枚举/常量/实体/zod schema/接口/JWT，单一事实源）
@@ -23,7 +24,7 @@ docs/           接口分析 · 业务闭环 · 数据库设计 · 施工清单 
 ```bash
 pnpm install
 pnpm dev:all        # ★ 本地开发一键启动（仅限本地使用！）
-                    #   依次拉起：MongoDB(内存,42439) → gen-api(:7001) → 用户后台(:5173) → 官网(:3002) → 测试程序(:8787)
+                    #   依次拉起：MongoDB(内存,42439) → gen-api(:7001) → 用户后台(:5173) → 官网(:3002) → 测试程序(:8787) → 管理总后台(:5180)
                     #   全部共用同一个 MongoDB，保证测试程序的「删除任务数据」能清理业务库
                     #   ⚠️ NODE_ENV=production 时脚本会拒绝启动
 pnpm dev:web        # 用户后台 web（http://localhost:5173）
@@ -32,6 +33,7 @@ pnpm dev:api        # 后端（需 MONGO_URL，或 node scripts/dev-memory.js �
                     #   生产：设置 SILICONFLOW_API_KEY / TAVILY_API_KEY 环境变量即自动覆盖内置值
 pnpm dev:site       # 官网 gen-user-site（http://localhost:3002）
 pnpm dev:test       # 端到端测试程序（http://localhost:8787，需先 playwright install chromium）
+pnpm dev:admin      # 管理总后台（http://localhost:5180，管理员 123456/123456）
 ```
 
 ## 本地端到端测试（完整操作指南）
@@ -134,3 +136,20 @@ API 契约层类型已收口到 `packages/contracts`（`apps/gen-user-dash/src/a
 - 建表与数据流向：`docs/数据库设计文档.md`（配合 `apps/gen-api/app/model/*.js`）
 - 每日流水线：`apps/gen-api/app/schedule/*.js`（00:30 展槽 → 04:00 解析聚合 → 05:00 报告）
 - 所有 LLM 调用（DeepSeek）的提示词与输出结构：`docs/LLM调用点设计与提示词.md`
+
+## 管理员总后台（gen-admin）
+
+只读监控全平台，独立应用，Arco 浅色主题，默认单角色管理员（`users.is_superuser=true`）。
+
+```bash
+pnpm dev:admin     # http://localhost:5180，本地管理员账号 123456/123456
+```
+
+- **鉴权**：复用 `/user/login` 登录，后端 `/admin/**` 全部走 `jwtAuth + adminAuth`（非管理员 403）。
+- **页面**：运营驾驶舱 / 用户 / 品牌 / 采集监控 / 解析监控 / LLM 调用 / 计费中心 / 内容与发稿 /
+  报告中心 / 首登漏斗 / 行为埋点 / 诊断任务 / Agent 会话 / 站内消息 / 系统观测（共 15 页）。
+- **接口**：`apps/gen-api/app/controller/admin.js`（25 个只读聚合端点，契约类型在 `packages/contracts/src/admin.ts`）。
+- **演示数据**（可选，让每个监控页有内容）：
+  `MONGO_URL=mongodb://127.0.0.1:42439/geo_dev node apps/gen-api/scripts/seed-admin-demo.js`
+- **冒烟脚本**（登录 → 14 页路由渲染 → 退出）：`node scripts/smoke-admin.cjs`
+- 增删改（封号 / 改套餐 / 退款 / 渠道管理）暂未实现，后续按需放开。

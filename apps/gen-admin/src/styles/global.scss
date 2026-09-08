@@ -1,0 +1,70 @@
+// 管理总后台设计系统 —— Arco 浅色 + indigo 主色（与用户后台同源）
+$primary-color: #4338ca;
+$primary-hover: #6366f1;
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background-color: #f4f6fb;
+  color: #1f2430;
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.page-container { padding: 16px 20px; }
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: #1f2430;
+}
+.page-desc { font-size: 13px; color: #6b7280; margin: 0 0 16px; }
+
+// Arco 主色对齐 indigo
+body {
+  --primary-6: 67 56 202;
+  --primary-7: 55 48 163;
+}
+.arco-btn-primary { background-color: #4338ca; border-color: #4338ca; }
+.arco-btn-primary:hover { background-color: #6366f1; border-color: #6366f1; }
+.arco-tabs-tab-active { color: #4338ca; }
+.arco-tabs-tab-active::before { background-color: #4338ca; }
+.arco-link { color: #4338ca; }
+
+.card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px 18px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+  .stat-label { font-size: 13px; color: #6b7280; }
+  .stat-value { font-size: 24px; font-weight: 700; color: #1f2430; margin-top: 4px; }
+  .stat-extra { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+}
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+
+.table-card { background: #fff; border-radius: 10px; padding: 16px 18px; box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06); }
+
+.kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; font-size: 13px; }
+.kv .k { color: #6b7280; }
+.kv .v { color: #1f2430; word-break: break-all; }
+
+.pager { display: flex; justify-content: flex-end; margin-top: 14px; }

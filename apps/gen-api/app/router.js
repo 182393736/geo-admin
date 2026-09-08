@@ -36,4 +36,46 @@ module.exports = app => {
   // ============ 发稿渠道库（采集前真实展示：信源库页） ============
   router.post('/publish/media/facets', jwtAuth, controller.publish.mediaFacets);
   router.post('/publish/media/list', jwtAuth, controller.publish.mediaList);
+
+  // ============ 管理员总后台（gen-admin · 只读监控）============
+  // 鉴权：jwtAuth + adminAuth（is_superuser=true）；后续增删改再放开写接口
+  const adminAuth = middleware.adminAuth();
+  router.get('/admin/me', jwtAuth, adminAuth, controller.admin.me);
+  router.get('/admin/overview', jwtAuth, adminAuth, controller.admin.overview);
+  // 用户 / 品牌
+  router.get('/admin/users', jwtAuth, adminAuth, controller.admin.users);
+  router.get('/admin/users/:id', jwtAuth, adminAuth, controller.admin.userDetail);
+  router.get('/admin/brands', jwtAuth, adminAuth, controller.admin.brands);
+  router.get('/admin/brands/:id', jwtAuth, adminAuth, controller.admin.brandDetail);
+  // 采集监控
+  router.get('/admin/collect/tasks', jwtAuth, adminAuth, controller.admin.collectTasks);
+  router.get('/admin/collect/tasks/:id/slots', jwtAuth, adminAuth, controller.admin.collectSlots);
+  router.get('/admin/collect/answers', jwtAuth, adminAuth, controller.admin.collectAnswers);
+  router.get('/admin/collect/snapshots', jwtAuth, adminAuth, controller.admin.collectSnapshots);
+  // 解析监控
+  router.get('/admin/parse/overview', jwtAuth, adminAuth, controller.admin.parseOverview);
+  // LLM
+  router.get('/admin/llm/logs', jwtAuth, adminAuth, controller.admin.llmLogs);
+  // 计费
+  router.get('/admin/billing/plans', jwtAuth, adminAuth, controller.admin.plans);
+  router.get('/admin/billing/subscriptions', jwtAuth, adminAuth, controller.admin.subscriptions);
+  router.get('/admin/billing/orders', jwtAuth, adminAuth, controller.admin.orders);
+  router.get('/admin/billing/credit', jwtAuth, adminAuth, controller.admin.creditAccounts);
+  router.get('/admin/billing/credit-transactions', jwtAuth, adminAuth, controller.admin.creditTransactions);
+  // 内容与发稿
+  router.get('/admin/content/media', jwtAuth, adminAuth, controller.admin.mediaChannels);
+  router.get('/admin/content/publish-orders', jwtAuth, adminAuth, controller.admin.publishOrders);
+  router.get('/admin/content/articles', jwtAuth, adminAuth, controller.admin.articles);
+  router.get('/admin/content/writing-jobs', jwtAuth, adminAuth, controller.admin.writingJobs);
+  // 报告
+  router.get('/admin/reports', jwtAuth, adminAuth, controller.admin.reports);
+  // 首登漏斗
+  router.get('/admin/onboarding/tasks', jwtAuth, adminAuth, controller.admin.onboardingTasks);
+  router.get('/admin/onboarding/traces', jwtAuth, adminAuth, controller.admin.onboardingTraces);
+  // 行为 / 诊断 / Agent / 消息 / 系统
+  router.get('/admin/behavior/events', jwtAuth, adminAuth, controller.admin.behaviorEvents);
+  router.get('/admin/diagnosis', jwtAuth, adminAuth, controller.admin.diagnosis);
+  router.get('/admin/agent/histories', jwtAuth, adminAuth, controller.admin.agentHistories);
+  router.get('/admin/reminders', jwtAuth, adminAuth, controller.admin.reminders);
+  router.get('/admin/system', jwtAuth, adminAuth, controller.admin.system);
 };
