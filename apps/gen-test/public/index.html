@@ -31,6 +31,9 @@
   .btn-mini { padding:4px 10px; font-size:12px; border-radius:6px; background:#fff; color:var(--tx); border:1px solid var(--line); cursor:pointer; }
   .btn-mini:hover { border-color:var(--acc); color:var(--acc); }
   .btn-mini.danger:hover { border-color:var(--fail); color:var(--fail); }
+  /* 操作列：按钮允许自动换行，保证「删除」等最右侧按钮可见 */
+  .op-cell { white-space:normal; }
+  .op-cell .btn-mini { margin:2px 6px 2px 0; white-space:nowrap; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:middle; }
   th { color:var(--mut); font-weight:500; font-size:12px; }
@@ -150,7 +153,7 @@ async function refreshTasks() {
       <td>${esc(t.account)}</td>
       <td class="truncate" title="${esc(t.brand_input)}">${esc(t.brand_input)}</td>
       <td>${stepTxt}</td>
-      <td style="white-space:nowrap">
+      <td class="op-cell">
         <button class="btn-mini" onclick="runTask('${t.id}')">▶ 执行</button>
         <button class="btn-mini" onclick="openDetail('${t.id}')">查看</button>
         <button class="btn-mini danger" onclick="delTask('${t.id}')">删除</button>
