@@ -14,7 +14,9 @@
     "dev:site": "pnpm --filter @geo-admin/gen-user-site dev",
     "build:web": "pnpm --filter @geo-admin/gen-user-dash build",
     "build:site": "pnpm --filter @geo-admin/gen-user-site build",
-    "preview:site": "pnpm --filter @geo-admin/gen-user-site preview"
+    "preview:site": "pnpm --filter @geo-admin/gen-user-site preview",
+    "build:contracts": "pnpm --filter @geo-admin/contracts build",
+    "postinstall": "pnpm --filter @geo-admin/contracts build"
   },
   "engines": {
     "node": ">=20.0.0"
