@@ -3,7 +3,7 @@ const { resolveKey } = require('@geo-admin/geo-agent');
 
 /**
  * 大模型供应商预设（OpenAI 兼容协议）
- * - 切换：环境变量 LLM_PROVIDER=siliconflow | agnes | deepseek（默认 siliconflow）
+ * - 切换：环境变量 LLM_PROVIDER=siliconflow | agnes | deepseek（默认 agnes）
  * - 各供应商可再用 *_API_KEY / *_BASE_URL / *_MODEL 环境变量覆盖
  * - agnes 默认关闭思考模式（enable_thinking:false，降延迟省 token），AGNES_ENABLE_THINKING=1 打开
  */
@@ -29,8 +29,9 @@ const LLM_PROVIDERS = {
 };
 
 module.exports = () => {
-  const provider = process.env.LLM_PROVIDER || 'siliconflow';
-  const active = LLM_PROVIDERS[provider] || LLM_PROVIDERS.siliconflow;
+  const rawProvider = process.env.LLM_PROVIDER || 'agnes';
+  const provider = LLM_PROVIDERS[rawProvider] ? rawProvider : 'agnes'; // 未知值兜底到默认 agnes
+  const active = LLM_PROVIDERS[provider];
   return {
   mongoose: {
     client: {
