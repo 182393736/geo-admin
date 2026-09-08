@@ -97,9 +97,21 @@ async function runTask(taskId) {
     let brand_id = '';
     let brand_name = brandName;
     try {
-      const token = await page.evaluate(() => localStorage.getItem('geo_token') || '');
-      const payload = decodeJwtPayload(token);
-      user_id = (payload && payload.sub) || '';
+      // 两站 token key 不同（dash 用 geo_token，官网用 geo.token）；再兜底从 geo_user 解 id，
+      // 确保「删除任务数据」的锚点 user_id 尽量可靠（步骤 15 等偶发超时不至于连锚点一起丢）。
+      const info = await page.evaluate(() => {
+        let geoUser = null;
+        try { geoUser = JSON.parse(localStorage.getItem('geo_user') || 'null'); } catch { /* 忽略 */ }
+        return {
+          token: localStorage.getItem('geo_token') || localStorage.getItem('geo.token') || '',
+          userId: (geoUser && geoUser.id) || '',
+        };
+      });
+      if (info.token) {
+        const payload = decodeJwtPayload(info.token);
+        user_id = (payload && payload.sub) || '';
+      }
+      if (!user_id) user_id = info.userId;
     } catch { /* 未登录成功则留空 */ }
     try {
       const db = await connect();

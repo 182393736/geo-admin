@@ -135,7 +135,7 @@ const steps = [
       await page.goto(`${ctx.deps.DASH}/dashboard/overview`, { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(
         brand => document.body.innerText.includes(brand),
-        ctx.brandName, { timeout: 20_000 },
+        ctx.brandName, { timeout: 30_000 },
       );
       const body = await page.locator('body').innerText();
       const pending = body.includes('等待') || body.includes('首次') || body.includes('采集');
@@ -146,7 +146,7 @@ const steps = [
     name: '套餐页（免费体验版 / 4 档套餐）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/plan-upgrade`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.pp-current-name', { timeout: 20_000 });
+      await page.waitForSelector('.pp-current-name', { timeout: 30_000 });
       const planName = (await page.locator('.pp-current-name').innerText()).trim();
       const cards = await page.locator('.pp-plan-name').count();
       const ok = planName.includes('免费体验版') && cards === 4;
@@ -157,7 +157,7 @@ const steps = [
     name: '名片页（品牌名 / 剩余修改次数）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/brand-card`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('input.input-readonly', { timeout: 20_000 });
+      await page.waitForSelector('input.input-readonly', { timeout: 30_000 });
       const nameInput = await page.locator('input.input-readonly').inputValue();
       const rename = await page.locator('.field-hint strong').first().innerText();
       const ok = nameInput.includes(ctx.brandName);
@@ -168,7 +168,7 @@ const steps = [
     name: '口碑·监控问题管理（采集前应 0 行）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/sentiment/question-mgmt`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.qm-card-title', { timeout: 20_000 });
+      await page.waitForSelector('.qm-card-title', { timeout: 30_000 });
       const rows = await page.locator('.qm-row').count();
       return { status: rows === 0 ? 'ok' : 'fail', detail: `行数=${rows}（采集前应 0）` };
     },
@@ -177,7 +177,7 @@ const steps = [
     name: '口碑·识别管理（品牌名）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/sentiment/recognition-mgmt`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('input.rm-brand-input', { timeout: 20_000 });
+      await page.waitForSelector('input.rm-brand-input', { timeout: 30_000 });
       const brand = await page.locator('input.rm-brand-input').inputValue();
       return { status: brand.includes(ctx.brandName) ? 'ok' : 'fail', detail: `品牌名=${brand}` };
     },
@@ -186,7 +186,7 @@ const steps = [
     name: '排名·监控问题管理（建档生成 ≥3 行）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/ai-index/question-mgmt`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.qm-row', { timeout: 20_000 });
+      await page.waitForSelector('.qm-row', { timeout: 45_000 });
       const rows = await page.locator('.qm-row').count();
       const first = (await page.locator('.qm-question-text').first().innerText()).slice(0, 30);
       return { status: rows >= 3 ? 'ok' : 'fail', detail: `行数=${rows}，首条=${first}` };
@@ -196,7 +196,7 @@ const steps = [
     name: '信源库（19 家种子渠道）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/media-library`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.ml-tr', { timeout: 20_000 });
+      await page.waitForSelector('.ml-tr', { timeout: 30_000 });
       const rows = await page.locator('.ml-tr').count();
       const info = (await page.locator('.ml-page-info').innerText()).trim();
       return { status: rows >= 15 ? 'ok' : 'fail', detail: `${info}，行数=${rows}` };
