@@ -5,43 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GEO 端到端测试程序</title>
 <style>
-  :root { --bg:#0f1220; --card:#181c2e; --line:#262b45; --tx:#e7e9f5; --mut:#8a90b0; --acc:#5b6cff; --ok:#22c55e; --fail:#ef4444; --run:#3b82f6; --skip:#8a90b0; }
+  :root { --bg:#f4f6fb; --card:#ffffff; --line:#e4e8f2; --tx:#1f2430; --mut:#7a8199; --acc:#5b6cff; --ok:#16a34a; --fail:#dc2626; --run:#2563eb; --skip:#9aa1b8; }
   * { box-sizing: border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--tx); font:14px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; padding:24px; }
   h1 { font-size:20px; display:flex; align-items:center; gap:10px; }
   .sub { color:var(--mut); font-size:12px; margin:4px 0 20px; }
   .deps { display:flex; gap:12px; margin:8px 0 20px; flex-wrap:wrap; }
-  .dep { font-size:12px; padding:3px 10px; border-radius:20px; border:1px solid var(--line); color:var(--mut); }
-  .dep.ok { color:var(--ok); border-color:rgba(34,197,94,.4); }
-  .dep.bad { color:var(--fail); border-color:rgba(239,68,68,.4); }
+  .dep { font-size:12px; padding:3px 10px; border-radius:20px; border:1px solid var(--line); color:var(--mut); background:#fff; }
+  .dep.ok { color:var(--ok); border-color:rgba(22,163,74,.35); background:rgba(22,163,74,.06); }
+  .dep.bad { color:var(--fail); border-color:rgba(220,38,38,.35); background:rgba(220,38,38,.06); }
   .grid { display:grid; grid-template-columns: 380px 1fr; gap:20px; align-items:start; }
   @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:0 1px 2px rgba(16,24,40,.04); }
   .card h2 { font-size:15px; margin-bottom:14px; }
   label { display:block; font-size:12px; color:var(--mut); margin:12px 0 6px; }
   input[type=text], input[type=password], textarea {
-    width:100%; background:#12152a; border:1px solid var(--line); color:var(--tx);
+    width:100%; background:#fbfcfe; border:1px solid var(--line); color:var(--tx);
     border-radius:8px; padding:10px 12px; font-size:14px; outline:none; resize:vertical;
   }
-  input:focus, textarea:focus { border-color:var(--acc); }
+  input:focus, textarea:focus { border-color:var(--acc); background:#fff; }
   .row { display:flex; align-items:center; gap:8px; margin-top:12px; }
   .btn { border:none; border-radius:8px; padding:9px 16px; font-size:14px; cursor:pointer; }
   .btn-primary { background:var(--acc); color:#fff; width:100%; margin-top:16px; }
   .btn:disabled { opacity:.5; cursor:not-allowed; }
-  .btn-mini { padding:4px 10px; font-size:12px; border-radius:6px; background:#1d2140; color:var(--tx); border:1px solid var(--line); cursor:pointer; }
-  .btn-mini:hover { border-color:var(--acc); }
+  .btn-mini { padding:4px 10px; font-size:12px; border-radius:6px; background:#fff; color:var(--tx); border:1px solid var(--line); cursor:pointer; }
+  .btn-mini:hover { border-color:var(--acc); color:var(--acc); }
   .btn-mini.danger:hover { border-color:var(--fail); color:var(--fail); }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:middle; }
   th { color:var(--mut); font-weight:500; font-size:12px; }
   .tag { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; }
-  .tag.pending { background:#2a2f4a; color:var(--mut); }
-  .tag.running { background:rgba(59,130,246,.15); color:var(--run); }
-  .tag.passed { background:rgba(34,197,94,.15); color:var(--ok); }
-  .tag.failed { background:rgba(239,68,68,.15); color:var(--fail); }
+  .tag.pending { background:#eef0f6; color:var(--mut); }
+  .tag.running { background:rgba(37,99,235,.10); color:var(--run); }
+  .tag.passed { background:rgba(22,163,74,.10); color:var(--ok); }
+  .tag.failed { background:rgba(220,38,38,.10); color:var(--fail); }
   .truncate { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .steps { display:flex; flex-direction:column; gap:8px; max-height:70vh; overflow:auto; padding-right:6px; }
-  .step { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:#12152a; }
+  .step { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:#fbfcfe; }
   .step .hd { display:flex; align-items:center; gap:8px; }
   .dot { width:8px; height:8px; border-radius:50%; flex:none; }
   .dot.ok{background:var(--ok);} .dot.fail{background:var(--fail);} .dot.running{background:var(--run);} .dot.skip{background:var(--skip);}
@@ -51,12 +51,12 @@
   .spinner { width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--run);border-radius:50%;animation:s .8s linear infinite; }
   @keyframes s { to { transform:rotate(360deg); } }
   .empty { color:var(--mut); text-align:center; padding:30px 0; }
-  .summary { margin-top:12px; padding:12px; border-radius:10px; background:#12152a; border:1px solid var(--line); font-size:13px; }
+  .summary { margin-top:12px; padding:12px; border-radius:10px; background:#fbfcfe; border:1px solid var(--line); font-size:13px; }
   .lightbox { position:fixed; inset:0; background:rgba(0,0,0,.8); display:none; align-items:center; justify-content:center; z-index:50; }
   .lightbox img { max-width:92vw; max-height:92vh; border-radius:8px; }
-  .modal-back { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; z-index:40; }
+  .modal-back { position:fixed; inset:0; background:rgba(15,18,32,.4); display:none; z-index:40; }
   .drawer { position:fixed; top:0; right:-560px; width:560px; max-width:96vw; height:100vh; background:var(--card);
-            border-left:1px solid var(--line); transition:right .25s; z-index:41; padding:20px; overflow:auto; }
+            border-left:1px solid var(--line); transition:right .25s; z-index:41; padding:20px; overflow:auto; box-shadow:-4px 0 20px rgba(16,24,40,.08); }
   .drawer.open { right:0; }
   .drawer .close { float:right; background:none; border:none; color:var(--mut); font-size:22px; cursor:pointer; }
 </style>

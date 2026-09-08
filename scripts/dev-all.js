@@ -8,6 +8,7 @@
  *
  * ⚠️ 仅限本地开发：NODE_ENV=production 时直接拒绝启动。
  * 用法：pnpm dev:all        （Ctrl+C 一键停止全部）
+ *       DEV_ALL_NO_OPEN=1 pnpm dev:all   （不自动打开浏览器）
  */
 const { spawn } = require('node:child_process');
 const net = require('node:net');
@@ -39,6 +40,28 @@ const SERVICES = {
 const COLORS = { mongo: '\x1b[32m', api: '\x1b[33m', dash: '\x1b[36m', site: '\x1b[35m', test: '\x1b[34m' };
 const RESET = '\x1b[0m';
 const children = new Set();
+
+/** 是否自动打开浏览器（默认打开；DEV_ALL_NO_OPEN=1 时关闭） */
+const AUTO_OPEN = process.env.DEV_ALL_NO_OPEN !== '1';
+
+/** 在系统默认浏览器打开 URL（跨平台；无 GUI 环境下静默失败不阻塞） */
+function openBrowser(url) {
+  return new Promise(resolve => {
+    let child;
+    if (process.platform === 'win32') {
+      child = spawn('cmd', ['/c', 'start', '""', url], { stdio: 'ignore', detached: true });
+    } else if (process.platform === 'darwin') {
+      child = spawn('open', [url], { stdio: 'ignore', detached: true });
+    } else {
+      child = spawn('xdg-open', [url], { stdio: 'ignore', detached: true });
+    }
+    child.on('error', () => resolve(false));
+    child.on('exit', () => resolve(true));
+    try { child.unref(); } catch { /* 忽略 */ }
+    // 兜底：xdg-open 等可能长时间不退出，3 秒后视为已尝试
+    setTimeout(() => resolve(true), 3000);
+  });
+}
 
 /** 给子进程输出按行加 [名字] 前缀 */
 function prefixLines(name, stream) {
@@ -157,6 +180,19 @@ async function startIfFree(name, start) {
   console.log('  打开测试程序 → http://localhost:8787');
   console.log('  按 Ctrl+C 停止全部服务。');
   console.log('');
+
+  // 自动在默认浏览器打开三个网页（dash / site / test）
+  if (AUTO_OPEN) {
+    console.log('  🌐 正在默认浏览器打开网页…');
+    for (const k of ['dash', 'site', 'test']) {
+      const ok = await openBrowser(SERVICES[k].url);
+      console.log(`     ${ok ? '✅' : '⚠️ '}${SERVICES[k].label.padEnd(12, '　')} ${SERVICES[k].url}${ok ? '' : '（无法自动打开，请手动访问）'}`);
+    }
+    console.log('');
+  } else {
+    console.log('  ℹ️  已禁用自动打开浏览器（DEV_ALL_NO_OPEN=1）。');
+    console.log('');
+  }
 
   // 优雅停止：逐个给子进程发 SIGTERM
   const shutdown = sig => {
