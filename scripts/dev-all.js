@@ -20,6 +20,15 @@ if (process.env.NODE_ENV === 'production') {
   process.exit(1);
 }
 
+// ---- LLM 代理（仅本地开发）----
+// 海外 LLM 供应商（如 Mistral）在大陆直连会 fetch failed；本地开发默认走本机 HTTP 代理。
+//   LLM_PROXY 未设置 → 注入 http://localhost:1087；LLM_PROXY=xxx → 用 xxx；LLM_PROXY=（空）→ 强制直连。
+//   生产环境不经过本脚本（且 NODE_ENV=production 会被上方拦截），完全不受影响。
+if (process.env.LLM_PROXY === undefined) {
+  process.env.LLM_PROXY = 'http://localhost:1087';
+  console.log('[dev:all] ℹ️  本地 LLM 默认走本机代理 http://localhost:1087（LLM_PROXY= 留空强制直连，LLM_PROXY=xxx 自定义）');
+}
+
 const ROOT = path.join(__dirname, '..');
 const MONGO_PORT = Number(process.env.GEO_MONGO_PORT || 42439);
 const MONGO_URL = `mongodb://127.0.0.1:${MONGO_PORT}/geo_dev`;

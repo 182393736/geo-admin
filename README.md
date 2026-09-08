@@ -55,6 +55,11 @@ pnpm dev:all
 
 等日志出现「✅ 服务启动完成」即可。打开测试程序网页：**http://localhost:8787**
 
+> **LLM 代理（仅本地）**：默认供应商 Mistral 在大陆直连会 `fetch failed`。
+> `pnpm dev:all` 会自动走本机 HTTP 代理 `http://localhost:1087`；
+> 自定义代理：`LLM_PROXY=http://127.0.0.1:7890 pnpm dev:all`；强制直连（如香港/海外网络）：`LLM_PROXY= pnpm dev:all`。
+> 生产环境不经过 `dev:all`，不设 `LLM_PROXY` 即直连，不受影响。
+
 > 也可以分开启动：`pnpm dev:api` + `pnpm dev:web` + `pnpm dev:site` + `pnpm dev:test`，
 > 但 **MongoDB 必须共用同一个库**（gen-test 删除数据时要清理 gen-api 的业务库），
 > 因此推荐用 `pnpm dev:all` 或 `node apps/gen-api/scripts/dev-mongo-fixed.js`（固定端口 42439）。

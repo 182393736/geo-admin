@@ -21,6 +21,8 @@ class DeepseekService extends Service {
       baseURL: (llm.baseURL || (this.config.deepseek || {}).baseURL || 'https://api.deepseek.com').replace(/\/+$/, ''),
       model: llm.model || (this.config.deepseek || {}).model || 'deepseek-chat',
       chatTemplateKwargs: llm.chatTemplateKwargs || null,
+      // 显式 HTTP(S) 代理：本地开发走本机代理访问海外供应商（如 Mistral）；生产不设置即直连
+      proxy: String(llm.proxy || process.env.LLM_PROXY || '').trim() || '',
     };
   }
 
@@ -47,6 +49,7 @@ class DeepseekService extends Service {
         method: 'POST', timeout: 60000,
         headers: { Authorization: `Bearer ${this.nextKey()}`, 'Content-Type': 'application/json' },
         contentType: 'json', data: body, dataType: 'json',
+        ...(c.proxy ? { proxy: c.proxy } : {}),
       });
     } catch (e) {
       // 供应商不认 response_format → 去掉重试一次
@@ -56,6 +59,7 @@ class DeepseekService extends Service {
           method: 'POST', timeout: 60000,
           headers: { Authorization: `Bearer ${this.nextKey()}`, 'Content-Type': 'application/json' },
           contentType: 'json', data: rest, dataType: 'json',
+          ...(c.proxy ? { proxy: c.proxy } : {}),
         });
       } else {
         throw e;

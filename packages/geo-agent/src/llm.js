@@ -33,6 +33,21 @@ function createSiliconFlowClient(opts = {}) {
   const chatTemplateKwargs = opts.chatTemplateKwargs || null;
   if (!doFetch) throw new Error('geo-agent: 需要 Node>=20 的全局 fetch，或由宿主注入 fetchImpl');
 
+  // 显式 HTTP(S) 代理：opts.proxy > 环境变量 LLM_PROXY（如 http://127.0.0.1:1087）。
+  // Node 的全局 fetch 不读 HTTP_PROXY/HTTPS_PROXY，必须显式挂 undici 的 ProxyAgent 作为 dispatcher。
+  // 生产环境不设置 LLM_PROXY → 直连；本地开发需翻墙时由 dev:all 注入默认代理。
+  let dispatcher = null;
+  const proxyUrl = String(opts.proxy || process.env.LLM_PROXY || '').trim();
+  if (proxyUrl) {
+    try {
+      const { ProxyAgent } = require('undici');
+      dispatcher = new ProxyAgent(proxyUrl);
+    } catch (e) {
+      // undici 缺失时静默降级直连（保证零依赖场景仍可用）
+      console.warn(`[geo-agent] 已配置代理 ${proxyUrl} 但无法加载 undici，忽略代理直连: ${e.message}`);
+    }
+  }
+
   // 单次 LLM 请求超时（毫秒）。Agnes 等供应商响应偏慢时 90s 偏紧，默认放宽到 180s；
   // 可用 GEO_LLM_TIMEOUT_MS 覆盖（如 GEO_LLM_TIMEOUT_MS=300000）。
   const REQ_TIMEOUT_MS = Number(process.env.GEO_LLM_TIMEOUT_MS) || 180_000;
@@ -51,6 +66,7 @@ function createSiliconFlowClient(opts = {}) {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
           body: JSON.stringify(finalBody),
           signal: AbortSignal.timeout(timeoutMs),
+          ...(dispatcher ? { dispatcher } : {}),
         });
       } catch (e) {
         // 网络中断 / 超时：留一次重试机会（供应商偶发抖动时自愈）

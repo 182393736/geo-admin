@@ -69,6 +69,8 @@ module.exports = () => {
     baseURL: active.baseURL,
     model: active.model,
     chatTemplateKwargs: active.chatTemplateKwargs,
+    // 显式 HTTP(S) 代理：本地开发走本机代理访问海外供应商；生产不设置 LLM_PROXY 即直连
+    proxy: String(process.env.LLM_PROXY || '').trim(),
     providers: LLM_PROVIDERS,
   },
   // 向后兼容旧字段（agent_runner 等历史引用）

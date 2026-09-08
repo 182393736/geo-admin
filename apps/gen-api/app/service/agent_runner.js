@@ -15,6 +15,7 @@ class AgentRunnerService extends Service {
     const llm = createSiliconFlowClient({
       apiKey: cfg.apiKey, apiKeys: cfg.apiKeys, baseURL: cfg.baseURL, model: cfg.model,
       chatTemplateKwargs: cfg.chatTemplateKwargs,
+      proxy: cfg.proxy || undefined, // 本地开发走代理（dev:all 注入），生产直连
     });
     // 联网取证：优先用 config.tavily.apiKey（env > dev-keys 内置测试密钥），为空则自动降级不联网
     // 热度验证 Provider 暂缺（SerpAPI/Bing 已停用，自建搜索后接入）→ 诚实保持 llm_estimate
