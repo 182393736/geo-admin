@@ -18,11 +18,16 @@ docs/                         接口分析 · 业务闭环 · 数据库设计 ·
 
 ```bash
 pnpm install
+pnpm dev:all        # ★ 本地开发一键启动（仅限本地使用！）
+                    #   依次拉起：MongoDB(内存,42439) → gen-api(:7001) → 用户后台(:5173) → 官网(:3002) → 测试程序(:8787)
+                    #   全部共用同一个 MongoDB，保证测试程序的「删除任务数据」能清理业务库
+                    #   ⚠️ NODE_ENV=production 时脚本会拒绝启动
 pnpm dev:web        # 用户后台 web（默认 mock 数据，http://localhost:5173）
 pnpm dev:api        # 后端（需 MONGO_URL，或 node scripts/dev-memory.js 内存库）
                     #   LLM/联网取证密钥已内置于 packages/geo-agent/src/dev-keys.js（私有仓库测试用，开箱即用）
                     #   生产：设置 SILICONFLOW_API_KEY / TAVILY_API_KEY 环境变量即自动覆盖内置值
 pnpm dev:site       # 官网 gen-user-site（http://localhost:3002）
+pnpm dev:test       # 端到端测试程序（http://localhost:8787，需先 playwright install chromium）
 ```
 
 ## 前端接真实后端
