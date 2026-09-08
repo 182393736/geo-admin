@@ -15,6 +15,10 @@ const DEV_KEYS = {
   SILICONFLOW_BASE_URL: 'https://api.siliconflow.cn/v1',
   SILICONFLOW_MODEL: 'deepseek-ai/DeepSeek-V4-Flash',
   TAVILY_API_KEY: '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',
+  // Agnes AI（测试用 key，生产环境用 AGNES_API_KEY 环境变量覆盖）
+  AGNES_API_KEY: 'sk-jMCSPHx7y8WRCltlLg187HomxaXCkG5YAMDtQ4hEDCJwQfir',
+  AGNES_BASE_URL: 'https://apihub.agnes-ai.com/v1',
+  AGNES_MODEL: 'agnes-3.0-flash',
 };
 
 function devKeysEnabled() {

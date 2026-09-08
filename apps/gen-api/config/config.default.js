@@ -15,9 +15,9 @@ const LLM_PROVIDERS = {
     chatTemplateKwargs: null,
   },
   agnes: {
-    apiKey: process.env.AGNES_API_KEY || '',
-    baseURL: process.env.AGNES_BASE_URL || 'https://apihub.agnes-ai.com/v1',
-    model: process.env.AGNES_MODEL || 'agnes-3.0-flash',
+    apiKey: resolveKey('AGNES_API_KEY'),
+    baseURL: resolveKey('AGNES_BASE_URL'),
+    model: resolveKey('AGNES_MODEL'),
     chatTemplateKwargs: process.env.AGNES_ENABLE_THINKING === '1' ? null : { enable_thinking: false },
   },
   deepseek: {
