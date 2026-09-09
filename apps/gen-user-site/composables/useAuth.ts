@@ -17,6 +17,11 @@ const STORAGE_KEY = 'timus.auth'
 
 const user = ref<AuthUser | null>(null)
 const ready = ref(false)
+// 是否已过首登分析（已有品牌）：
+//   true  = 有品牌 → 点用户名跳控制台
+//   false = 无品牌 → 点用户名跳 /trial 建档
+//   null  = 尚未确认（未登录 / 网络失败）
+const hasBrand = ref<boolean | null>(null)
 
 function read(): AuthUser | null {
   try {
@@ -76,10 +81,30 @@ export function useAuth() {
       applyHandoffToken() // 后台跳转带回的 token 优先吸收
       user.value = read()
       ready.value = true
+      if (user.value) refreshBrandState() // 已登录则回填品牌态
     }
   })
 
   const isLoggedIn = computed(() => !!user.value)
+
+  /**
+   * 拉取当前用户品牌列表，确认是否已过首登分析。
+   * 返回 true/false；未登录或网络异常返回 null（调用方决定兜底）。
+   */
+  async function refreshBrandState(): Promise<boolean | null> {
+    const { apiGet, getToken } = useGeoApi()
+    if (!getToken()) { hasBrand.value = null; return null }
+    try {
+      const res = await apiGet<{ code?: number; data?: unknown }>('/user/brands')
+      const list = (res && res.data) ?? res
+      const ok = Array.isArray(list) && list.length > 0
+      hasBrand.value = ok
+      return ok
+    } catch {
+      hasBrand.value = null
+      return null
+    }
+  }
 
   /** 登录：成功返回 true，失败返回错误文案 */
   async function login(account: string, password: string): Promise<true | string> {
@@ -102,16 +127,18 @@ export function useAuth() {
     }
     user.value = next
     persist(next)
+    refreshBrandState() // 登录成功即回填品牌态（决定后续点用户名跳转目标）
     return true
   }
 
   function logout() {
     user.value = null
+    hasBrand.value = null
     persist(null)
     try {
       localStorage.removeItem('geo.token')
     } catch { /* 忽略 */ }
   }
 
-  return { user, isLoggedIn, login, logout }
+  return { user, isLoggedIn, hasBrand, refreshBrandState, login, logout }
 }

@@ -44,6 +44,18 @@ export function useGeoApi() {
     return data as T
   }
 
+  /** GET 请求（带 Bearer），用于查询类接口（/user/brands、/user/info 等） */
+  async function apiGet<T = unknown>(path: string): Promise<T> {
+    const resp = await fetch(`${base}${path}`, { method: 'GET', headers: authHeaders() })
+    const data = await resp.json().catch(() => ({} as Record<string, unknown>))
+    if (!resp.ok) {
+      const err = new Error(String((data as { msg?: string })?.msg || `请求失败（${resp.status}）`)) as Error & { status?: number }
+      err.status = resp.status
+      throw err
+    }
+    return data as T
+  }
+
   /** POST SSE：逐帧回调 onEvent(eventName, parsedData)，流结束正常返回；失败抛带 .status 的 Error */
   async function sse(path: string, body: unknown, onEvent: (ev: string, data: unknown) => void): Promise<void> {
     const resp = await fetch(`${base}${path}`, {
@@ -83,5 +95,5 @@ export function useGeoApi() {
     }
   }
 
-  return { apiPost, sse, getToken, setToken, base }
+  return { apiPost, apiGet, sse, getToken, setToken, base }
 }
