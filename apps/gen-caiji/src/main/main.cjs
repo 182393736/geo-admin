@@ -10,9 +10,11 @@
  */
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
 const { chromium } = require('playwright');
 const PLATFORMS = require('../shared/platforms.json');
 const { detectAuth, watchUsername } = require('./login-detect.cjs');
+const { runChat, saveResult } = require('./chat/index.cjs');
 
 const IP_LIST_URL = 'http://api.tupianseo.com/daili/daili_list';
 
@@ -21,6 +23,11 @@ app.setName('gen-caiji');
 
 /** ip -> { context, pages: Map<platform, Page>, dir } */
 const sessions = new Map();
+
+/** 对话测试：最近一次结果 HTML 路径 `${ip}:${platform}` -> 文件路径 */
+const lastResults = new Map();
+/** 对话测试：进行中的 `${ip}:${platform}` 集合（防重入） */
+const runningChats = new Set();
 
 /** 渲染主窗口（用于主动推送平台登录态变化） */
 let mainWindow = null;
@@ -31,10 +38,30 @@ function pushAuth(ip, platform, auth) {
   }
 }
 
-/** 以 IP 作为会话文件夹名（IP 里的「.」合法保留；Windows 非法字符替换为 _） */
+/** 把对话测试日志推送到渲染层（页面下方日志区） */
+function makeChatLog(ip, platform) {
+  return (level, message) => {
+    const entry = { ip, platform, level, message, time: Date.now() };
+    console.log(`[chat:${platform}@${ip}] [${level}] ${message}`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('chat-log', entry);
+    }
+  };
+}
+
+/** IP 等字符串 → 文件系统安全名（Windows 非法字符替换为 _） */
+function safeName(v) {
+  return String(v || '').trim().replace(/[\\/:*?"<>|\s]/g, '_') || 'default';
+}
+
+/** 以 IP 作为会话文件夹名 */
 function profileDirFor(ip) {
-  const safe = String(ip || '').trim().replace(/[\\/:*?"<>|\s]/g, '_') || 'default';
-  return path.join(app.getPath('userData'), 'profiles', safe);
+  return path.join(app.getPath('userData'), 'profiles', safeName(ip));
+}
+
+/** 对话结果 HTML 保存目录 */
+function resultsDirFor(ip) {
+  return path.join(app.getPath('userData'), 'results', safeName(ip));
 }
 
 /** 获取（或首次创建）该 IP 的独立浏览器会话；若窗口已被手动关闭则自动重建 */
@@ -159,6 +186,66 @@ function registerIpc() {
       return { ok: true, ip, closed: true };
     } catch (err) {
       return { ok: false, error: friendlyErr(err) };
+    }
+  });
+
+  // —— 对话测试：在对应平台 tab 上执行一次对话，输出回答+信源并保存 HTML ——
+  ipcMain.handle('chat:run', async (_e, { ip, platform, prompt }) => {
+    const key = `${ip}:${platform}`;
+    if (runningChats.has(key)) return { ok: false, error: '该平台正在对话中，请稍候' };
+    const cfg = PLATFORMS.find(p => p.key === platform);
+    if (!cfg) return { ok: false, error: `未知平台：${platform}` };
+    const q = String(prompt || '').trim();
+    if (!q) return { ok: false, error: '请输入测试问题' };
+
+    const log = makeChatLog(ip, platform);
+    const startedAt = new Date();
+    let openedPlatform = false;
+    runningChats.add(key);
+    try {
+      const s = await getSession(ip);
+      let page = s.pages.get(platform);
+      if (!page || page.isClosed()) {
+        page = await s.context.newPage();
+        s.pages.set(platform, page);
+        openedPlatform = true;
+        log('info', `打开 ${cfg.name} 标签页：${cfg.url}`);
+        await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+      }
+      log('info', `开始 ${cfg.name} 对话：${q}`);
+      const result = await runChat(page, platform, q, log);
+      const htmlPath = saveResult(resultsDirFor(ip), {
+        ip, platform, platformName: cfg.name, prompt: q,
+        answer: result.answer || '', sources: result.sources || [],
+        startedAt: startedAt.toLocaleString('zh-CN', { hour12: false }),
+      });
+      lastResults.set(key, htmlPath);
+      log('success', `对话完成：回答 ${(result.answer || '').length} 字，信源 ${(result.sources || []).length} 条，已保存 ${htmlPath}`);
+      return { ok: true, ip, platform, openedPlatform, answer: result.answer || '', sources: result.sources || [], htmlPath };
+    } catch (err) {
+      const msg = String((err && err.message) || err);
+      log('error', `对话失败：${msg}`);
+      return { ok: false, error: msg };
+    } finally {
+      runningChats.delete(key);
+    }
+  });
+
+  // —— 预览：打开该 IP/平台最近一次对话结果 HTML ——
+  ipcMain.handle('chat:preview', async (_e, { ip, platform }) => {
+    const p = lastResults.get(`${ip}:${platform}`);
+    if (!p || !fs.existsSync(p)) return { ok: false, error: '暂无对话结果，请先执行测试' };
+    try {
+      const win = new BrowserWindow({
+        width: 900,
+        height: 760,
+        title: `对话结果 · ${platform}`,
+        webPreferences: { contextIsolation: true, nodeIntegration: false },
+      });
+      win.loadFile(p);
+      return { ok: true, htmlPath: p };
+    } catch (err) {
+      return { ok: false, error: String((err && err.message) || err) };
     }
   });
 }

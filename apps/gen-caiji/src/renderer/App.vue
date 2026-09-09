@@ -56,8 +56,29 @@
                 size="small"
                 placeholder="测试问题"
                 clearable
+                :disabled="isRunning(row.ip, p.key)"
               />
-              <el-button size="small" class="test-btn" @click="doTest(row, p)">测试{{ p.name }}</el-button>
+              <el-button
+                size="small"
+                class="test-btn"
+                :loading="isRunning(row.ip, p.key)"
+                @click="doTest(row, p)"
+              >{{ isRunning(row.ip, p.key) ? '对话中…' : '测试' + p.name }}</el-button>
+            </div>
+          </div>
+        </template>
+      </el-table-column>
+
+      <el-table-column label="预览" width="150">
+        <template #default="{ row }">
+          <div class="col">
+            <div v-for="p in platforms" :key="p.key" class="preview-row">
+              <el-button
+                size="small"
+                class="preview-btn"
+                :disabled="!hasResult(row.ip, p.key)"
+                @click="doPreview(row, p)"
+              >预览{{ p.name }}</el-button>
             </div>
           </div>
         </template>
@@ -80,12 +101,27 @@
       </template>
     </el-table>
 
-    <p class="hint">提示：平台按钮点击打开/关闭标签页；打开后自动检测登录态——按钮绿色=已登录（账号显示在按钮右侧）、黄色=未登录。浏览器按钮打开/关闭整个会话（数据保留在磁盘）。</p>
+    <p class="hint">提示：平台按钮打开/关闭标签页（绿色=已登录、黄色=未登录）；测试列输入问题后点「测试+平台名」在对应 tab 执行对话，完成后存 HTML 并点亮「预览+平台名」；浏览器按钮打开/关闭整个会话。</p>
+
+    <div class="log-panel">
+      <div class="log-hd">
+        <span class="log-title">执行日志</span>
+        <el-button size="small" text @click="clearLogs">清空</el-button>
+      </div>
+      <div ref="logBox" class="log-box">
+        <div v-for="(l, i) in logs" :key="i" class="log-line" :class="'lv-' + l.level">
+          <span class="log-time">{{ fmtTime(l.time) }}</span>
+          <span class="log-tag">{{ platformName(l.platform) }}@{{ l.ip }}</span>
+          <span class="log-msg">{{ l.message }}</span>
+        </div>
+        <div v-if="!logs.length" class="log-empty">暂无日志</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import platforms from '../shared/platforms.json';
 
@@ -96,12 +132,38 @@ const loading = ref(false);
 const opening = ref('');                 // 正在打开浏览器的 ip
 const openedBrowsers = ref({});          // ip -> true（该 IP 的浏览器会话已打开）
 const openedPlatforms = ref({});         // `${ip}:${platform}` -> true
-const testInputs = reactive({});         // `${ip}:${platform}` -> 测试输入内容（先占位，功能后定）
+const testInputs = reactive({});         // `${ip}:${platform}` -> 测试输入内容
 const authStates = reactive({});         // `${ip}:${platform}` -> { loggedIn, username }
+const running = reactive({});            // `${ip}:${platform}` -> true（对话进行中）
+const results = reactive({});            // `${ip}:${platform}` -> true（已有对话结果可预览）
+const logs = ref([]);                    // 页面底部日志区
+const logBox = ref(null);
 
 const isBrowserOpen = ip => !!openedBrowsers.value[ip];
 const isPlatformOpen = (ip, platform) => !!openedPlatforms.value[`${ip}:${platform}`];
 const authOf = (ip, platform) => authStates[`${ip}:${platform}`];
+const isRunning = (ip, platform) => !!running[`${ip}:${platform}`];
+const hasResult = (ip, platform) => !!results[`${ip}:${platform}`];
+
+function platformName(key) {
+  const p = platforms.find(x => x.key === key);
+  return p ? p.name : key;
+}
+function fmtTime(ts) {
+  const d = new Date(ts || Date.now());
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function pushLog(entry) {
+  logs.value.push(entry);
+  if (logs.value.length > 500) logs.value.splice(0, logs.value.length - 500);
+  nextTick(() => {
+    if (logBox.value) logBox.value.scrollTop = logBox.value.scrollHeight;
+  });
+}
+function clearLogs() {
+  logs.value = [];
+}
 
 // 平台按钮三态：未打开=灰 / 已登录=绿 / 未登录=黄
 function platBtnType(ip, platform) {
@@ -226,13 +288,41 @@ async function togglePlatform(row, p) {
   }
 }
 
-function doTest(row, p) {
-  const q = (testInputs[`${row.ip}:${p.key}`] || '').trim();
+async function doTest(row, p) {
+  if (!isElectron) return;
+  const key = `${row.ip}:${p.key}`;
+  const q = (testInputs[key] || '').trim();
   if (!q) {
     ElMessage.warning(`请先输入 ${p.name} 的测试问题`);
     return;
   }
-  ElMessage.info(`测试功能待实现：${row.ip} · ${p.name} → ${q}`);
+  if (running[key]) return;
+  running[key] = true;
+  try {
+    const r = await window.electronAPI.runChat(row.ip, p.key, q);
+    if (r && r.ok) {
+      results[key] = true;
+      openedBrowsers.value[row.ip] = true;             // 对话会确保浏览器会话已打开
+      if (r.openedPlatform) openedPlatforms.value[key] = true; // 对话自动补开的平台 tab
+      ElMessage.success(`${p.name} 完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 HTML`);
+    } else {
+      ElMessage.error(`${p.name} 对话失败：${(r && r.error) || '未知错误'}`);
+    }
+  } catch (e) {
+    ElMessage.error(`${p.name} 对话失败：${(e && e.message) || e}`);
+  } finally {
+    delete running[key];
+  }
+}
+
+async function doPreview(row, p) {
+  if (!isElectron) return;
+  try {
+    const r = await window.electronAPI.previewChat(row.ip, p.key);
+    if (!r || !r.ok) ElMessage.info((r && r.error) || '暂无对话结果');
+  } catch (e) {
+    ElMessage.error('预览失败：' + ((e && e.message) || e));
+  }
 }
 
 onMounted(() => {
@@ -242,6 +332,10 @@ onMounted(() => {
     window.electronAPI.onPlatformAuth(({ ip, platform, loggedIn, username }) => {
       authStates[`${ip}:${platform}`] = { loggedIn: !!loggedIn, username: username || '' };
     });
+  }
+  // 订阅主进程推送的对话测试日志（页面下方日志区）
+  if (isElectron && window.electronAPI.onChatLog) {
+    window.electronAPI.onChatLog(entry => pushLog(entry));
   }
 });
 </script>
@@ -339,6 +433,65 @@ body {
 .test-btn {
   flex: 0 0 104px;
   width: 104px;
+}
+.preview-row {
+  display: flex;
+}
+.preview-btn {
+  width: 100%;
+}
+.log-panel {
+  margin-top: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+.log-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid #eef0f4;
+  background: #fafbfc;
+}
+.log-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+.log-box {
+  height: 180px;
+  overflow-y: auto;
+  padding: 8px 14px;
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.8;
+  background: #0f172a;
+}
+.log-line {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.log-time {
+  color: #64748b;
+  flex: 0 0 auto;
+}
+.log-tag {
+  color: #38bdf8;
+  flex: 0 0 auto;
+}
+.log-msg {
+  color: #cbd5e1;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.log-line.lv-success .log-msg { color: #4ade80; }
+.log-line.lv-warn .log-msg { color: #fbbf24; }
+.log-line.lv-error .log-msg { color: #f87171; }
+.log-empty {
+  color: #475569;
 }
 .hint {
   margin-top: 14px;
