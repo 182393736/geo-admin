@@ -22,24 +22,41 @@
     />
 
     <el-table :data="rows" v-loading="loading" border stripe size="default" style="width: 100%">
-      <el-table-column label="IP" min-width="180">
+      <el-table-column label="IP" min-width="170">
         <template #default="{ row }">
           <span class="ip">{{ row.ip }}</span>
           <span v-if="row.port" class="port">:{{ row.port }}</span>
         </template>
       </el-table-column>
 
-      <el-table-column label="平台" min-width="400">
+      <el-table-column label="平台" width="150">
         <template #default="{ row }">
-          <div class="plat">
+          <div class="col">
             <el-button
               v-for="p in platforms"
               :key="p.key"
               size="small"
+              class="plat-btn"
               :type="isPlatformOpen(row.ip, p.key) ? 'success' : 'default'"
               :plain="isPlatformOpen(row.ip, p.key)"
               @click="togglePlatform(row, p)"
             >{{ isPlatformOpen(row.ip, p.key) ? p.name + ' · 已开' : p.name }}</el-button>
+          </div>
+        </template>
+      </el-table-column>
+
+      <el-table-column label="测试" min-width="300">
+        <template #default="{ row }">
+          <div class="col">
+            <div v-for="p in platforms" :key="p.key" class="test-row">
+              <el-input
+                v-model="testInputs[`${row.ip}:${p.key}`]"
+                size="small"
+                placeholder="测试问题"
+                clearable
+              />
+              <el-button size="small" @click="doTest(row, p)">测试</el-button>
+            </div>
           </div>
         </template>
       </el-table-column>
@@ -61,12 +78,12 @@
       </template>
     </el-table>
 
-    <p class="hint">提示：平台按钮再次点击关闭该标签页；浏览器按钮再次点击关闭整个浏览器会话（登录等数据保留在磁盘，可再打开）。</p>
+    <p class="hint">提示：平台按钮点击打开/关闭对应标签页；浏览器按钮点击打开/关闭整个浏览器会话（数据保留在磁盘）。测试按钮与输入框功能待定。</p>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import platforms from '../shared/platforms.json';
 
@@ -77,6 +94,7 @@ const loading = ref(false);
 const opening = ref('');                 // 正在打开浏览器的 ip
 const openedBrowsers = ref({});          // ip -> true（该 IP 的浏览器会话已打开）
 const openedPlatforms = ref({});         // `${ip}:${platform}` -> true
+const testInputs = reactive({});         // `${ip}:${platform}` -> 测试输入内容（先占位，功能后定）
 
 const isBrowserOpen = ip => !!openedBrowsers.value[ip];
 const isPlatformOpen = (ip, platform) => !!openedPlatforms.value[`${ip}:${platform}`];
@@ -102,7 +120,6 @@ async function load() {
 async function toggleBrowser(row) {
   if (!isElectron) return;
   if (isBrowserOpen(row.ip)) {
-    // 关闭整个浏览器会话（带确认，避免误触）
     try {
       await ElMessageBox.confirm(`确定关闭 ${row.ip} 的浏览器会话？（会话数据保留在磁盘，可再次打开）`, '关闭浏览器', {
         type: 'warning', confirmButtonText: '关闭', cancelButtonText: '取消',
@@ -112,7 +129,6 @@ async function toggleBrowser(row) {
       const r = await window.electronAPI.closeBrowser(row.ip);
       if (r && r.ok) {
         openedBrowsers.value[row.ip] = false;
-        // 会话关闭后，其下所有平台 tab 一并失效
         for (const k of Object.keys(openedPlatforms.value)) {
           if (k.startsWith(`${row.ip}:`)) delete openedPlatforms.value[k];
         }
@@ -125,7 +141,6 @@ async function toggleBrowser(row) {
     }
     return;
   }
-  // 打开浏览器会话
   opening.value = row.ip;
   try {
     const r = await window.electronAPI.openBrowser(row.ip);
@@ -146,7 +161,6 @@ async function togglePlatform(row, p) {
   if (!isElectron) return;
   const key = `${row.ip}:${p.key}`;
   if (isPlatformOpen(row.ip, p.key)) {
-    // 关闭该平台标签页
     try {
       const r = await window.electronAPI.closePlatform(row.ip, p.key);
       if (r && r.ok) {
@@ -160,12 +174,11 @@ async function togglePlatform(row, p) {
     }
     return;
   }
-  // 打开该平台标签页
   try {
     const r = await window.electronAPI.openPlatform(row.ip, p.key);
     if (r && r.ok) {
       openedPlatforms.value[key] = true;
-      openedBrowsers.value[row.ip] = true; // 平台打开会顺带拉起该 IP 的浏览器会话
+      openedBrowsers.value[row.ip] = true;
       ElMessage.success(`已打开 ${row.ip} · ${p.name}`);
     } else {
       ElMessage.error('打开失败：' + ((r && r.error) || '未知错误'));
@@ -173,6 +186,15 @@ async function togglePlatform(row, p) {
   } catch (e) {
     ElMessage.error('打开失败：' + (e && e.message ? e.message : e));
   }
+}
+
+function doTest(row, p) {
+  const q = (testInputs[`${row.ip}:${p.key}`] || '').trim();
+  if (!q) {
+    ElMessage.warning(`请先输入 ${p.name} 的测试问题`);
+    return;
+  }
+  ElMessage.info(`测试功能待实现：${row.ip} · ${p.name} → ${q}`);
 }
 
 onMounted(load);
@@ -229,10 +251,21 @@ body {
   font-size: 12px;
   color: #9ca3af;
 }
-.plat {
+.col {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 6px;
+}
+.plat-btn {
+  width: 118px;
+}
+.test-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.test-row .el-input {
+  flex: 1;
 }
 .hint {
   margin-top: 14px;
