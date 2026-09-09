@@ -106,9 +106,12 @@
     <div class="log-panel">
       <div class="log-hd">
         <span class="log-title">执行日志</span>
-        <el-button size="small" text @click="clearLogs">清空</el-button>
+        <span class="log-actions">
+          <el-button size="small" text @click="logCollapsed = !logCollapsed">{{ logCollapsed ? '展开' : '收起' }}</el-button>
+          <el-button size="small" text @click="clearLogs">清空</el-button>
+        </span>
       </div>
-      <div ref="logBox" class="log-box">
+      <div v-show="!logCollapsed" ref="logBox" class="log-box">
         <div v-for="(l, i) in logs" :key="i" class="log-line" :class="'lv-' + l.level">
           <span class="log-time">{{ fmtTime(l.time) }}</span>
           <span class="log-tag">{{ platformName(l.platform) }}@{{ l.ip }}</span>
@@ -138,6 +141,7 @@ const running = reactive({});            // `${ip}:${platform}` -> true（对话
 const results = reactive({});            // `${ip}:${platform}` -> true（已有对话结果可预览）
 const logs = ref([]);                    // 页面底部日志区
 const logBox = ref(null);
+const logCollapsed = ref(false);        // 日志面板收起/展开（悬浮于底部）
 
 const isBrowserOpen = ip => !!openedBrowsers.value[ip];
 const isPlatformOpen = (ip, platform) => !!openedPlatforms.value[`${ip}:${platform}`];
@@ -351,7 +355,7 @@ body {
 
 <style scoped>
 .page {
-  padding: 20px 24px 32px;
+  padding: 20px 24px 260px;
 }
 .hd {
   display: flex;
@@ -441,11 +445,15 @@ body {
   width: 100%;
 }
 .log-panel {
-  margin-top: 18px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  border: none;
+  border-top: 1px solid #e5e7eb;
   background: #fff;
-  overflow: hidden;
+  box-shadow: 0 -4px 14px rgba(15, 23, 42, 0.12);
 }
 .log-hd {
   display: flex;
@@ -459,6 +467,11 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: #374151;
+}
+.log-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .log-box {
   height: 180px;
