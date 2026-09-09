@@ -26,36 +26,38 @@ class CollectorController extends Controller {
     return Number.isFinite(n) && n > 0 ? n : 2;
   }
 
-  /** 拉取单个待采集槽位：原子领取，多 worker 并发安全（findOneAndUpdate 条件带 status=pending）。
-   *  单条语义：每次只领 1 个（query_id 最小的 pending 槽位，先入先出）；无待采槽位返回 slot=null。 */
+  /** 拉取单个待采集槽位：单条 + 一步原子领取（findOneAndUpdate 带 sort，无竞争窗口）。
+   *  平台：兼容单数 platform / 复数 platforms；缺省=全部 5 家；指定但均不在白名单=无。 */
   async pull() {
     const { ctx } = this;
     const M = ctx.model;
     const b = ctx.request.body || {};
-    const platforms = Array.isArray(b.platforms) && b.platforms.length
-      ? b.platforms.filter(p => this.cfg.platforms.includes(p))
-      : this.cfg.platforms;
+
+    // 平台：单数 platform 或复数 platforms 都接受；未指定=全部 5 家
+    const requested = Array.isArray(b.platforms) ? b.platforms
+      : (typeof b.platform === 'string' && b.platform ? [b.platform] : null);
+    const platforms = requested === null
+      ? this.cfg.platforms
+      : requested.filter(p => this.cfg.platforms.includes(p));
+
     const end = b.end === 'mobile' ? 'mobile' : 'web';
     const date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || ''))
       ? String(b.date)
       : ctx.app.dayjs().format('YYYY-MM-DD');
 
+    const none = () => { ctx.body = { code: 200, msg: 'ok', data: { slot: null } }; };
+    if (!platforms.length) return none(); // 指定的平台都不在白名单（如 kimi）
+
     const q = { status: 'pending', attempts: { $lt: this.maxAttempts }, platform: { $in: platforms }, end, date };
     if (b.query_type === 'industry' || b.query_type === 'brand') q.query_type = b.query_type;
 
-    const none = () => { ctx.body = { code: 200, msg: 'ok', data: { slot: null } }; };
-
-    // 候选：query_id 最小的一个 pending 槽位（先入先出）
-    const candidate = await M.CollectSlot.findOne(q).sort({ query_id: 1, platform: 1 }).lean();
-    if (!candidate) return none();
-
-    // 原子领取：只有仍处于 pending 且未超重试上限的槽位才能被领走
+    // 一步原子领取：按 query_id 升序找第一个 pending 槽位并置 running（并发下各 tab 必拿到不同槽位）
     const doc = await M.CollectSlot.findOneAndUpdate(
-      { slot_id: candidate.slot_id, status: 'pending', attempts: { $lt: this.maxAttempts } },
+      q,
       { $set: { status: 'running', started_at: new Date() }, $inc: { attempts: 1 } },
-      { returnDocument: 'after' },
+      { returnDocument: 'after', sort: { query_id: 1, platform: 1 } },
     );
-    if (!doc) return none(); // 并发下被其他 worker 领走 / 已超限，worker 重拉即可
+    if (!doc) return none();
 
     // 所属任务进入 running（幂等）
     await M.CollectTask.updateOne(

@@ -19,6 +19,8 @@ export const COLLECTOR_MAX_ATTEMPTS = 2;
 
 /** 拉取单个待采集槽位请求（单条拉取：一次只领 1 个） */
 export interface PullSlotRequest {
+  /** 限定平台：单数（单个 tab 常用）；与 platforms 二选一，都传以 platforms 为准 */
+  platform?: CollectorPlatform;
   /** 限定平台子集；缺省 = 全部 5 家 */
   platforms?: CollectorPlatform[];
   /** 采集端；当前恒 web */
