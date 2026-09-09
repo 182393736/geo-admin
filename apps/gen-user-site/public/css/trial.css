@@ -145,7 +145,12 @@
 .trial-think-block.open .trial-think-chevron{transform:rotate(180deg)}
 .trial-think-body{display:flex;flex-direction:column}
 .trial-think-item{display:flex;align-items:center;justify-content:space-between;padding:5px 12px}
-.trial-think-name{font-family:monospace;font-size:11.5px;color:#666;flex:1}
+.trial-think-item.has-detail{align-items:flex-start}
+.trial-think-main{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.trial-think-name{font-family:monospace;font-size:11.5px;color:#666;flex:1;overflow-wrap:anywhere}
+.trial-think-link{color:#4f46e5;text-decoration:none}
+.trial-think-link:hover{text-decoration:underline}
+.trial-think-detail{font-size:11px;color:#999;line-height:1.55;word-break:break-word;overflow-wrap:anywhere}
 .trial-think-st{width:18px;flex-shrink:0;display:flex;align-items:center;justify-content:flex-end}
 @keyframes trial-spin{to{transform:rotate(360deg)}}
 .trial-mini-spin,.trial-t-spin{width:12px;height:12px;border-radius:50%;border:1.5px solid #d8d8d8;border-top-color:#4f46e5;animation:trial-spin .7s linear infinite;flex-shrink:0}

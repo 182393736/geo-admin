@@ -53,8 +53,20 @@ async function runOnboarding(deps, input, onEvent) {
       } } ],
       handlers: {
         web_search: async ({ query }) => {
-          push('search_query', { query: String(query || '') }, { engine: deps.webSearch.name, phase: 'web_research' });
-          return { results: await deps.webSearch.search(String(query || '')) };
+          const q = String(query || '');
+          const results = await deps.webSearch.search(q);
+          // 检索词 + 结果一并推给前端（SSE 实况），结果摘要截断控制体积；
+          // 落库映射（persist.js）不含 results 字段，自动只留 query/meta，避免 trace 膨胀
+          push('search_query', {
+            query: q,
+            result_count: results.length,
+            results: results.slice(0, 5).map(r => ({
+              title: String(r.title || '').slice(0, 100),
+              url: r.url || '',
+              snippet: String(r.snippet || '').slice(0, 180),
+            })),
+          }, { engine: deps.webSearch.name, phase: 'web_research' });
+          return { results };
         },
       },
       maxRounds: 4,
@@ -62,7 +74,10 @@ async function runOnboarding(deps, input, onEvent) {
     evidence = (typeof research.content === 'string' ? research.content : '').trim();
     usage.push({ step: 'web_research', usage: research.usage });
     push('llm_output', {}, { step: 'web_research', tool_calls: research.calls.length, degraded: !!research.degraded });
-    if (onEvent && research.calls.length) onEvent({ type: 'research', searches: research.calls.length });
+    if (onEvent) {
+      const resultCount = research.calls.reduce((n, c) => n + (Array.isArray(c.result && c.result.results) ? c.result.results.length : 0), 0);
+      onEvent({ type: 'evidence', evidence, searches: research.calls.length, result_count: resultCount });
+    }
   }
 
   // ---- 2. 画像抽取 ----

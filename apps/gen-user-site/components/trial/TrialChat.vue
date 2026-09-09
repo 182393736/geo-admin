@@ -60,8 +60,12 @@
               <span class="trial-think-chevron"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="2,4 6,8 10,4"></polyline></svg></span>
             </div>
             <div v-show="m.open" class="trial-think-body">
-              <div v-for="(it, i) in m.items" :key="i" class="trial-think-item">
-                <span class="trial-think-name">{{ it.name }}</span>
+              <div v-for="(it, i) in m.items" :key="i" class="trial-think-item" :class="{ 'has-detail': it.detail || it.href }">
+                <div class="trial-think-main">
+                  <a v-if="it.href" class="trial-think-name trial-think-link" :href="it.href" target="_blank" rel="noopener">{{ it.name }}</a>
+                  <span v-else class="trial-think-name">{{ it.name }}</span>
+                  <span v-if="it.detail" class="trial-think-detail">{{ it.detail }}</span>
+                </div>
                 <span class="trial-think-st">
                   <span v-if="it.status === 'run'" class="trial-mini-spin"></span>
                   <span v-else class="trial-t-check"><svg viewBox="0 0 10 10" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round"><polyline points="1.5,5.5 4,8 8.5,2"></polyline></svg></span>
@@ -153,7 +157,7 @@
 
 defineOptions({ name: 'TrialChat' })
 
-interface ThinkItem { name: string, status: 'run' | 'done' }
+interface ThinkItem { name: string, status: 'run' | 'done', detail?: string, href?: string }
 interface Msg {
   id: number, type: 'user' | 'ai' | 'think' | 'topics' | 'report'
   text?: string, title?: string, done?: boolean, open?: boolean
@@ -284,9 +288,9 @@ function closeBlock() {
     scroll()
   }
 }
-function addItem(name: string, status: 'run' | 'done' = 'done') {
+function addItem(name: string, status: 'run' | 'done' = 'done', extra?: { detail?: string; href?: string }) {
   if (!curBlock) return
-  curBlock.items?.push({ name, status })
+  curBlock.items?.push({ name, status, ...(extra || {}) })
   scroll()
 }
 
@@ -359,10 +363,36 @@ function onEvent(ev: string, data: any) {
     if (data?.kind === 'page_read') {
       addItem(`已读 ${data.url || '官网'}${data.meta?.title ? `（${String(data.meta.title).slice(0, 24)}）` : ''}`)
     } else if (data?.kind === 'search_query') {
-      addItem(`搜索：${data.query}`)
+      if (data?.meta?.phase === 'web_research') {
+        // 联网取证：展示检索词 + 检索到的公开信息（标题可点击、摘要随行）
+        addItem(`检索：${data.query}`)
+        if (Array.isArray(data.results) && data.results.length) {
+          data.results.forEach((r: any, i: number) => {
+            addItem(`${i + 1}. ${String(r.title || r.url || '（无标题）').slice(0, 60)}`, 'done', {
+              href: r.url || undefined,
+              detail: r.snippet || '',
+            })
+          })
+        } else {
+          addItem('未检索到公开信息', 'done')
+        }
+      } else {
+        addItem(`搜索：${data.query}`)
+      }
     } else if (data?.kind === 'keyword_weight') {
       addItem(`「${String(data.keyword || '').slice(0, 22)}」 热度 ${data.weight}${data.meta?.source === 'real_search' ? ' · 搜索验证' : ''}`)
     }
+    return
+  }
+  if (ev === 'evidence') {
+    closeBlock()
+    const searches = data?.searches || 0
+    const resultCount = data?.result_count || 0
+    const evidence = String(data?.evidence || '').trim()
+    const text = searches > 0
+      ? `已完成联网检索：${searches} 组关键词、${resultCount} 条公开信息。证据要点：${evidence || '（暂未提炼出有效要点）'}`
+      : '未配置联网检索，以下信息基于模型知识生成。'
+    push({ type: 'ai', text })
     return
   }
   if (ev === 'profile' && data?.brand) {
