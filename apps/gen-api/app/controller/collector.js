@@ -3,7 +3,7 @@ const Controller = require('egg').Controller;
 
 /**
  * 采集 worker 协议接口（机器对机器，collector_auth 鉴权）
- *  - POST /collector/slots/pull           拉取待采集槽位（原子领取 pending→running，attempts+1）
+ *  - POST /collector/slots/pull           拉取待采集槽位（原子领取 pending→running，含运行超时回收）
  *  - POST /collector/slots/:slot_id/submit 单条提交回答原文（ok/empty/fail）
  *
  * 数据流（与 schedule + 解析流水线的衔接）：
@@ -26,12 +26,47 @@ class CollectorController extends Controller {
     return Number.isFinite(n) && n > 0 ? n : 2;
   }
 
+  get runningTtlMs() {
+    const n = Number(this.cfg.runningTtlMs);
+    return Number.isFinite(n) && n > 0 ? n : 15 * 60 * 1000;
+  }
+
+  /**
+   * 运行超时回收（浏览器崩溃/会话挂起后，running 槽位没人提交会永久卡死）：
+   *   - running 且超过 runningTtlMs 且 attempts+1 未达上限 → 回退 pending（attempts+1，等待重新领取）
+   *   - running 且超过 runningTtlMs 且 attempts+1 已达上限 → 终态 fail（attempts+1，error=运行超时）
+   * 在每次 pull 入口先执行，保证挂死的槽位能被重新分配。
+   */
+  async _reclaimTimedOut() {
+    const { ctx } = this;
+    const M = ctx.model;
+    const cutoff = new Date(Date.now() - this.runningTtlMs);
+    const cond = { status: 'running', started_at: { $lt: cutoff } };
+    const rows = await M.CollectSlot.find(cond, { task_id: 1 }).lean();
+    const taskIds = [...new Set(rows.map(r => r.task_id).filter(Boolean))];
+    if (!taskIds.length) return;
+    // 终态 fail：本次超时 +1 后达上限
+    await M.CollectSlot.updateMany(
+      { ...cond, attempts: { $gte: this.maxAttempts - 1 } },
+      { $set: { status: 'fail', error: '运行超时', finished_at: new Date() }, $inc: { attempts: 1 } },
+    );
+    // 回退 pending：本次超时 +1 后未达上限，等待重新领取重试
+    await M.CollectSlot.updateMany(
+      { ...cond, attempts: { $lt: this.maxAttempts - 1 } },
+      { $set: { status: 'pending', error: '运行超时回收', started_at: null }, $inc: { attempts: 1 } },
+    );
+    for (const t of taskIds) await this._syncTask(t).catch(() => {});
+  }
+
   /** 拉取单个待采集槽位：单条 + 一步原子领取（findOneAndUpdate 带 sort，无竞争窗口）。
    *  平台：兼容单数 platform / 复数 platforms；缺省=全部 5 家；指定但均不在白名单=无。 */
   async pull() {
     const { ctx } = this;
     const M = ctx.model;
     const b = ctx.request.body || {};
+
+    // 先回收运行超时的槽位（浏览器崩溃/挂起 → 回退或终态），保证不被永久卡死
+    await this._reclaimTimedOut().catch(() => {});
 
     // 平台：单数 platform 或复数 platforms 都接受；未指定=全部 5 家
     const requested = Array.isArray(b.platforms) ? b.platforms
@@ -52,9 +87,10 @@ class CollectorController extends Controller {
     if (b.query_type === 'industry' || b.query_type === 'brand') q.query_type = b.query_type;
 
     // 一步原子领取：按 query_id 升序找第一个 pending 槽位并置 running（并发下各 tab 必拿到不同槽位）
+    // attempts 在此不 +1：attempts 语义 = 失败/超时次数，只在 fail 提交与超时回收时递增
     const doc = await M.CollectSlot.findOneAndUpdate(
       q,
-      { $set: { status: 'running', started_at: new Date() }, $inc: { attempts: 1 } },
+      { $set: { status: 'running', started_at: new Date() } },
       { returnDocument: 'after', sort: { query_id: 1, platform: 1 } },
     );
     if (!doc) return none();
@@ -120,6 +156,7 @@ class CollectorController extends Controller {
     let answerId = null;
     let nextStatus = status;
     let finishedAt = new Date();
+    let attemptsAfter = slot.attempts; // attempts 语义 = 失败/超时次数（成功/empty 不递增）
     const slotUpdate = {};
 
     if (status === 'ok') {
@@ -161,16 +198,16 @@ class CollectorController extends Controller {
         });
         slotUpdate.answer_id = answerId;
       }
-    } else { // fail
+    } else { // fail：失败次数 +1，达上限即终态
       const error = String(b.error || '采集失败').slice(0, 500);
-      if (slot.attempts >= this.maxAttempts) {
-        // 已达重试上限 → 终态 fail
-        nextStatus = 'fail';
+      attemptsAfter = slot.attempts + 1;
+      if (attemptsAfter >= this.maxAttempts) {
+        nextStatus = 'fail';               // 已达上限 → 终态 fail
       } else {
-        // 未达上限 → 回退 pending，等待下次拉取重试
-        nextStatus = 'pending';
+        nextStatus = 'pending';            // 未达上限 → 回退 pending，等待重新领取重试
         finishedAt = null;
       }
+      slotUpdate.attempts = attemptsAfter;
       slotUpdate.error = error;
     }
 
@@ -183,7 +220,7 @@ class CollectorController extends Controller {
 
     ctx.body = {
       code: 200, msg: 'ok',
-      data: { slot_id: slotId, status: nextStatus, attempts: slot.attempts, answer_id: answerId },
+      data: { slot_id: slotId, status: nextStatus, attempts: attemptsAfter, answer_id: answerId },
     };
   }
 

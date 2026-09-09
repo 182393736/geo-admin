@@ -90,7 +90,8 @@ module.exports = () => {
   collector: {
     apiKey: resolveKey('COLLECTOR_API_KEY'),
     platforms: ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'], // 当前生效 5 家（不含 kimi）
-    maxAttempts: Number(process.env.COLLECT_MAX_ATTEMPTS || 2),     // 每槽最多尝试 2 次后终态 fail
+    maxAttempts: Number(process.env.COLLECT_MAX_ATTEMPTS || 2),     // 每槽最多失败/超时 2 次后终态 fail
+    runningTtlMs: Number(process.env.COLLECT_RUNNING_TTL_MS || 15 * 60 * 1000), // running 超时回收阈值（默认 15 分钟）
   },
   // Agent 交互约束：免费版候选问题确认上限（对齐对标 free 套餐 query_limit=3）
   geoAgent: { freeQueryLimit: Number(process.env.GEO_FREE_QUERY_LIMIT || 3) },

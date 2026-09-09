@@ -14,7 +14,7 @@ import type { CollectPlatform, CollectEnd, QueryType, SlotStatus } from './enums
 export const COLLECTOR_PLATFORMS = ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'] as const;
 export type CollectorPlatform = (typeof COLLECTOR_PLATFORMS)[number];
 
-/** 每个槽位最多尝试次数（含初次；第 2 次仍失败 → 终态 fail） */
+/** 每个槽位最多失败/超时次数（attempts 只计 fail 提交与运行超时；达上限 → 终态 fail） */
 export const COLLECTOR_MAX_ATTEMPTS = 2;
 
 /** 拉取单个待采集槽位请求（单条拉取：一次只领 1 个） */
@@ -68,9 +68,9 @@ export interface SubmitAnswerRequest {
 /** 提交响应（统一壳 data） */
 export interface SubmitAnswerResponse {
   slot_id: string;
-  /** 回写后的槽位状态：ok/empty/fail（fail 且未达重试上限时回退 pending，前端可忽略此差异，以 attempts 为准） */
+  /** 回写后的槽位状态：ok/empty/fail（fail 未达重试上限时回退 pending，前端可忽略此差异） */
   status: SlotStatus;
-  /** 已尝试次数（提交后） */
+  /** 已失败/超时次数（本次提交后；仅 fail 与运行超时递增，成功/empty 不变） */
   attempts: number;
   /** 落库的 raw_answer id；ok 或 empty(有原文) 时返回，否则 null */
   answer_id: string | null;
