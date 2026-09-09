@@ -1,4 +1,4 @@
-# 采集应用（gen-collector）
+# 采集应用（gen-caiji）
 
 Electron + Element Plus 桌面应用：首页是 IP 列表，每个 IP 可打开一个**独立浏览器会话**（Playwright `launchPersistentContext`，用户数据目录按 IP 命名），会话内可打开 5 个 AI 平台的标签页。
 
@@ -7,7 +7,7 @@ Electron + Element Plus 桌面应用：首页是 IP 列表，每个 IP 可打开
 ## 目录结构
 
 ```
-apps/gen-collector/
+apps/gen-caiji/
 ├── src/
 │   ├── main/main.cjs          Electron 主进程（IP 列表拉取 + 浏览器会话管理 + 平台 tab）
 │   ├── main/preload.cjs       contextBridge 暴露 electronAPI
@@ -26,12 +26,12 @@ apps/gen-collector/
 pnpm install
 
 # 2.（可选）若 playwright chromium 未自动下载，手动装：
-pnpm --filter @geo-admin/gen-collector install:browsers
+pnpm --filter @geo-admin/gen-caiji install:browsers
 
 # 3. 启动（vite 渲染层 + electron 主进程一起拉起）
-pnpm --filter @geo-admin/gen-collector dev
+pnpm --filter @geo-admin/gen-caiji dev
 # 或根目录：
-pnpm dev:collector
+pnpm dev:caiji
 ```
 
 ## 功能说明
@@ -45,9 +45,9 @@ pnpm dev:collector
 ## 会话数据位置
 
 - 每个 IP 的浏览器用户数据目录：`app.getPath('userData')/profiles/<ip>`
-  - Windows：`%APPDATA%/geo-collector/profiles/<ip>`
-  - macOS：`~/Library/Application Support/geo-collector/profiles/<ip>`
-  - Linux：`~/.config/geo-collector/profiles/<ip>`
+  - Windows：`%APPDATA%/gen-caiji/profiles/<ip>`
+  - macOS：`~/Library/Application Support/gen-caiji/profiles/<ip>`
+  - Linux：`~/.config/gen-caiji/profiles/<ip>`
 
 ## 后续扩展点（代码中已留注释）
 

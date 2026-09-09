@@ -104,7 +104,7 @@ importers:
         specifier: ^11.2.0
         version: 11.2.0
 
-  apps/gen-collector:
+  apps/gen-caiji:
     dependencies:
       element-plus:
         specifier: ^2.14.0

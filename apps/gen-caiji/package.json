@@ -1,5 +1,5 @@
 {
-  "name": "@geo-admin/gen-collector",
+  "name": "@geo-admin/gen-caiji",
   "version": "0.1.0",
   "private": true,
   "description": "采集应用：Electron + Element Plus，IP 列表 + 每 IP 独立浏览器会话 + 5 平台标签页",

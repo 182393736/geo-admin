@@ -17,7 +17,7 @@
       show-icon
       :closable="false"
       title="当前不在 Electron 环境"
-      description="请通过 Electron 启动本应用（pnpm --filter @geo-admin/gen-collector dev）。浏览器预览仅作样式参考，无法打开本地浏览器会话、也无法拉取 IP 列表。"
+      description="请通过 Electron 启动本应用（pnpm --filter @geo-admin/gen-caiji dev）。浏览器预览仅作样式参考，无法打开本地浏览器会话、也无法拉取 IP 列表。"
       class="mb"
     />
 

@@ -16,7 +16,7 @@ const PLATFORMS = require('../shared/platforms.cjs');
 const IP_LIST_URL = 'http://api.tupianseo.com/daili/daili_list';
 
 // 应用名固定，保证 userData 目录稳定（与包名里的 @scope/ 无关）
-app.setName('geo-collector');
+app.setName('gen-caiji');
 
 /** ip -> { context, pages: Map<platform, Page>, dir } */
 const sessions = new Map();
@@ -46,7 +46,7 @@ async function getSession(ip) {
 function friendlyErr(err) {
   const msg = String((err && err.message) || err);
   if (/Executable doesn't exist|chromium|browser/i.test(msg)) {
-    return `${msg}（请先运行：pnpm --filter @geo-admin/gen-collector install:browsers）`;
+    return `${msg}（请先运行：pnpm --filter @geo-admin/gen-caiji install:browsers）`;
   }
   return msg;
 }
