@@ -17,21 +17,21 @@ export type CollectorPlatform = (typeof COLLECTOR_PLATFORMS)[number];
 /** 每个槽位最多尝试次数（含初次；第 2 次仍失败 → 终态 fail） */
 export const COLLECTOR_MAX_ATTEMPTS = 2;
 
-/** 拉取待采集槽位请求 */
-export interface PullSlotsRequest {
-  /** 单次拉取上限，1..50，默认 10 */
-  limit?: number;
+/** 拉取单个待采集槽位请求（单条拉取：一次只领 1 个） */
+export interface PullSlotRequest {
   /** 限定平台子集；缺省 = 全部 5 家 */
   platforms?: CollectorPlatform[];
   /** 采集端；当前恒 web */
   end?: CollectEnd;
   /** 限定题型；缺省 = industry/brand 都拉 */
   query_type?: QueryType;
+  /** 补采指定统计日 YYYY-MM-DD；缺省 = 服务端当天 */
+  date?: string;
 }
 
 /** 拉取到的单个槽位载荷（worker 据此执行提问） */
 export interface CollectorSlot {
-  slot_id: string;          // 唯一：brand_id:date:query_id:platform:end
+  slot_id: string;          // 唯一：brand_id:date:query_id:platform:web
   task_id: string;          // 所属每日采集任务
   brand_id: string;
   query_id: number;
@@ -44,9 +44,9 @@ export interface CollectorSlot {
   mock_account_id: string | null;   // 中立账号池，后续补；当前 null
 }
 
-/** 拉取响应（统一壳 data） */
-export interface PullSlotsResponse {
-  slots: CollectorSlot[];
+/** 拉取响应（统一壳 data）：单条；slot=null 表示当前无待采槽位 */
+export interface PullSlotResponse {
+  slot: CollectorSlot | null;
 }
 
 /** 单条提交请求 */

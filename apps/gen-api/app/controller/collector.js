@@ -26,7 +26,8 @@ class CollectorController extends Controller {
     return Number.isFinite(n) && n > 0 ? n : 2;
   }
 
-  /** 拉取待采集槽位：原子领取，多 worker 并发安全（findOneAndUpdate 条件带 status=pending） */
+  /** 拉取单个待采集槽位：原子领取，多 worker 并发安全（findOneAndUpdate 条件带 status=pending）。
+   *  单条语义：每次只领 1 个（query_id 最小的 pending 槽位，先入先出）；无待采槽位返回 slot=null。 */
   async pull() {
     const { ctx } = this;
     const M = ctx.model;
@@ -34,7 +35,6 @@ class CollectorController extends Controller {
     const platforms = Array.isArray(b.platforms) && b.platforms.length
       ? b.platforms.filter(p => this.cfg.platforms.includes(p))
       : this.cfg.platforms;
-    const limit = Math.max(1, Math.min(50, parseInt(b.limit, 10) || 10));
     const end = b.end === 'mobile' ? 'mobile' : 'web';
     const date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || ''))
       ? String(b.date)
@@ -43,56 +43,47 @@ class CollectorController extends Controller {
     const q = { status: 'pending', attempts: { $lt: this.maxAttempts }, platform: { $in: platforms }, end, date };
     if (b.query_type === 'industry' || b.query_type === 'brand') q.query_type = b.query_type;
 
-    const candidates = await M.CollectSlot.find(q)
-      .sort({ query_id: 1, platform: 1 })
-      .limit(limit).lean();
+    const none = () => { ctx.body = { code: 200, msg: 'ok', data: { slot: null } }; };
 
-    const claimed = [];
-    for (const c of candidates) {
-      // 原子领取：只有仍处于 pending 且未超重试上限的槽位才能被领走
-      const doc = await M.CollectSlot.findOneAndUpdate(
-        { slot_id: c.slot_id, status: 'pending', attempts: { $lt: this.maxAttempts } },
-        { $set: { status: 'running', started_at: new Date() }, $inc: { attempts: 1 } },
-        { returnDocument: 'after' },
-      );
-      if (!doc) continue; // 并发下被其他 worker 领走 / 已超限
-      claimed.push(doc);
-      // 所属任务进入 running（幂等）
-      await M.CollectTask.updateOne(
-        { task_id: doc.task_id, status: { $nin: ['ok', 'fail'] } },
-        { $set: { status: 'running', started_at: new Date() } },
-      ).catch(() => {});
-    }
+    // 候选：query_id 最小的一个 pending 槽位（先入先出）
+    const candidate = await M.CollectSlot.findOne(q).sort({ query_id: 1, platform: 1 }).lean();
+    if (!candidate) return none();
+
+    // 原子领取：只有仍处于 pending 且未超重试上限的槽位才能被领走
+    const doc = await M.CollectSlot.findOneAndUpdate(
+      { slot_id: candidate.slot_id, status: 'pending', attempts: { $lt: this.maxAttempts } },
+      { $set: { status: 'running', started_at: new Date() }, $inc: { attempts: 1 } },
+      { returnDocument: 'after' },
+    );
+    if (!doc) return none(); // 并发下被其他 worker 领走 / 已超限，worker 重拉即可
+
+    // 所属任务进入 running（幂等）
+    await M.CollectTask.updateOne(
+      { task_id: doc.task_id, status: { $nin: ['ok', 'fail'] } },
+      { $set: { status: 'running', started_at: new Date() } },
+    ).catch(() => {});
 
     // 补 question_list（用户友好口径 + 引擎发问口径，来自 monitor_queries）
-    const qids = [...new Set(claimed.map(s => s.query_id))];
-    const qmap = {};
-    if (qids.length) {
-      const rows = await M.MonitorQuery.find({ query_id: { $in: qids } }).lean();
-      for (const r of rows) qmap[r.query_id] = r;
-    }
+    const mq = (await M.MonitorQuery.findOne({ query_id: doc.query_id }).lean()) || {};
 
     ctx.body = {
       code: 200, msg: 'ok',
       data: {
-        slots: claimed.map(s => {
-          const mq = qmap[s.query_id] || {};
-          return {
-            slot_id: s.slot_id,
-            task_id: s.task_id,
-            brand_id: s.brand_id,
-            query_id: s.query_id,
-            query_type: s.query_type,
-            platform: s.platform,
-            end: s.end,
-            date: s.date,
-            question_sent: s.question_sent,
-            question_list: (mq.question_list && mq.question_list.length)
-              ? mq.question_list
-              : [{ user_friendly: s.question_sent, platform_query: s.question_sent }],
-            mock_account_id: s.mock_account_id || null,
-          };
-        }),
+        slot: {
+          slot_id: doc.slot_id,
+          task_id: doc.task_id,
+          brand_id: doc.brand_id,
+          query_id: doc.query_id,
+          query_type: doc.query_type,
+          platform: doc.platform,
+          end: doc.end,
+          date: doc.date,
+          question_sent: doc.question_sent,
+          question_list: (mq.question_list && mq.question_list.length)
+            ? mq.question_list
+            : [{ user_friendly: doc.question_sent, platform_query: doc.question_sent }],
+          mock_account_id: doc.mock_account_id || null,
+        },
       },
     };
   }
