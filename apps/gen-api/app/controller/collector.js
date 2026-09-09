@@ -222,7 +222,7 @@ class CollectorController extends Controller {
     };
   }
 
-  /** 归一化信源清单：url 必填，title/index(兼容 rank)/snippet/site_name/publish_time 可选，只写有值字段 */
+  /** 归一化信源清单：url 必填，title/index(兼容 rank)/snippet/site_name/domain/publish_time 可选，只写有值字段 */
   _mapCitedUrls(list) {
     if (!Array.isArray(list)) return [];
     return list.filter(c => c && c.url).map(c => {
@@ -233,6 +233,10 @@ class CollectorController extends Controller {
       if (typeof c.snippet === 'string' && c.snippet) out.snippet = c.snippet;
       if (typeof c.site_name === 'string' && c.site_name) out.site_name = c.site_name;
       if (typeof c.publish_time === 'string' && c.publish_time) out.publish_time = c.publish_time;
+      // domain：优先用 worker 抓到的；未抓到则从 url 兜底推导。统一小写、去 www，作为「手动统一信源名」的键
+      let domain = (typeof c.domain === 'string' ? c.domain : '').trim().toLowerCase().replace(/^www\./, '');
+      if (!domain) { try { domain = new URL(out.url).hostname.toLowerCase().replace(/^www\./, ''); } catch (e) { /* 无法解析则留空 */ } }
+      if (domain) out.domain = domain;
       return out;
     });
   }

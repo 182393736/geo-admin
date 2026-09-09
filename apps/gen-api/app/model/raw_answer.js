@@ -19,7 +19,7 @@ module.exports = app => {
     date: String,
     question_sent: String,
     answer_text: String,  // 完整原文
-    cited_urls: [{ url: String, title: String, index: Number, snippet: String, site_name: String, publish_time: String }],  // 解析前的信源清单（url 必填，其余可选）
+    cited_urls: [{ url: String, title: String, index: Number, snippet: String, site_name: String, domain: String, publish_time: String }],  // 解析前的信源清单（url 必填，其余可选；domain 为手动统一信源名的键）
     model_meta: Schema.Types.Mixed,
     parsed: { type: Boolean, default: false, index: true },  // 批处理标记
   }, { collection: 'raw_answers', versionKey: false, timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });

@@ -63,6 +63,8 @@ export interface CitedUrl {
   snippet?: string;
   /** 来源站点名 */
   site_name?: string;
+  /** 来源域名（手动统一信源名的键；未填时服务端从 url 兜底推导，小写、去 www） */
+  domain?: string;
   /** 发布时间（worker 抓到的原始形态，不强制归一） */
   publish_time?: string;
 }
