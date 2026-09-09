@@ -29,7 +29,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="平台" width="150">
+      <el-table-column label="平台" width="176">
         <template #default="{ row }">
           <div class="col">
             <el-button
@@ -37,10 +37,11 @@
               :key="p.key"
               size="small"
               class="plat-btn"
-              :type="isPlatformOpen(row.ip, p.key) ? 'success' : 'default'"
+              :type="platBtnType(row.ip, p.key)"
               :plain="isPlatformOpen(row.ip, p.key)"
+              :title="platBtnTitle(row.ip, p.key)"
               @click="togglePlatform(row, p)"
-            >{{ isPlatformOpen(row.ip, p.key) ? p.name + ' · 已开' : p.name }}</el-button>
+            >{{ platBtnText(row.ip, p) }}</el-button>
           </div>
         </template>
       </el-table-column>
@@ -78,7 +79,7 @@
       </template>
     </el-table>
 
-    <p class="hint">提示：平台按钮点击打开/关闭对应标签页；浏览器按钮点击打开/关闭整个浏览器会话（数据保留在磁盘）。测试按钮与输入框功能待定。</p>
+    <p class="hint">提示：平台按钮打开后自动检测登录态——绿色=已登录（显示账号）、黄色=未登录；点击已打开的按钮可关闭该标签页。浏览器按钮点击打开/关闭整个会话（数据保留在磁盘）。</p>
   </div>
 </template>
 
@@ -95,9 +96,34 @@ const opening = ref('');                 // 正在打开浏览器的 ip
 const openedBrowsers = ref({});          // ip -> true（该 IP 的浏览器会话已打开）
 const openedPlatforms = ref({});         // `${ip}:${platform}` -> true
 const testInputs = reactive({});         // `${ip}:${platform}` -> 测试输入内容（先占位，功能后定）
+const authStates = reactive({});         // `${ip}:${platform}` -> { loggedIn, username }
 
 const isBrowserOpen = ip => !!openedBrowsers.value[ip];
 const isPlatformOpen = (ip, platform) => !!openedPlatforms.value[`${ip}:${platform}`];
+const authOf = (ip, platform) => authStates[`${ip}:${platform}`];
+
+function shortName(s) {
+  const t = String(s || '').trim();
+  return t.length > 6 ? t.slice(0, 6) + '…' : t;
+}
+// 平台按钮三态：未打开=灰 / 已登录=绿 / 未登录=黄
+function platBtnType(ip, platform) {
+  if (!isPlatformOpen(ip, platform)) return 'default';
+  const a = authOf(ip, platform);
+  return a && a.loggedIn ? 'success' : 'warning';
+}
+function platBtnText(ip, p) {
+  if (!isPlatformOpen(ip, p.key)) return p.name;
+  const a = authOf(ip, p.key);
+  if (a && a.loggedIn) return `${p.name} · ${a.username ? shortName(a.username) : '已登录'}`;
+  return `${p.name} · 未登录`;
+}
+function platBtnTitle(ip, platform) {
+  if (!isPlatformOpen(ip, platform)) return `打开`;
+  const a = authOf(ip, platform);
+  if (a && a.loggedIn) return `${a.username || '已登录'}（点击关闭）`;
+  return '未登录（点击关闭）';
+}
 
 async function load() {
   if (!isElectron) return;
@@ -132,6 +158,9 @@ async function toggleBrowser(row) {
         for (const k of Object.keys(openedPlatforms.value)) {
           if (k.startsWith(`${row.ip}:`)) delete openedPlatforms.value[k];
         }
+        for (const k of Object.keys(authStates)) {
+          if (k.startsWith(`${row.ip}:`)) delete authStates[k];
+        }
         ElMessage.success(`已关闭 ${row.ip} 的浏览器会话`);
       } else {
         ElMessage.error('关闭失败：' + ((r && r.error) || '未知错误'));
@@ -165,6 +194,7 @@ async function togglePlatform(row, p) {
       const r = await window.electronAPI.closePlatform(row.ip, p.key);
       if (r && r.ok) {
         openedPlatforms.value[key] = false;
+        delete authStates[key];
         ElMessage.info(`已关闭 ${row.ip} · ${p.name}`);
       } else {
         ElMessage.error('关闭失败：' + ((r && r.error) || '未知错误'));
@@ -179,7 +209,9 @@ async function togglePlatform(row, p) {
     if (r && r.ok) {
       openedPlatforms.value[key] = true;
       openedBrowsers.value[row.ip] = true;
-      ElMessage.success(`已打开 ${row.ip} · ${p.name}`);
+      authStates[key] = { loggedIn: !!r.loggedIn, username: r.username || '' };
+      const tip = r.loggedIn ? (r.username ? `已登录 ${r.username}` : '已登录') : '未登录';
+      ElMessage.success(`已打开 ${row.ip} · ${p.name}（${tip}）`);
     } else {
       ElMessage.error('打开失败：' + ((r && r.error) || '未知错误'));
     }
@@ -197,7 +229,15 @@ function doTest(row, p) {
   ElMessage.info(`测试功能待实现：${row.ip} · ${p.name} → ${q}`);
 }
 
-onMounted(load);
+onMounted(() => {
+  load();
+  // 订阅主进程推送的登录态变化（打开时检测 + 页面 load 复检）
+  if (isElectron && window.electronAPI.onPlatformAuth) {
+    window.electronAPI.onPlatformAuth(({ ip, platform, loggedIn, username }) => {
+      authStates[`${ip}:${platform}`] = { loggedIn: !!loggedIn, username: username || '' };
+    });
+  }
+});
 </script>
 
 <style>

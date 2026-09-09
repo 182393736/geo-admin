@@ -12,6 +12,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
 const { chromium } = require('playwright');
 const PLATFORMS = require('../shared/platforms.json');
+const { detectAuth, watchUsername } = require('./login-detect.cjs');
 
 const IP_LIST_URL = 'http://api.tupianseo.com/daili/daili_list';
 
@@ -20,6 +21,15 @@ app.setName('gen-caiji');
 
 /** ip -> { context, pages: Map<platform, Page>, dir } */
 const sessions = new Map();
+
+/** 渲染主窗口（用于主动推送平台登录态变化） */
+let mainWindow = null;
+
+function pushAuth(ip, platform, auth) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('platform-auth-changed', { ip, platform, loggedIn: !!auth.loggedIn, username: auth.username || '' });
+  }
+}
 
 /** 以 IP 作为会话文件夹名（IP 里的「.」合法保留；Windows 非法字符替换为 _） */
 function profileDirFor(ip) {
@@ -92,21 +102,33 @@ function registerIpc() {
     }
   });
 
-  // —— 在该 IP 会话内打开平台标签页（浏览器未开则自动开）——
+  // —— 在该 IP 会话内打开平台标签页（浏览器未开则自动开；打开时检测登录态）——
   ipcMain.handle('browser:open-platform', async (_e, { ip, platform }) => {
     try {
       const cfg = PLATFORMS.find(p => p.key === platform);
       if (!cfg) return { ok: false, error: `未知平台：${platform}` };
       const s = await getSession(ip);
       let page = s.pages.get(platform);
+      let auth = { loggedIn: false, username: '' };
       if (!page || page.isClosed()) {
         page = await s.context.newPage();
         s.pages.set(platform, page);
+        // 打开即检测：先挂 response 监听兜底（覆盖导航期接口），再 goto，再读凭证判定
+        const watch = watchUsername(page, platform);
         await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+        auth = await detectAuth(page, s.context, platform);
+        if (!auth.username) auth.username = await watch.promise;
+        watch.stop();
+        // 页面后续跳转/登录成功刷新 → 自动复检并推送到渲染层
+        page.on('load', async () => {
+          const re = await detectAuth(page, s.context, platform).catch(() => ({ loggedIn: false, username: '' }));
+          pushAuth(ip, platform, re);
+        });
       } else {
         await page.bringToFront().catch(() => {});
+        auth = await detectAuth(page, s.context, platform).catch(() => ({ loggedIn: false, username: '' }));
       }
-      return { ok: true, ip, platform, name: cfg.name, url: cfg.url };
+      return { ok: true, ip, platform, name: cfg.name, url: cfg.url, loggedIn: auth.loggedIn, username: auth.username };
     } catch (err) {
       return { ok: false, error: friendlyErr(err) };
     }
@@ -152,6 +174,8 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+  mainWindow = win;
+  win.on('closed', () => { mainWindow = null; });
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {

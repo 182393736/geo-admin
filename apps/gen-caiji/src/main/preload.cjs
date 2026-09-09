@@ -15,4 +15,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openPlatform: (ip, platform) => ipcRenderer.invoke('browser:open-platform', { ip, platform }),
   /** 关闭该 IP 会话内的某个平台标签页 */
   closePlatform: (ip, platform) => ipcRenderer.invoke('platform:close', { ip, platform }),
+  /** 订阅平台登录态变化（主进程推送 { ip, platform, loggedIn, username }） */
+  onPlatformAuth: cb => {
+    const handler = (_e, data) => { try { cb(data); } catch { /* ignore */ } };
+    ipcRenderer.on('platform-auth-changed', handler);
+    return () => ipcRenderer.removeListener('platform-auth-changed', handler);
+  },
 });
