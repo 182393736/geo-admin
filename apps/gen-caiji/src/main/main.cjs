@@ -18,6 +18,33 @@ const { runChat, saveResult, buildJsonPreviewHtml } = require('./chat/index.cjs'
 
 const IP_LIST_URL = 'http://api.tupianseo.com/daili/daili_list';
 
+/** 反自动化指纹脚本：注入到每个平台页面，削弱风控对 webdriver / 自动化特征的识别 */
+const STEALTH_INIT = `(() => {
+  if (window.__geoStealthApplied) return;
+  window.__geoStealthApplied = true;
+  try { Object.defineProperty(navigator, 'webdriver', { get: () => undefined }); } catch (e) {}
+  try { window.chrome = window.chrome || { runtime: {} }; } catch (e) {}
+  try { Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en'] }); } catch (e) {}
+  try {
+    const makePlugins = () => {
+      const arr = [1, 2, 3, 4, 5];
+      arr.item = () => null;
+      arr.namedItem = () => null;
+      arr.refresh = () => {};
+      return arr;
+    };
+    Object.defineProperty(navigator, 'plugins', { get: makePlugins });
+  } catch (e) {}
+  try {
+    const gp = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function (p) {
+      if (p === 37445) return 'Intel Inc.';
+      if (p === 37446) return 'Intel Iris OpenGL Engine';
+      return gp.call(this, p);
+    };
+  } catch (e) {}
+})();`;
+
 // 应用名固定，保证 userData 目录稳定（与包名里的 @scope/ 无关）
 app.setName('gen-caiji');
 
@@ -88,14 +115,37 @@ async function getSession(ip) {
     }
   }
   const dir = profileDirFor(ip);
-  const context = await chromium.launchPersistentContext(dir, {
+  const base = {
     headless: false,   // 真实窗口
     viewport: null,    // 视口跟随窗口大小
+    locale: 'zh-CN',   // 中文语言环境（Accept-Language 对齐真实用户）
+    ignoreDefaultArgs: ['--enable-automation'],                     // 去掉「受自动化控制」标记
+    args: [
+      '--disable-blink-features=AutomationControlled',              // 关闭自动化提示条
+      '--no-first-run',
+      '--no-default-browser-check',
+    ],
     // 后续接代理时在此注入：proxy: { server: `http://${ip}:${port}` }（本轮不做）
-  });
+  };
+  let context = null;
+  let kernel = 'chrome';
+  // 优先用系统 Chrome（UA/客户端提示/指纹与真实 Chrome 完全一致，最不易触发风控）；
+  // 未安装 Google Chrome 时回退到 Playwright 自带 Chromium（仍带上面的反自动化参数）
+  try {
+    context = await chromium.launchPersistentContext(dir, { ...base, channel: 'chrome' });
+  } catch (err) {
+    if (/chromium|chrome|executable/i.test(String((err && err.message) || err))) {
+      kernel = 'chromium';
+      context = await chromium.launchPersistentContext(dir, { ...base });
+    } else {
+      throw err;
+    }
+  }
+  // 反自动化指纹：对会话内所有页面（含之后 newPage 的）在每次导航前注入
+  await context.addInitScript(STEALTH_INIT);
   const s = { context, pages: new Map(), dir };
   sessions.set(ip, s);
-  console.log(`[collector] 已打开浏览器会话 ${ip} → ${dir}`);
+  console.log(`[collector] 已打开浏览器会话 ${ip}（内核 ${kernel}）→ ${dir}`);
   return s;
 }
 
