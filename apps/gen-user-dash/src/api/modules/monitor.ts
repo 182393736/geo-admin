@@ -7,7 +7,7 @@ import type {
 
 const TREND_BODY = (start: string, end: string) => ({
   end: 'web', start_date: start, end_date: end,
-  platforms: ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'],
+  platforms: ['doubao', 'deepseek', 'wenxin', 'yuanbao'],
 });
 
 export const monitorApi = {

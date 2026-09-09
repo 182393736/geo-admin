@@ -16,7 +16,7 @@ const SEED_PLANS = [
 
 // 渠道库种子（代表性样本；价格单位=分，被引数为演示口径，夜间聚合会刷新）
 const SEED_MEDIA = [
-  { media_key: 'seed_douyin',      name: '抖音',       type: '视频',   categories: ['生活', '新闻资讯'], indexed_engines: ['doubao', 'deepseek', 'yuanbao', 'wenxin', 'qwen'], list_price: 120000, sell_price: 100000, ref_count: 660, article_count: 93 },
+  { media_key: 'seed_douyin',      name: '抖音',       type: '视频',   categories: ['生活', '新闻资讯'], indexed_engines: ['doubao', 'deepseek', 'yuanbao', 'wenxin'], list_price: 120000, sell_price: 100000, ref_count: 660, article_count: 93 },
   { media_key: 'seed_36kr',        name: '36氪',       type: '新闻门户', categories: ['科技'],           indexed_engines: ['doubao', 'deepseek'], list_price: 60000, sell_price: 50000, ref_count: 92, article_count: 12 },
   { media_key: 'seed_zhihu',       name: '知乎',       type: '问答社区', categories: ['综合'],           indexed_engines: ['doubao', 'deepseek', 'yuanbao'], list_price: 36000, sell_price: 30000, ref_count: 88, article_count: 24 },
   { media_key: 'seed_baijiahao',   name: '百家号',     type: '自媒体',   categories: ['综合'],           indexed_engines: ['doubao'], list_price: 18000, sell_price: 15000, ref_count: 65, article_count: 47 },

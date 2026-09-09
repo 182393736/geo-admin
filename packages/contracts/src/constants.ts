@@ -4,8 +4,8 @@
  */
 import type { EngineKey, PlanType, PlanBillingCycle } from './enums';
 
-/** 监控引擎（5 家，品牌默认订阅平台列表；与 ENGINE_KEYS 同义，保留别名便于语义表达） */
-export const PLATFORMS: readonly EngineKey[] = ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'];
+/** 监控引擎（4 家，品牌默认订阅平台列表；与 ENGINE_KEYS 同义，保留别名便于语义表达；千问暂移除） */
+export const PLATFORMS: readonly EngineKey[] = ['doubao', 'deepseek', 'wenxin', 'yuanbao'];
 
 /** 免费版候选监控问题确认上限（agent 交互约束，GEO_FREE_QUERY_LIMIT 默认 3） */
 export const FREE_QUERY_LIMIT = 3;

@@ -60,8 +60,8 @@ class QueryController extends Controller {
       ctx.model.CollectTask.findOne({ brand_id: brand.brand_id }).sort({ date: -1, created_at: -1 }).lean(),
     ]);
 
-    // 采集槽位口径：启用问题 × 5 引擎（web 端），与 S2 collect_slots 展开口径一致
-    const platforms = (brand.platforms && brand.platforms.length) ? brand.platforms.length : 5;
+    // 采集槽位口径：启用问题 × 4 引擎（web 端），与 S2 collect_slots 展开口径一致
+    const platforms = this.service.collect.platformsOf(brand).length;
     const expectedSlots = enabledQueries * platforms;
 
     ctx.body = {

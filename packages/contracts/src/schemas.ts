@@ -43,7 +43,7 @@ export const BrandSchema = z.object({
   industry: z.string().optional(),
   website: z.string().optional(),
   business_desc: z.string().optional(),
-  platforms: z.array(z.string()).default(['deepseek', 'doubao', 'wenxin', 'qwen', 'yuanbao']),
+  platforms: z.array(z.string()).default(['deepseek', 'doubao', 'wenxin', 'yuanbao']),
   status: z.enum(BRAND_STATUSES).default('building'),
   is_first_brand: z.boolean().default(false),
   rename_remaining: z.number().default(3),

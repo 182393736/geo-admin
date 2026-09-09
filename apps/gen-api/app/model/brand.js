@@ -15,7 +15,7 @@ module.exports = app => {
     industry: String,  // 公共家具制造
     website: String,
     business_desc: String,
-    platforms: { type: [String], default: ['deepseek', 'doubao', 'wenxin', 'qwen', 'yuanbao'] },
+    platforms: { type: [String], default: ['deepseek', 'doubao', 'wenxin', 'yuanbao'] },
     status: { type: String, enum: ['building', 'active', 'expired', 'disabled'], default: 'building' },
     is_first_brand: { type: Boolean, default: false },
     rename_remaining: { type: Number, default: 3 },

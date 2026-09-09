@@ -12,7 +12,7 @@ const Controller = require('egg').Controller;
  *     → daily_parse(04:00) 扫 raw_answers(parsed=false) 按 query_type 分流解析
  *
  * 阶段约束（后续逐步放开）：
- *   - 平台恒 5 家（doubao/deepseek/wenxin/qwen/yuanbao）；end 恒 web
+ *   - 平台恒 4 家（doubao/deepseek/wenxin/yuanbao，千问暂移除）；end 恒 web
  *   - 截图存证 / 中立账号池：占位 null，后续补
  *   - 失败重试：每槽最多尝试 maxAttempts（默认 2）次后终态 fail
  */
@@ -59,7 +59,7 @@ class CollectorController extends Controller {
   }
 
   /** 拉取单个待采集槽位：单条 + 一步原子领取（findOneAndUpdate 带 sort，无竞争窗口）。
-   *  平台：兼容单数 platform / 复数 platforms；缺省=全部 5 家；指定但均不在白名单=无。 */
+   *  平台：兼容单数 platform / 复数 platforms；缺省=全部 4 家；指定但均不在白名单=无。 */
   async pull() {
     const { ctx } = this;
     const M = ctx.model;
@@ -68,7 +68,7 @@ class CollectorController extends Controller {
     // 先回收运行超时的槽位（浏览器崩溃/挂起 → 回退或终态），保证不被永久卡死
     await this._reclaimTimedOut().catch(() => {});
 
-    // 平台：单数 platform 或复数 platforms 都接受；未指定=全部 5 家
+    // 平台：单数 platform 或复数 platforms 都接受；未指定=全部 4 家
     const requested = Array.isArray(b.platforms) ? b.platforms
       : (typeof b.platform === 'string' && b.platform ? [b.platform] : null);
     const platforms = requested === null

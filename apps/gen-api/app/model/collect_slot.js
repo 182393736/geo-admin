@@ -14,7 +14,7 @@ module.exports = app => {
     brand_id: { type: String, index: true },
     query_id: { type: Number, index: true },
     query_type: String,
-    platform: { type: String, enum: ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao', 'kimi'], index: true },
+    platform: { type: String, enum: ['doubao', 'deepseek', 'wenxin', 'yuanbao', 'kimi'], index: true },
     end: { type: String, enum: ['web', 'mobile'], default: 'web' },
     date: { type: String, index: true },
     question_sent: String,  // 实际发出的 platform_query

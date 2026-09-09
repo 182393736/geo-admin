@@ -41,7 +41,7 @@ const DAY = '2026-09-08';
     await db.collection('brands').insertOne({
       _id: uuid(), brand_id: bid, user_id: uid, name: '宏祥公共座椅', industry: '公共家具制造',
       website: 'https://www.hongxiang-seating.example.com', business_desc: '影院/礼堂/机场公共座椅制造商',
-      platforms: ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'], status: 'active',
+      platforms: ['doubao', 'deepseek', 'wenxin', 'yuanbao'], status: 'active',
       is_first_brand: true, rename_remaining: 2, access_type: 'own', menu_keys: [],
       created_at: ago(20), updated_at: now,
     });
@@ -83,7 +83,7 @@ const DAY = '2026-09-08';
     await db.collection('subscriptions').insertOne({
       subscription_id: 1001, user_id: uid, brand_id: bid, plan_id: 20, plan_code: 'pro_monthly', plan_name: '专业版-月付',
       vip_level: 'pro', start_date: '2026-08-20', expire_date: '2026-09-20', query_limit: 30, query_count: 5,
-      platform_list: ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'], status: 'active', created_at: ago(19), updated_at: ago(19),
+      platform_list: ['doubao', 'deepseek', 'wenxin', 'yuanbao'], status: 'active', created_at: ago(19), updated_at: ago(19),
     });
   }
   if (!(await db.collection('credit_accounts').findOne({ user_id: uid }))) {
@@ -116,7 +116,7 @@ const DAY = '2026-09-08';
       status: 'ok', started_at: ago(0), finished_at: now, created_at: now, updated_at: now,
     });
     const slotRows = [];
-    const platforms = ['doubao', 'deepseek', 'wenxin', 'qwen'];
+    const platforms = ['doubao', 'deepseek', 'wenxin', 'yuanbao'];
     for (const qid of [40001, 40002, 40003, 40004, 40005]) {
       for (const p of platforms) {
         slotRows.push({
@@ -150,11 +150,11 @@ const DAY = '2026-09-08';
     await db.collection('brand_mentions').insertMany([
       { slot_id: `${bid}:${DAY}:40001:doubao:web`, date: DAY, brand_id: bid, query_id: 40001, platform: 'doubao', end: 'web', entity_id: 'e1', entity_name: '宏祥公共座椅', position: 1, is_target: true, snippet: '宏祥公共座椅…', created_at: now, updated_at: now },
       { slot_id: `${bid}:${DAY}:40002:deepseek:web`, date: DAY, brand_id: bid, query_id: 40002, platform: 'deepseek', end: 'web', entity_id: 'e2', entity_name: '大丰实业', position: 1, is_target: false, snippet: '大丰实业…', created_at: now, updated_at: now },
-      { slot_id: `${bid}:${DAY}:40002:qwen:web`, date: DAY, brand_id: bid, query_id: 40002, platform: 'qwen', end: 'web', entity_id: 'e1', entity_name: '宏祥公共座椅', position: 3, is_target: true, snippet: '…宏祥公共座椅…', created_at: now, updated_at: now },
+      { slot_id: `${bid}:${DAY}:40002:yuanbao:web`, date: DAY, brand_id: bid, query_id: 40002, platform: 'yuanbao', end: 'web', entity_id: 'e1', entity_name: '宏祥公共座椅', position: 3, is_target: true, snippet: '…宏祥公共座椅…', created_at: now, updated_at: now },
     ]);
     await db.collection('opinions').insertMany([
       { slot_id: `${bid}:${DAY}:40004:deepseek:web`, date: DAY, brand_id: bid, query_id: 40004, platform: 'deepseek', quote_text: '交期快（现货3-7天）', polarity: 'positive', target_entity: '宏祥公共座椅', created_at: now, updated_at: now },
-      { slot_id: `${bid}:${DAY}:40004:qwen:web`, date: DAY, brand_id: bid, query_id: 40004, platform: 'qwen', quote_text: '性价比高', polarity: 'positive', target_entity: '宏祥公共座椅', created_at: now, updated_at: now },
+      { slot_id: `${bid}:${DAY}:40004:yuanbao:web`, date: DAY, brand_id: bid, query_id: 40004, platform: 'yuanbao', quote_text: '性价比高', polarity: 'positive', target_entity: '宏祥公共座椅', created_at: now, updated_at: now },
       { slot_id: `${bid}:${DAY}:40005:wenxin:web`, date: DAY, brand_id: bid, query_id: 40005, platform: 'wenxin', quote_text: '安装周期略长', polarity: 'negative', target_entity: '宏祥公共座椅', created_at: now, updated_at: now },
       { slot_id: `${bid}:${DAY}:40005:doubao:web`, date: DAY, brand_id: bid, query_id: 40005, platform: 'doubao', quote_text: '款式选择较多', polarity: 'neutral', target_entity: '宏祥公共座椅', created_at: now, updated_at: now },
     ]);

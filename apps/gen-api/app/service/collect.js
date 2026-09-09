@@ -7,10 +7,10 @@ const { Service } = require('egg');
  * 幂等：task 按 (brand_id, date) upsert、slot 按 slot_id upsert，重复调用不产生脏数据。
  */
 class CollectService extends Service {
-  /** 采集平台：品牌平台与 5 家白名单取交集（去 kimi）；品牌未配置时用默认 5 家 */
+  /** 采集平台：品牌平台与 4 家白名单取交集（去 kimi）；品牌未配置时用默认 4 家（千问暂移除） */
   platformsOf(brand) {
     const cfg = this.app.config.collector || {};
-    const white = cfg.platforms || ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'];
+    const white = cfg.platforms || ['doubao', 'deepseek', 'wenxin', 'yuanbao'];
     const list = (brand && brand.platforms && brand.platforms.length) ? brand.platforms : white;
     const out = list.filter(p => white.includes(p));
     return out.length ? out : white;

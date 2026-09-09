@@ -89,7 +89,7 @@ module.exports = () => {
   // 采集 worker 协议：服务级鉴权 key + 拉取/重试约束
   collector: {
     apiKey: resolveKey('COLLECTOR_API_KEY'),
-    platforms: ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'], // 当前生效 5 家（不含 kimi）
+    platforms: ['doubao', 'deepseek', 'wenxin', 'yuanbao'], // 当前生效 4 家（不含 kimi；千问暂移除）
     maxAttempts: Number(process.env.COLLECT_MAX_ATTEMPTS || 2),     // 每槽最多失败/超时 2 次后终态 fail
     runningTtlMs: Number(process.env.COLLECT_RUNNING_TTL_MS || 15 * 60 * 1000), // running 超时回收阈值（默认 15 分钟）
   },
@@ -102,6 +102,6 @@ module.exports = () => {
   // 登录接口模拟网络延时（dev 便于观察 loading 态）；生产默认为 0
   loginDelayMs: process.env.NODE_ENV === 'production' ? 0 : 2000,
   rankWeights: [40, 20, 20, 16, 16, 13.33, 10, 10, 8, 8], // 实测逆向的位次权重（第1~10名），可配置校准
-  platforms: ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'],
+  platforms: ['doubao', 'deepseek', 'wenxin', 'yuanbao'],
   };
 };

@@ -8,12 +8,12 @@
  */
 
 // ==================== 平台 / 引擎 ====================
-/** 监控引擎（参与排名/口碑计分的 5 家，对齐 config.platforms 与前端 EngineKey） */
-export const ENGINE_KEYS = ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'] as const;
+/** 监控引擎（参与排名/口碑计分的 4 家，对齐 config.platforms 与前端 EngineKey；千问暂移除） */
+export const ENGINE_KEYS = ['doubao', 'deepseek', 'wenxin', 'yuanbao'] as const;
 export type EngineKey = (typeof ENGINE_KEYS)[number];
 
-/** 采集平台（比监控引擎多一家 kimi，来自 collect_slots.platform enum） */
-export const COLLECT_PLATFORMS = ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao', 'kimi'] as const;
+/** 采集平台（比监控引擎多一家 kimi，来自 collect_slots.platform enum；千问暂移除） */
+export const COLLECT_PLATFORMS = ['doubao', 'deepseek', 'wenxin', 'yuanbao', 'kimi'] as const;
 export type CollectPlatform = (typeof COLLECT_PLATFORMS)[number];
 
 /** 采集端（网页端 / 移动端） */

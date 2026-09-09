@@ -71,7 +71,7 @@ class PaymentController extends Controller {
       const expire = dayjs.add(free && free.duration_days ? free.duration_days : 30, 'day').format('YYYY-MM-DD');
       const platforms = (brand.platforms && brand.platforms.length)
         ? brand.platforms
-        : (ctx.app.config.platforms || ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao']);
+        : (ctx.app.config.platforms || ['doubao', 'deepseek', 'wenxin', 'yuanbao']);
       sub = await ctx.model.Subscription.create({
         subscription_id: await this._nextSeq('subscription'),
         user_id: userId, brand_id: brand.brand_id,

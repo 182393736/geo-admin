@@ -3,15 +3,15 @@
  * ------------------------------------------------------------------
  * 鉴权：请求头 Authorization: Bearer <COLLECTOR_API_KEY>（或 X-Collector-Key）
  * 范围（当前阶段）：
- *   - 平台恒为 5 家：doubao/deepseek/wenxin/qwen/yuanbao（不含 kimi）
+ *   - 平台恒为 4 家：doubao/deepseek/wenxin/yuanbao（不含 kimi；千问暂移除）
  *   - 端恒为 web（mobile 暂不展开）
  *   - 截图存证 / 中立账号池：后续补，字段先占位为 null
  *   - 提交为单条（slot 粒度）；失败重试：每槽最多尝试 2 次后终态 fail
  */
 import type { CollectPlatform, CollectEnd, QueryType, SlotStatus } from './enums';
 
-/** 采集平台（当前生效范围：5 家，不含 kimi） */
-export const COLLECTOR_PLATFORMS = ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'] as const;
+/** 采集平台（当前生效范围：4 家，不含 kimi；千问暂移除） */
+export const COLLECTOR_PLATFORMS = ['doubao', 'deepseek', 'wenxin', 'yuanbao'] as const;
 export type CollectorPlatform = (typeof COLLECTOR_PLATFORMS)[number];
 
 /** 每个槽位最多失败/超时次数（attempts 只计 fail 提交与运行超时；达上限 → 终态 fail） */
