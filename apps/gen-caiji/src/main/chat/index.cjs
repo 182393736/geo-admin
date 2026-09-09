@@ -110,6 +110,15 @@ function fmt(d) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
+/** 统一时间格式：Date 直接格式化；字符串尽量解析成同一格式，解析失败原样返回 */
+function fmtTime(v) {
+  if (v instanceof Date) return fmt(v);
+  if (!v) return '';
+  const d = new Date(v);
+  if (!isNaN(d.getTime())) return fmt(d);
+  return String(v);
+}
+
 /** 从 url 推导域名：小写、去 www（与服务端兜底逻辑一致） */
 function domainFromUrl(url) {
   try {
@@ -188,7 +197,7 @@ function buildJsonPreviewHtml(content) {
 /** 保存结果：同时写 HTML 与模拟提交 JSON（同时间戳成对），返回 { htmlPath, jsonPath } */
 function saveResult(dir, { ip, platform, platformName, prompt, answer, sources, startedAt }) {
   const finishedAt = fmt(new Date());
-  const started = startedAt || finishedAt;
+  const started = fmtTime(startedAt) || finishedAt;
   const html = buildResultHtml({ ip, platform, platformName, prompt, answer, sources, startedAt: started, finishedAt });
   const json = buildSubmitJson({ ip, platform, platformName, prompt, answer, sources, startedAt: started, finishedAt });
   fs.mkdirSync(dir, { recursive: true });

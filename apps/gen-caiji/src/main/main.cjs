@@ -233,7 +233,7 @@ function registerIpc() {
           const saved = saveResult(resultsDirFor(ip), {
             ip, platform, platformName: cfg.name, prompt: q,
             answer: r.answer || '', sources: r.sources || [],
-            startedAt: startedAt.toLocaleString('zh-CN', { hour12: false }),
+            startedAt,
           });
           lastResults.set(key, saved);
           log('success', `对话完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 ${saved.htmlPath} / ${saved.jsonPath}`);
