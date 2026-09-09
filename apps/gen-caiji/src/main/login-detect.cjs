@@ -36,11 +36,13 @@ function extractUsername(obj, fields, depth = 0) {
   return '';
 }
 
-/** 过滤内部码 / 纯 hex / 产品文案 */
+/** 过滤内部码 / 纯 hex / UUID / user_xxx / 产品文案（id 一律不作展示名） */
 function validUsername(v) {
   const s = v.trim();
   if (!s || s.length > 40) return false;
-  if (/^[0-9a-f]{32}$/i.test(s)) return false;
+  if (/^[0-9a-f]{32}$/i.test(s)) return false;                                    // 32 位 hex
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return false; // UUID
+  if (/^user[_\-]?\d/i.test(s)) return false;                                     // user_123 之类内部码
   if (/^(登录|注册|退出|百度|文心|豆包|DeepSeek|deepseek|通义|千问|元宝)/i.test(s)) return false;
   return true;
 }
@@ -141,18 +143,35 @@ async function detectDeepseek(page) {
   const token = await page.evaluate(() => {
     const raw = localStorage.getItem('userToken') || sessionStorage.getItem('userToken') || '';
     if (!raw) return '';
-    try { const j = JSON.parse(raw); return String(j.value || j.token || j.accessToken || raw || ''); } catch { return raw; }
+    const s = String(raw).trim();
+    // 未登录时常有 "undefined"/"null" 之类的脏值，必须过滤，否则长度 >8 误判已登录
+    if (!s || s === 'undefined' || s === 'null') return '';
+    try {
+      const j = JSON.parse(s);
+      const v = j && typeof j === 'object' ? (j.value || j.token || j.accessToken) : '';
+      return typeof v === 'string' ? v.trim() : '';
+    } catch {
+      return /^\d+$/.test(s) ? '' : s; // 非 JSON：纯数字不是 token，其它字符串保留
+    }
   }).catch(() => '');
   const loggedIn = token.length > 8;
   let username = '';
   if (loggedIn) {
     username = await page.evaluate(async tk => {
       const fields = ['nickname', 'displayName', 'name', 'email', 'mobile', 'phone'];
+      const isName = v => {
+        const t = (v || '').trim();
+        if (!t || t.length > 40) return false;
+        if (/^[0-9a-f]{32}$/i.test(t)) return false;
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) return false;
+        if (/^user[_\-]?\d/i.test(t)) return false;
+        return true;
+      };
       const walk = (o, d) => {
         if (!o || d > 4) return '';
         if (Array.isArray(o)) { for (const it of o) { const v = walk(it, d + 1); if (v) return v; } return ''; }
         if (typeof o === 'object') {
-          for (const f of fields) { const v = o[f]; if (typeof v === 'string' && v.trim() && v.trim().length < 40 && !/^[0-9a-f]{32}$/i.test(v)) return v.trim(); }
+          for (const f of fields) { const v = o[f]; if (typeof v === 'string' && isName(v)) return v.trim(); }
           for (const k in o) { const v = walk(o[k], d + 1); if (v) return v; }
         }
         return '';
@@ -196,12 +215,12 @@ async function detectYuanbao(page, context) {
       }
       return '';
     }).catch(() => '');
-    if (!username) username = hyUser; // 兜底（通常为用户 ID）
+    // 不再用 hy_user 兜底（那是用户 ID，不是展示名）
   }
   return { loggedIn, username };
 }
 
-/** 千问：Cookie tongyi_sso_ticket + tongyi_sso_ticket_hash 判登录；接口/DOM 取展示名，兜底 b-user-id */
+/** 千问：Cookie tongyi_sso_ticket + tongyi_sso_ticket_hash 判登录；接口取展示名（不用 id 兜底） */
 async function detectQianwen(page, context) {
   const cookies = await cookiesFor(context, 'https://www.qianwen.com');
   const ticket = pickCookie(cookies, ['tongyi_sso_ticket']);
@@ -210,12 +229,22 @@ async function detectQianwen(page, context) {
   let username = '';
   if (loggedIn) {
     username = await page.evaluate(async () => {
-      const fields = ['nickname', 'nickName', 'userNick', 'userName', 'displayName', 'userNickName'];
+      // 去掉 userName：千问里 userName 通常是登录账号/ID，不是昵称
+      const fields = ['nickname', 'nickName', 'userNick', 'userNickName', 'displayName'];
+      const isName = v => {
+        const t = (v || '').trim();
+        if (!t || t.length > 40) return false;
+        if (/^\d+$/.test(t)) return false;                                        // 纯数字 id
+        if (/^[0-9a-f]{32}$/i.test(t)) return false;
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) return false;
+        if (/^user[_\-]?\d/i.test(t)) return false;
+        return true;
+      };
       const walk = (o, d) => {
         if (!o || d > 4) return '';
         if (Array.isArray(o)) { for (const it of o) { const v = walk(it, d + 1); if (v) return v; } return ''; }
         if (typeof o === 'object') {
-          for (const f of fields) { const v = o[f]; if (typeof v === 'string' && v.trim() && v.trim().length < 40) return v.trim(); }
+          for (const f of fields) { const v = o[f]; if (typeof v === 'string' && isName(v)) return v.trim(); }
           for (const k in o) { const v = walk(o[k], d + 1); if (v) return v; }
         }
         return '';
@@ -228,7 +257,7 @@ async function detectQianwen(page, context) {
       }
       return '';
     }).catch(() => '');
-    if (!username) username = pickCookie(cookies, ['b-user-id']);
+    // 不再用 b-user-id 兜底（那是 id，不是展示名）
   }
   return { loggedIn, username };
 }
@@ -257,7 +286,7 @@ async function detectYiyan(page, context) {
       if (sel && filter(sel.textContent)) return filter(sel.textContent);
       return '';
     }).catch(() => '');
-    if (!username) username = pickCookie(cookies, ['SAVEUSERID', 'SAVEUSERID_BFESS']);
+    // 不再用 SAVEUSERID 兜底（那是用户 ID，不是展示名）
   }
   return { loggedIn, username };
 }
@@ -276,7 +305,7 @@ const WATCH_PATTERNS = {
   doubao: { url: /doubao\.com/i, fields: ['nickname'] },
   deepseek: { url: /chat\.deepseek\.com/i, fields: ['nickname', 'displayName', 'name', 'email', 'mobile', 'phone'] },
   yuanbao: { url: /yuanbao\.tencent\.com/i, fields: ['nickname', 'nickName', 'wechatName', 'wxName', 'displayName'] },
-  qwen: { url: /qianwen\.com|tongyi\.com|tongyi\.aliyun\.com/i, fields: ['nickname', 'nickName', 'userNick', 'userName', 'displayName', 'userNickName'] },
+  qwen: { url: /qianwen\.com|tongyi\.com|tongyi\.aliyun\.com/i, fields: ['nickname', 'nickName', 'userNick', 'userNickName', 'displayName'] },
   wenxin: { url: /wenxin\.baidu\.com|yiyan\.baidu\.com|baidu\.com/i, fields: ['name', 'user_name_show', 'uname'] },
 };
 
