@@ -32,12 +32,44 @@ class AuthController extends Controller {
     ctx.body = {
       accessToken: token,
       user: { id: user._id, username: user.account },
-      brands: brands.map(b => ({
-        brand_id: b.brand_id, name: b.name, industry: b.industry || '',
-        vip_level: 'starter', vip_plan_code: '',
-      })),
+      brands: await this._brandBriefs(brands),
       activeOrg: null,
     };
+  }
+
+  /**
+   * 品牌摘要（登录响应 brands 列表）：订阅档位/识别词等一律真实查询，杜绝硬编码。
+   * 尚未开通订阅（未访问过套餐页）时按系统默认「免费体验版」语义返回 free。
+   */
+  async _brandBriefs(brands) {
+    const { ctx } = this;
+    if (!brands || !brands.length) return [];
+    const ids = brands.map(b => b.brand_id);
+    const [subs, aliasRows] = await Promise.all([
+      ctx.model.Subscription.find({ brand_id: { $in: ids }, status: 'active' }).sort({ created_at: -1 }).lean(),
+      ctx.model.BrandAlias.find({ brand_id: { $in: ids }, enabled: true }).lean(),
+    ]);
+    const subMap = {};
+    for (const s of subs) if (!subMap[s.brand_id]) subMap[s.brand_id] = s;
+    const aliasMap = {};
+    for (const a of aliasRows) (aliasMap[a.brand_id] ||= []).push(a.alias);
+    return brands.map(b => {
+      const sub = subMap[b.brand_id];
+      return {
+        brand_id: b.brand_id,
+        name: b.name,
+        industry: b.industry || '',
+        vip_level: sub ? (sub.vip_level || 'free') : 'free',
+        vip_plan_code: sub ? (sub.plan_code || '') : '',
+        vip_expire_date: sub ? (sub.expire_date || '') : '',
+        status: b.status,
+        platforms: b.platforms || [],
+        aliases: aliasMap[b.brand_id] || [],
+        is_first_brand: !!b.is_first_brand,
+        rename_remaining: b.rename_remaining != null ? b.rename_remaining : 0,
+        created_at: b.created_at,
+      };
+    });
   }
 
   async info() {
@@ -52,7 +84,16 @@ class AuthController extends Controller {
     const brands = await ctx.model.Brand.find({ user_id: user._id, status: { $ne: 'disabled' } })
       .sort({ created_at: 1 }).lean();
     const first = brands[0] || null;
-    const task = await ctx.service.onboarding.latestForUser(String(user._id));
+    const dayjs = ctx.app.dayjs ? ctx.app.dayjs() : require('dayjs')();
+    const today = dayjs.format('YYYY-MM-DD');
+    const [task, aliasRows, sub, freePlan, dailyExec] = await Promise.all([
+      ctx.service.onboarding.latestForUser(String(user._id)),
+      first ? ctx.model.BrandAlias.find({ brand_id: first.brand_id, enabled: true }).lean() : Promise.resolve([]),
+      first ? ctx.model.Subscription.findOne({ brand_id: first.brand_id, status: 'active' }).sort({ created_at: -1 }).lean() : Promise.resolve(null),
+      ctx.model.Plan.findOne({ plan_code: 'free' }).lean(),
+      // 当日已执行采集槽位（ok/fail/empty 为已落定结果；采集前无 collect_slots → 真实为 0）
+      first ? ctx.model.CollectSlot.countDocuments({ brand_id: first.brand_id, date: today, status: { $in: ['ok', 'fail', 'empty'] } }) : Promise.resolve(0),
+    ]);
     ctx.body = {
       code: 200,
       msg: 'ok',
@@ -63,11 +104,11 @@ class AuthController extends Controller {
         brand: first ? first.name : (user.company || ''),
         company: user.company || '',
         industary: (first && first.industry) || user.industry || '',
-        aliases: [],
-        vip_level: 'pro',
-        vip_expire_date: '',
-        query_limit: 100,
-        daily_exec_count: 0,
+        aliases: aliasRows.map(a => a.alias),
+        vip_level: sub ? (sub.vip_level || 'free') : 'free',
+        vip_expire_date: sub ? (sub.expire_date || '') : '',
+        query_limit: (sub && sub.query_limit) || (freePlan && freePlan.query_limit) || 8,
+        daily_exec_count: dailyExec,
         first_login: brands.length ? 2 : 1,   // 1=首次登录（无品牌）→ 前端跳 /trial
         task_id: task ? task.task_id : null,
         crawler_started_at: task ? (task.crawler_started_at || null) : null,
