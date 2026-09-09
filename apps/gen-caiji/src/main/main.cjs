@@ -29,6 +29,18 @@ const lastResults = new Map();
 /** 对话测试：进行中的 `${ip}:${platform}` 集合（防重入） */
 const runningChats = new Set();
 
+/** 对话测试硬超时（秒）：整个对话流程超过即中止并返回错误，保证按钮不再卡在「对话中」 */
+const CHAT_TIMEOUT_MS = 180_000;
+
+/** 给 Promise 加硬超时：超时后无论底层是否结束，都立刻 reject（并在结束时清定时器） */
+function withTimeout(promise, ms, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 /** 渲染主窗口（用于主动推送平台登录态变化） */
 let mainWindow = null;
 
@@ -203,25 +215,34 @@ function registerIpc() {
     let openedPlatform = false;
     runningChats.add(key);
     try {
-      const s = await getSession(ip);
-      let page = s.pages.get(platform);
-      if (!page || page.isClosed()) {
-        page = await s.context.newPage();
-        s.pages.set(platform, page);
-        openedPlatform = true;
-        log('info', `打开 ${cfg.name} 标签页：${cfg.url}`);
-        await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-      }
-      log('info', `开始 ${cfg.name} 对话：${q}`);
-      const result = await runChat(page, platform, q, log);
-      const htmlPath = saveResult(resultsDirFor(ip), {
-        ip, platform, platformName: cfg.name, prompt: q,
-        answer: result.answer || '', sources: result.sources || [],
-        startedAt: startedAt.toLocaleString('zh-CN', { hour12: false }),
-      });
-      lastResults.set(key, htmlPath);
-      log('success', `对话完成：回答 ${(result.answer || '').length} 字，信源 ${(result.sources || []).length} 条，已保存 ${htmlPath}`);
-      return { ok: true, ip, platform, openedPlatform, answer: result.answer || '', sources: result.sources || [], htmlPath };
+      // 整个对话流程（打开 tab → 执行对话 → 保存 HTML）加 180s 硬超时，
+      // 超时后必定返回，runningChats 与渲染层按钮状态才能被可靠清除
+      const result = await withTimeout(
+        (async () => {
+          const s = await getSession(ip);
+          let page = s.pages.get(platform);
+          if (!page || page.isClosed()) {
+            page = await s.context.newPage();
+            s.pages.set(platform, page);
+            openedPlatform = true;
+            log('info', `打开 ${cfg.name} 标签页：${cfg.url}`);
+            await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+          }
+          log('info', `开始 ${cfg.name} 对话：${q}`);
+          const r = await runChat(page, platform, q, log);
+          const htmlPath = saveResult(resultsDirFor(ip), {
+            ip, platform, platformName: cfg.name, prompt: q,
+            answer: r.answer || '', sources: r.sources || [],
+            startedAt: startedAt.toLocaleString('zh-CN', { hour12: false }),
+          });
+          lastResults.set(key, htmlPath);
+          log('success', `对话完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 ${htmlPath}`);
+          return { ok: true, ip, platform, openedPlatform, answer: r.answer || '', sources: r.sources || [], htmlPath };
+        })(),
+        CHAT_TIMEOUT_MS,
+        `${cfg.name} 对话超时（${Math.round(CHAT_TIMEOUT_MS / 1000)} 秒），已中止`
+      );
+      return result;
     } catch (err) {
       const msg = String((err && err.message) || err);
       log('error', `对话失败：${msg}`);
