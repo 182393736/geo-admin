@@ -63,7 +63,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import platforms from '../shared/platforms.cjs';
+import platforms from '../shared/platforms.json';
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 const rows = ref([]);

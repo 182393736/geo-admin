@@ -1,0 +1,7 @@
+[
+  { "key": "doubao", "name": "豆包", "url": "https://www.doubao.com/chat/" },
+  { "key": "deepseek", "name": "DeepSeek", "url": "https://chat.deepseek.com/" },
+  { "key": "wenxin", "name": "文心一言", "url": "https://yiyan.baidu.com/" },
+  { "key": "qwen", "name": "通义千问", "url": "https://tongyi.aliyun.com/" },
+  { "key": "yuanbao", "name": "腾讯元宝", "url": "https://yuanbao.tencent.com/" }
+]

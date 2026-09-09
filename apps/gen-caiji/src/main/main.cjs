@@ -11,7 +11,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
 const { chromium } = require('playwright');
-const PLATFORMS = require('../shared/platforms.cjs');
+const PLATFORMS = require('../shared/platforms.json');
 
 const IP_LIST_URL = 'http://api.tupianseo.com/daili/daili_list';
 
