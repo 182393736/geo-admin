@@ -29,24 +29,25 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="平台" width="176">
+      <el-table-column label="平台" width="230">
         <template #default="{ row }">
           <div class="col">
-            <el-button
-              v-for="p in platforms"
-              :key="p.key"
-              size="small"
-              class="plat-btn"
-              :type="platBtnType(row.ip, p.key)"
-              :plain="isPlatformOpen(row.ip, p.key)"
-              :title="platBtnTitle(row.ip, p.key)"
-              @click="togglePlatform(row, p)"
-            >{{ platBtnText(row.ip, p) }}</el-button>
+            <div v-for="p in platforms" :key="p.key" class="plat-row">
+              <el-button
+                size="small"
+                class="plat-btn"
+                :type="platBtnType(row.ip, p.key)"
+                :plain="isPlatformOpen(row.ip, p.key)"
+                :title="platBtnTitle(row.ip, p.key)"
+                @click="togglePlatform(row, p)"
+              >{{ p.name }}</el-button>
+              <span class="auth-text" :class="authTextClass(row.ip, p.key)" :title="authTitle(row.ip, p.key)">{{ authText(row.ip, p) }}</span>
+            </div>
           </div>
         </template>
       </el-table-column>
 
-      <el-table-column label="测试" min-width="300">
+      <el-table-column label="测试" min-width="320">
         <template #default="{ row }">
           <div class="col">
             <div v-for="p in platforms" :key="p.key" class="test-row">
@@ -56,7 +57,7 @@
                 placeholder="测试问题"
                 clearable
               />
-              <el-button size="small" @click="doTest(row, p)">测试</el-button>
+              <el-button size="small" class="test-btn" @click="doTest(row, p)">测试{{ p.name }}</el-button>
             </div>
           </div>
         </template>
@@ -79,7 +80,7 @@
       </template>
     </el-table>
 
-    <p class="hint">提示：平台按钮打开后自动检测登录态——绿色=已登录（显示账号）、黄色=未登录；点击已打开的按钮可关闭该标签页。浏览器按钮点击打开/关闭整个会话（数据保留在磁盘）。</p>
+    <p class="hint">提示：平台按钮点击打开/关闭标签页；打开后自动检测登录态——按钮绿色=已登录（账号显示在按钮右侧）、黄色=未登录。浏览器按钮打开/关闭整个会话（数据保留在磁盘）。</p>
   </div>
 </template>
 
@@ -102,27 +103,32 @@ const isBrowserOpen = ip => !!openedBrowsers.value[ip];
 const isPlatformOpen = (ip, platform) => !!openedPlatforms.value[`${ip}:${platform}`];
 const authOf = (ip, platform) => authStates[`${ip}:${platform}`];
 
-function shortName(s) {
-  const t = String(s || '').trim();
-  return t.length > 6 ? t.slice(0, 6) + '…' : t;
-}
 // 平台按钮三态：未打开=灰 / 已登录=绿 / 未登录=黄
 function platBtnType(ip, platform) {
   if (!isPlatformOpen(ip, platform)) return 'default';
   const a = authOf(ip, platform);
   return a && a.loggedIn ? 'success' : 'warning';
 }
-function platBtnText(ip, p) {
-  if (!isPlatformOpen(ip, p.key)) return p.name;
-  const a = authOf(ip, p.key);
-  if (a && a.loggedIn) return `${p.name} · ${a.username ? shortName(a.username) : '已登录'}`;
-  return `${p.name} · 未登录`;
-}
 function platBtnTitle(ip, platform) {
   if (!isPlatformOpen(ip, platform)) return `打开`;
   const a = authOf(ip, platform);
   if (a && a.loggedIn) return `${a.username || '已登录'}（点击关闭）`;
   return '未登录（点击关闭）';
+}
+// 按钮右侧的账号文字：未打开=空；已登录=账号；未登录=「未登录」
+function authText(ip, p) {
+  if (!isPlatformOpen(ip, p.key)) return '';
+  const a = authOf(ip, p.key);
+  return a && a.loggedIn ? (a.username || '已登录') : '未登录';
+}
+function authTextClass(ip, platform) {
+  if (!isPlatformOpen(ip, platform)) return 'muted';
+  const a = authOf(ip, platform);
+  return a && a.loggedIn ? 'ok' : 'warn';
+}
+function authTitle(ip, platform) {
+  const a = authOf(ip, platform);
+  return a && a.loggedIn ? a.username || '' : '';
 }
 
 async function load() {
@@ -296,8 +302,31 @@ body {
   flex-direction: column;
   gap: 6px;
 }
+.plat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .plat-btn {
-  width: 118px;
+  width: 92px;
+  flex: 0 0 92px;
+}
+.auth-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.auth-text.ok {
+  color: #16a34a;
+}
+.auth-text.warn {
+  color: #d97706;
+}
+.auth-text.muted {
+  color: #c0c4cc;
 }
 .test-row {
   display: flex;
@@ -306,6 +335,10 @@ body {
 }
 .test-row .el-input {
   flex: 1;
+}
+.test-btn {
+  flex: 0 0 104px;
+  width: 104px;
 }
 .hint {
   margin-top: 14px;
