@@ -29,27 +29,30 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="平台" min-width="380">
+      <el-table-column label="平台" min-width="400">
         <template #default="{ row }">
           <div class="plat">
             <el-button
               v-for="p in platforms"
               :key="p.key"
               size="small"
-              @click="openPlatform(row, p)"
-            >{{ p.name }}</el-button>
+              :type="isPlatformOpen(row.ip, p.key) ? 'success' : 'default'"
+              :plain="isPlatformOpen(row.ip, p.key)"
+              @click="togglePlatform(row, p)"
+            >{{ isPlatformOpen(row.ip, p.key) ? p.name + ' · 已开' : p.name }}</el-button>
           </div>
         </template>
       </el-table-column>
 
-      <el-table-column label="操作" width="230" fixed="right">
+      <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
           <el-button
-            type="primary"
+            :type="isBrowserOpen(row.ip) ? 'success' : 'primary'"
             size="small"
+            :plain="isBrowserOpen(row.ip)"
             :loading="opening === row.ip"
-            @click="openBrowser(row)"
-          >{{ opened[row.ip] ? '浏览器已打开' : '打开本地 chrome 浏览器' }}</el-button>
+            @click="toggleBrowser(row)"
+          >{{ isBrowserOpen(row.ip) ? '浏览器已打开' : '打开本地 chrome 浏览器' }}</el-button>
         </template>
       </el-table-column>
 
@@ -57,20 +60,26 @@
         <el-empty description="暂无数据" :image-size="80" />
       </template>
     </el-table>
+
+    <p class="hint">提示：平台按钮再次点击关闭该标签页；浏览器按钮再次点击关闭整个浏览器会话（登录等数据保留在磁盘，可再打开）。</p>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import platforms from '../shared/platforms.json';
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 const rows = ref([]);
 const total = ref(0);
 const loading = ref(false);
-const opening = ref('');
-const opened = ref({}); // ip -> true（该 IP 的浏览器会话已打开）
+const opening = ref('');                 // 正在打开浏览器的 ip
+const openedBrowsers = ref({});          // ip -> true（该 IP 的浏览器会话已打开）
+const openedPlatforms = ref({});         // `${ip}:${platform}` -> true
+
+const isBrowserOpen = ip => !!openedBrowsers.value[ip];
+const isPlatformOpen = (ip, platform) => !!openedPlatforms.value[`${ip}:${platform}`];
 
 async function load() {
   if (!isElectron) return;
@@ -90,13 +99,38 @@ async function load() {
   }
 }
 
-async function openBrowser(row) {
+async function toggleBrowser(row) {
   if (!isElectron) return;
+  if (isBrowserOpen(row.ip)) {
+    // 关闭整个浏览器会话（带确认，避免误触）
+    try {
+      await ElMessageBox.confirm(`确定关闭 ${row.ip} 的浏览器会话？（会话数据保留在磁盘，可再次打开）`, '关闭浏览器', {
+        type: 'warning', confirmButtonText: '关闭', cancelButtonText: '取消',
+      });
+    } catch { return; }
+    try {
+      const r = await window.electronAPI.closeBrowser(row.ip);
+      if (r && r.ok) {
+        openedBrowsers.value[row.ip] = false;
+        // 会话关闭后，其下所有平台 tab 一并失效
+        for (const k of Object.keys(openedPlatforms.value)) {
+          if (k.startsWith(`${row.ip}:`)) delete openedPlatforms.value[k];
+        }
+        ElMessage.success(`已关闭 ${row.ip} 的浏览器会话`);
+      } else {
+        ElMessage.error('关闭失败：' + ((r && r.error) || '未知错误'));
+      }
+    } catch (e) {
+      ElMessage.error('关闭失败：' + (e && e.message ? e.message : e));
+    }
+    return;
+  }
+  // 打开浏览器会话
   opening.value = row.ip;
   try {
     const r = await window.electronAPI.openBrowser(row.ip);
     if (r && r.ok) {
-      opened.value[row.ip] = true;
+      openedBrowsers.value[row.ip] = true;
       ElMessage.success(`已打开 ${row.ip} 的独立浏览器会话`);
     } else {
       ElMessage.error('打开失败：' + ((r && r.error) || '未知错误'));
@@ -108,12 +142,30 @@ async function openBrowser(row) {
   }
 }
 
-async function openPlatform(row, p) {
+async function togglePlatform(row, p) {
   if (!isElectron) return;
+  const key = `${row.ip}:${p.key}`;
+  if (isPlatformOpen(row.ip, p.key)) {
+    // 关闭该平台标签页
+    try {
+      const r = await window.electronAPI.closePlatform(row.ip, p.key);
+      if (r && r.ok) {
+        openedPlatforms.value[key] = false;
+        ElMessage.info(`已关闭 ${row.ip} · ${p.name}`);
+      } else {
+        ElMessage.error('关闭失败：' + ((r && r.error) || '未知错误'));
+      }
+    } catch (e) {
+      ElMessage.error('关闭失败：' + (e && e.message ? e.message : e));
+    }
+    return;
+  }
+  // 打开该平台标签页
   try {
     const r = await window.electronAPI.openPlatform(row.ip, p.key);
     if (r && r.ok) {
-      opened.value[row.ip] = true; // 平台打开会顺带拉起该 IP 的浏览器会话
+      openedPlatforms.value[key] = true;
+      openedBrowsers.value[row.ip] = true; // 平台打开会顺带拉起该 IP 的浏览器会话
       ElMessage.success(`已打开 ${row.ip} · ${p.name}`);
     } else {
       ElMessage.error('打开失败：' + ((r && r.error) || '未知错误'));
@@ -181,5 +233,10 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+.hint {
+  margin-top: 14px;
+  font-size: 12px;
+  color: #9ca3af;
 }
 </style>

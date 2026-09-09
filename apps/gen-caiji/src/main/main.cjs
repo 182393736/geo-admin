@@ -27,9 +27,17 @@ function profileDirFor(ip) {
   return path.join(app.getPath('userData'), 'profiles', safe);
 }
 
-/** 获取（或首次创建）该 IP 的独立浏览器会话 */
+/** 获取（或首次创建）该 IP 的独立浏览器会话；若窗口已被手动关闭则自动重建 */
 async function getSession(ip) {
-  if (sessions.has(ip)) return sessions.get(ip);
+  const existing = sessions.get(ip);
+  if (existing) {
+    try {
+      existing.context.pages(); // 已关闭的 context 会抛错，以此探活
+      return existing;
+    } catch {
+      sessions.delete(ip); // 用户手动关掉了窗口 → 重建
+    }
+  }
   const dir = profileDirFor(ip);
   const context = await chromium.launchPersistentContext(dir, {
     headless: false,   // 真实窗口
@@ -99,6 +107,34 @@ function registerIpc() {
         await page.bringToFront().catch(() => {});
       }
       return { ok: true, ip, platform, name: cfg.name, url: cfg.url };
+    } catch (err) {
+      return { ok: false, error: friendlyErr(err) };
+    }
+  });
+
+  // —— 关闭该 IP 会话内的某个平台标签页 ——
+  ipcMain.handle('platform:close', async (_e, { ip, platform }) => {
+    try {
+      const s = sessions.get(ip);
+      if (!s) return { ok: true, ip, platform, closed: false };
+      const page = s.pages.get(platform);
+      if (page && !page.isClosed()) await page.close().catch(() => {});
+      s.pages.delete(platform);
+      return { ok: true, ip, platform, closed: true };
+    } catch (err) {
+      return { ok: false, error: friendlyErr(err) };
+    }
+  });
+
+  // —— 关闭该 IP 的整个浏览器会话（持久化数据保留在磁盘，可再次打开）——
+  ipcMain.handle('browser:close', async (_e, ip) => {
+    try {
+      const s = sessions.get(ip);
+      if (!s) return { ok: true, ip, closed: false };
+      await s.context.close().catch(() => {});
+      sessions.delete(ip);
+      console.log(`[collector] 已关闭浏览器会话 ${ip}`);
+      return { ok: true, ip, closed: true };
     } catch (err) {
       return { ok: false, error: friendlyErr(err) };
     }

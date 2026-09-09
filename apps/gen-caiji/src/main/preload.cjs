@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchIpList: () => ipcRenderer.invoke('ip-list:fetch'),
   /** 打开该 IP 的独立浏览器会话（launchPersistentContext） */
   openBrowser: ip => ipcRenderer.invoke('browser:open', ip),
+  /** 关闭该 IP 的整个浏览器会话（数据保留，可再开） */
+  closeBrowser: ip => ipcRenderer.invoke('browser:close', ip),
   /** 在该 IP 的浏览器会话内打开某个平台标签页 */
   openPlatform: (ip, platform) => ipcRenderer.invoke('browser:open-platform', { ip, platform }),
+  /** 关闭该 IP 会话内的某个平台标签页 */
+  closePlatform: (ip, platform) => ipcRenderer.invoke('platform:close', { ip, platform }),
 });
