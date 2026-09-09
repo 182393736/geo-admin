@@ -51,14 +51,30 @@ export interface PullSlotResponse {
   slot: CollectorSlot | null;
 }
 
+/** 单条信源（回答与信源分离：cited_urls 只承载引用来源，正文在 answer_text） */
+export interface CitedUrl {
+  /** 信源链接（必填） */
+  url: string;
+  /** 标题 */
+  title?: string;
+  /** 回答正文中的引用角标序号（[1][2]），与信源列表对应 */
+  index?: number;
+  /** 信源内容摘要 */
+  snippet?: string;
+  /** 来源站点名 */
+  site_name?: string;
+  /** 发布时间（worker 抓到的原始形态，不强制归一） */
+  publish_time?: string;
+}
+
 /** 单条提交请求 */
 export interface SubmitAnswerRequest {
   /** ok=有回答；empty=引擎无有效回答（也算有效槽位，进指标分母）；fail=采集失败 */
   status: 'ok' | 'empty' | 'fail';
   /** 完整回答原文（ok 必填；empty 可选；fail 忽略） */
   answer_text?: string;
-  /** 解析前的引用链接清单（可选） */
-  cited_urls?: { url: string; title?: string; rank?: number }[];
+  /** 解析前的信源清单（与正文分离，可选；url 必填，其余字段可选） */
+  cited_urls?: CitedUrl[];
   /** 引擎/会话元信息（可选，如模型版本、会话 id） */
   model_meta?: unknown;
   /** fail 时的失败原因（必填） */

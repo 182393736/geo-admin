@@ -177,9 +177,7 @@ class CollectorController extends Controller {
         date: slot.date,
         question_sent: slot.question_sent,
         answer_text: answerText,
-        cited_urls: Array.isArray(b.cited_urls) ? b.cited_urls.filter(c => c && c.url).map(c => ({
-          url: String(c.url), title: String(c.title || ''), rank: c.rank != null ? Number(c.rank) : undefined,
-        })) : [],
+        cited_urls: this._mapCitedUrls(b.cited_urls),
         model_meta: b.model_meta ?? undefined,
         parsed: false,                        // 等 daily_parse 批处理
       });
@@ -193,7 +191,7 @@ class CollectorController extends Controller {
           query_id: slot.query_id, query_type: slot.query_type, platform: slot.platform,
           end: slot.end, date: slot.date, question_sent: slot.question_sent,
           answer_text: answerText,
-          cited_urls: Array.isArray(b.cited_urls) ? b.cited_urls.filter(c => c && c.url).map(c => ({ url: String(c.url), title: String(c.title || '') })) : [],
+          cited_urls: this._mapCitedUrls(b.cited_urls),
           parsed: false,
         });
         slotUpdate.answer_id = answerId;
@@ -222,6 +220,21 @@ class CollectorController extends Controller {
       code: 200, msg: 'ok',
       data: { slot_id: slotId, status: nextStatus, attempts: attemptsAfter, answer_id: answerId },
     };
+  }
+
+  /** 归一化信源清单：url 必填，title/index(兼容 rank)/snippet/site_name/publish_time 可选，只写有值字段 */
+  _mapCitedUrls(list) {
+    if (!Array.isArray(list)) return [];
+    return list.filter(c => c && c.url).map(c => {
+      const out = { url: String(c.url) };
+      if (typeof c.title === 'string') out.title = c.title;
+      const idx = c.index != null ? c.index : c.rank; // 兼容旧字段 rank
+      if (idx != null && idx !== '') out.index = Number(idx);
+      if (typeof c.snippet === 'string' && c.snippet) out.snippet = c.snippet;
+      if (typeof c.site_name === 'string' && c.site_name) out.site_name = c.site_name;
+      if (typeof c.publish_time === 'string' && c.publish_time) out.publish_time = c.publish_time;
+      return out;
+    });
   }
 
   /** 重算任务进度：actual=ok+empty，failed=fail，完成度/状态随槽位回写联动 */

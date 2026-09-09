@@ -239,7 +239,7 @@ export interface RawAnswer {
   date?: string;
   question_sent?: string;
   answer_text?: string;
-  cited_urls: { url?: string; title?: string; rank?: number }[];
+  cited_urls: { url?: string; title?: string; index?: number; snippet?: string; site_name?: string; publish_time?: string }[];
   model_meta?: unknown;
   parsed: boolean;
   created_at?: Date | string;
