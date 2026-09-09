@@ -14,7 +14,7 @@ const fs = require('node:fs');
 const { chromium } = require('playwright');
 const PLATFORMS = require('../shared/platforms.json');
 const { detectAuth, watchUsername } = require('./login-detect.cjs');
-const { runChat, saveResult } = require('./chat/index.cjs');
+const { runChat, saveResult, buildJsonPreviewHtml } = require('./chat/index.cjs');
 
 const IP_LIST_URL = 'http://api.tupianseo.com/daili/daili_list';
 
@@ -24,7 +24,7 @@ app.setName('gen-caiji');
 /** ip -> { context, pages: Map<platform, Page>, dir } */
 const sessions = new Map();
 
-/** 对话测试：最近一次结果 HTML 路径 `${ip}:${platform}` -> 文件路径 */
+/** 对话测试：最近一次结果 `${ip}:${platform}` -> { htmlPath, jsonPath } */
 const lastResults = new Map();
 /** 对话测试：进行中的 `${ip}:${platform}` 集合（防重入） */
 const runningChats = new Set();
@@ -230,14 +230,14 @@ function registerIpc() {
           }
           log('info', `开始 ${cfg.name} 对话：${q}`);
           const r = await runChat(page, platform, q, log);
-          const htmlPath = saveResult(resultsDirFor(ip), {
+          const saved = saveResult(resultsDirFor(ip), {
             ip, platform, platformName: cfg.name, prompt: q,
             answer: r.answer || '', sources: r.sources || [],
             startedAt: startedAt.toLocaleString('zh-CN', { hour12: false }),
           });
-          lastResults.set(key, htmlPath);
-          log('success', `对话完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 ${htmlPath}`);
-          return { ok: true, ip, platform, openedPlatform, answer: r.answer || '', sources: r.sources || [], htmlPath };
+          lastResults.set(key, saved);
+          log('success', `对话完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 ${saved.htmlPath} / ${saved.jsonPath}`);
+          return { ok: true, ip, platform, openedPlatform, answer: r.answer || '', sources: r.sources || [], htmlPath: saved.htmlPath, jsonPath: saved.jsonPath };
         })(),
         CHAT_TIMEOUT_MS,
         `${cfg.name} 对话超时（${Math.round(CHAT_TIMEOUT_MS / 1000)} 秒），已中止`
@@ -255,7 +255,7 @@ function registerIpc() {
   // —— 预览：打开该 IP/平台最近一次对话结果 HTML ——
   ipcMain.handle('chat:preview', async (_e, { ip, platform }) => {
     const p = lastResults.get(`${ip}:${platform}`);
-    if (!p || !fs.existsSync(p)) return { ok: false, error: '暂无对话结果，请先执行测试' };
+    if (!p || !fs.existsSync(p.htmlPath)) return { ok: false, error: '暂无对话结果，请先执行测试' };
     try {
       const win = new BrowserWindow({
         width: 900,
@@ -263,8 +263,27 @@ function registerIpc() {
         title: `对话结果 · ${platform}`,
         webPreferences: { contextIsolation: true, nodeIntegration: false },
       });
-      win.loadFile(p);
-      return { ok: true, htmlPath: p };
+      win.loadFile(p.htmlPath);
+      return { ok: true, htmlPath: p.htmlPath };
+    } catch (err) {
+      return { ok: false, error: String((err && err.message) || err) };
+    }
+  });
+
+  // —— 预览：打开该 IP/平台最近一次模拟提交 JSON ——
+  ipcMain.handle('chat:preview-json', async (_e, { ip, platform }) => {
+    const p = lastResults.get(`${ip}:${platform}`);
+    if (!p || !fs.existsSync(p.jsonPath)) return { ok: false, error: '暂无对话结果，请先执行测试' };
+    try {
+      const content = fs.readFileSync(p.jsonPath, 'utf8');
+      const win = new BrowserWindow({
+        width: 900,
+        height: 760,
+        title: `提交 JSON · ${platform}`,
+        webPreferences: { contextIsolation: true, nodeIntegration: false },
+      });
+      win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(buildJsonPreviewHtml(content)));
+      return { ok: true, jsonPath: p.jsonPath };
     } catch (err) {
       return { ok: false, error: String((err && err.message) || err) };
     }

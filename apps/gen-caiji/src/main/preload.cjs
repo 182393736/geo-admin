@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   runChat: (ip, platform, prompt) => ipcRenderer.invoke('chat:run', { ip, platform, prompt }),
   /** 预览：打开最近一次对话结果 HTML */
   previewChat: (ip, platform) => ipcRenderer.invoke('chat:preview', { ip, platform }),
+  /** 预览：打开最近一次模拟提交 JSON */
+  previewChatJson: (ip, platform) => ipcRenderer.invoke('chat:preview-json', { ip, platform }),
   /** 订阅平台登录态变化（主进程推送 { ip, platform, loggedIn, username }） */
   onPlatformAuth: cb => {
     const handler = (_e, data) => { try { cb(data); } catch { /* ignore */ } };

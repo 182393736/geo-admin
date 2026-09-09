@@ -84,6 +84,21 @@
         </template>
       </el-table-column>
 
+      <el-table-column label="JSON" width="150">
+        <template #default="{ row }">
+          <div class="col">
+            <div v-for="p in platforms" :key="p.key" class="preview-row">
+              <el-button
+                size="small"
+                class="preview-btn"
+                :disabled="!hasResult(row.ip, p.key)"
+                @click="doPreviewJson(row, p)"
+              >JSON{{ p.name }}</el-button>
+            </div>
+          </div>
+        </template>
+      </el-table-column>
+
       <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
           <el-button
@@ -326,6 +341,16 @@ async function doPreview(row, p) {
     if (!r || !r.ok) ElMessage.info((r && r.error) || '暂无对话结果');
   } catch (e) {
     ElMessage.error('预览失败：' + ((e && e.message) || e));
+  }
+}
+
+async function doPreviewJson(row, p) {
+  if (!isElectron) return;
+  try {
+    const r = await window.electronAPI.previewChatJson(row.ip, p.key);
+    if (!r || !r.ok) ElMessage.info((r && r.error) || '暂无对话结果');
+  } catch (e) {
+    ElMessage.error('JSON 预览失败：' + ((e && e.message) || e));
   }
 }
 
