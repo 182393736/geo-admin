@@ -15,3 +15,4 @@ export * from './schemas';
 export * from './api';
 export * from './jwt';
 export * from './admin';
+export * from './collector';

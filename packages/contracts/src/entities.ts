@@ -233,6 +233,7 @@ export interface RawAnswer {
   slot_id: string;
   brand_id?: string;
   query_id?: number;
+  query_type?: QueryType;   // 解析分流的唯一依据：industry→排名流水线A / brand→口碑流水线B
   platform?: string;
   end?: string;
   date?: string;

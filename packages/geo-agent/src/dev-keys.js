@@ -35,6 +35,8 @@ const DEV_KEYS = {
   ],
   MISTRAL_BASE_URL: 'https://api.mistral.ai/v1',
   MISTRAL_MODEL: 'ministral-3b-2512',
+  // 采集 worker 服务鉴权密钥（生产用 COLLECTOR_API_KEY 环境变量覆盖）
+  COLLECTOR_API_KEY: 'collector-dev-key-8f3a1c2e9d7b4a5f',
 };
 
 function devKeysEnabled() {

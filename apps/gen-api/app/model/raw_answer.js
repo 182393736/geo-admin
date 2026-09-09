@@ -13,6 +13,7 @@ module.exports = app => {
     slot_id: { type: String, unique: true, index: true },
     brand_id: String,
     query_id: Number,
+    query_type: { type: String, enum: ['industry', 'brand'], index: true },  // 解析分流的唯一依据（industry→排名A / brand→口碑B）
     platform: String,
     end: String,
     date: String,

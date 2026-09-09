@@ -37,6 +37,11 @@ module.exports = app => {
   router.post('/publish/media/facets', jwtAuth, controller.publish.mediaFacets);
   router.post('/publish/media/list', jwtAuth, controller.publish.mediaList);
 
+  // ============ 采集 worker 协议（机器对机器，服务级鉴权） ============
+  const collectorAuth = middleware.collectorAuth();
+  router.post('/collector/slots/pull', collectorAuth, controller.collector.pull);
+  router.post('/collector/slots/:slot_id/submit', collectorAuth, controller.collector.submit);
+
   // ============ 管理员总后台（gen-admin · 只读监控）============
   // 鉴权：jwtAuth + adminAuth（is_superuser=true）；后续增删改再放开写接口
   const adminAuth = middleware.adminAuth();

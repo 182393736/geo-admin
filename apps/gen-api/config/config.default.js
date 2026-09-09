@@ -86,6 +86,12 @@ module.exports = () => {
   },
   // 联网取证（Tavily）：同样支持 env 覆盖内置测试密钥，未配置则降级不联网
   tavily: { apiKey: resolveKey('TAVILY_API_KEY') },
+  // 采集 worker 协议：服务级鉴权 key + 拉取/重试约束
+  collector: {
+    apiKey: resolveKey('COLLECTOR_API_KEY'),
+    platforms: ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao'], // 当前生效 5 家（不含 kimi）
+    maxAttempts: Number(process.env.COLLECT_MAX_ATTEMPTS || 2),     // 每槽最多尝试 2 次后终态 fail
+  },
   // Agent 交互约束：免费版候选问题确认上限（对齐对标 free 套餐 query_limit=3）
   geoAgent: { freeQueryLimit: Number(process.env.GEO_FREE_QUERY_LIMIT || 3) },
   // CORS 兜底（前端直连场景；nitro 代理路径下同源不需要但无害）
