@@ -26,6 +26,7 @@ module.exports = app => {
   // ============ 监控问题 / 采集状态（概览页采集状态卡 · 排名/口碑问题列表） ============
   router.get('/api/query/list', jwtAuth, controller.query.list);
   router.get('/user/get_query_status', jwtAuth, controller.query.status);
+  router.post('/user/generate_today', jwtAuth, controller.query.generateToday);
 
   // ============ 套餐 / 订阅 / 积分钱包（采集前真实展示） ============
   router.get('/payment/plans/grouped', jwtAuth, controller.payment.plansGrouped);

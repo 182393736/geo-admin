@@ -13,13 +13,14 @@ const { decodeJwtPayload } = require('@geo-admin/contracts');
 const DASH = process.env.DASH_URL || 'http://127.0.0.1:5173';
 const SITE = process.env.SITE_URL || 'http://localhost:3002';
 const API = process.env.API_URL || 'http://127.0.0.1:7001';
+const ADMIN = process.env.ADMIN_URL || 'http://localhost:5180';
 const ARTIFACTS = process.env.ARTIFACTS_DIR || path.join(__dirname, '..', 'data', 'artifacts');
 
 let running = false;
 
-/** 依赖服务健康检查（dash / site / api 任一离线则无法执行） */
+/** 依赖服务健康检查（dash / site / api / admin 任一离线则无法执行） */
 async function checkDeps() {
-  const deps = { DASH, SITE, API };
+  const deps = { DASH, SITE, API, ADMIN };
   const missing = [];
   for (const [k, base] of Object.entries(deps)) {
     try {
@@ -158,4 +159,4 @@ function tryStartTask(id) {
 
 function isRunning() { return running; }
 
-module.exports = { tryStartTask, isRunning, checkDeps, ARTIFACTS, DASH, SITE, API };
+module.exports = { tryStartTask, isRunning, checkDeps, ARTIFACTS, DASH, SITE, API, ADMIN };

@@ -210,6 +210,59 @@ const steps = [
       return { status: rows >= 15 ? 'ok' : 'fail', detail: `${info}，行数=${rows}` };
     },
   },
+  {
+    name: '生成当日采集任务（POST /user/generate_today）',
+    async run(page, ctx) {
+      // 用登录用户自己的 JWT 调接口，为当日展开采集任务与槽位（幂等；与 00:30 定时任务同源逻辑）
+      const token = await page.evaluate(() => localStorage.getItem('geo_token') || localStorage.getItem('geo.token') || '');
+      if (!token) throw new Error('未找到登录 token，无法生成采集任务');
+      const resp = await fetch(`${ctx.deps.API}/user/generate_today`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({}),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (json.code !== 200 || !json.data || !json.data.tasks || !json.data.tasks.length) {
+        throw new Error(`生成失败：${JSON.stringify(json).slice(0, 200)}`);
+      }
+      const t = json.data.tasks[0];
+      ctx.collectTask = { task_id: t.task_id, brand_name: t.brand_name, date: t.date, expected_slots: t.expected_slots, status: t.status };
+      return { status: 'ok', detail: `task_id=${t.task_id}，品牌=${t.brand_name}，应采=${t.expected_slots} 槽，状态=${t.status}` };
+    },
+  },
+  {
+    name: '管理后台可见当日任务（未采集）',
+    async run(page, ctx) {
+      const task = ctx.collectTask;
+      if (!task) throw new Error('缺少采集任务信息（前一步未成功）');
+      const adminPage = await page.context().newPage();
+      try {
+        // 登录管理总后台（管理员 123456/123456，独立 origin 不影响用户会话）
+        await adminPage.goto(`${ctx.deps.ADMIN}/login`, { waitUntil: 'domcontentloaded' });
+        await adminPage.waitForSelector('input[placeholder="管理员账号"]', { timeout: 20_000 });
+        await adminPage.fill('input[placeholder="管理员账号"]', '123456');
+        await adminPage.fill('input[placeholder="密码"]', '123456');
+        await adminPage.click('button.submit');
+        await adminPage.waitForFunction(() => location.href.includes('/overview'), null, { timeout: 30_000 });
+
+        // 打开「采集监控」，断言当日该品牌任务可见，且尚未采集
+        await adminPage.goto(`${ctx.deps.ADMIN}/collect`, { waitUntil: 'domcontentloaded' });
+        await adminPage.waitForFunction(
+          (brand, date) => {
+            const t = document.body.innerText || '';
+            return t.includes(brand) && t.includes(date);
+          },
+          task.brand_name, task.date, { timeout: 30_000 },
+        );
+        const body = await adminPage.locator('body').innerText();
+        // 未采集形态：状态 created/running 且「应采/已采/失败」列为 N/0/0（N≥1）
+        const notCollected = /(created|running)/.test(body) && /[1-9]\d*\/0\/0/.test(body);
+        return { status: notCollected ? 'ok' : 'fail', detail: `采集监控可见品牌=${task.brand_name} 日期=${task.date}；未采集形态=${notCollected}` };
+      } finally {
+        await adminPage.close().catch(() => {});
+      }
+    },
+  },
 ];
 
 module.exports = { steps, extractBrandName };

@@ -75,6 +75,31 @@ class QueryController extends Controller {
       },
     };
   }
+  /** 手动生成当日采集任务（POST /user/generate_today）：为当前用户所有 active 品牌展开当日槽位（幂等） */
+  async generateToday() {
+    const { ctx } = this;
+    const userId = ctx.state.user.id;
+    const body = ctx.request.body || {};
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(body.date || ''))
+      ? String(body.date)
+      : ctx.app.dayjs().format('YYYY-MM-DD');
+    const brands = await ctx.model.Brand.find({ user_id: userId, status: 'active' }).sort({ created_at: 1 }).lean();
+    if (!brands.length) {
+      ctx.status = 404;
+      ctx.body = { code: 404, msg: '暂无生效品牌，无法生成采集任务' };
+      return;
+    }
+    const tasks = [];
+    for (const b of brands) {
+      const task = await ctx.service.collect.expandDailyTask(b, date, { trigger: 'manual' });
+      tasks.push({
+        task_id: task.task_id, brand_id: b.brand_id, brand_name: b.name, date: task.date,
+        expected_slots: task.expected_slots, actual_slots: task.actual_slots, failed_slots: task.failed_slots,
+        status: task.status,
+      });
+    }
+    ctx.body = { code: 200, msg: 'ok', data: { date, tasks } };
+  }
 }
 
 module.exports = QueryController;
