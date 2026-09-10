@@ -4,6 +4,7 @@
  * 读 raw_answers.cited_urls → upsert cited_articles/canonical_sources → 写 citation_edges
  * 自有归因：canonical_url 命中本品牌 publish_orders.published_url → citation_edges.is_own=true
  */
+const { Service } = require('egg');
 
 /**
  * 域名 → 信源站点主名映射（域名小写、去 www；含精确域名优先于注册域）
@@ -60,7 +61,7 @@ const DOMAIN_SOURCE_MAP = {
   'hc360.com': { name: '慧聪网', category: 'B2B' },
 };
 
-class CitationExtractService {
+class CitationExtractService extends Service {
   /** 归一 URL：去 utm/跟踪参数、去锚点、去尾斜杠、host 小写 */
   normalizeUrl(raw) {
     try {
