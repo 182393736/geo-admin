@@ -7,6 +7,13 @@
       </div>
       <div class="hd-actions">
         <span v-if="total > 0" class="count">共 {{ total }} 个 IP</span>
+        <el-button
+          :type="collecting ? 'danger' : 'success'"
+          :plain="!collecting"
+          :disabled="!isElectron"
+          @click="toggleCollecting"
+        >{{ collecting ? '停止采集' : '开始采集' }}</el-button>
+        <span v-if="collecting" class="collect-hint">调度中 · 每 2s / 冷却 10s</span>
         <el-button :loading="loading" @click="load">刷新</el-button>
       </div>
     </header>
@@ -134,7 +141,7 @@
       </template>
     </el-table>
 
-    <p class="hint">提示：平台按钮打开/关闭标签页（绿色=已登录、黄色=未登录）；测试列输入问题后点「测试+平台名」在对应 tab 执行对话；「拉取+平台名」只领该平台一条真实槽位并采集提交（无任务会提示）；浏览器按钮打开/关闭整个会话。</p>
+    <p class="hint">提示：点「开始采集」后每 2 秒调度——遍历已打开的浏览器，按平台在「该平台 tab 已打开、非进行中、该 tab 距上次结束 &gt;10s」里选上次执行最久的一个拉取；无槽位/失败/提交完成都会释放该 tab。手动「拉取」仍可用。</p>
 
     <div class="log-panel">
       <div class="log-hd">
@@ -157,9 +164,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import platforms from '../shared/platforms.json';
+
+const COLLECT_TICK_MS = 2000;
+const COLLECT_COOLDOWN_MS = 10_000;
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 const rows = ref([]);
@@ -172,10 +182,13 @@ const testInputs = reactive({});         // `${ip}:${platform}` -> 测试输入�
 const authStates = reactive({});         // `${ip}:${platform}` -> { loggedIn, username }
 const running = reactive({});            // `${ip}:${platform}` -> true（对话进行中）
 const pulling = reactive({});            // `${ip}:${platform}` -> true（该平台测试拉取中）
+const lastExecAt = reactive({});         // `${ip}:${platform}` -> 该 tab 上次拉取结束时间（冷却按 tab）
 const results = reactive({});            // `${ip}:${platform}` -> true（已有对话结果可预览）
 const logs = ref([]);                    // 页面底部日志区
 const logBox = ref(null);
 const logCollapsed = ref(false);        // 日志面板收起/展开（悬浮于底部）
+const collecting = ref(false);          // 总控：是否允许自动调度采集
+let collectTimer = null;
 
 const isBrowserOpen = ip => !!openedBrowsers.value[ip];
 const isPlatformOpen = (ip, platform) => !!openedPlatforms.value[`${ip}:${platform}`];
@@ -183,6 +196,7 @@ const authOf = (ip, platform) => authStates[`${ip}:${platform}`];
 const isRunning = (ip, platform) => !!running[`${ip}:${platform}`];
 const isPulling = (ip, platform) => !!pulling[`${ip}:${platform}`];
 const hasResult = (ip, platform) => !!results[`${ip}:${platform}`];
+const isBusy = (ip, platform) => isPulling(ip, platform) || isRunning(ip, platform);
 
 function platformName(key) {
   if (key === 'collector') return '拉取';
@@ -269,6 +283,12 @@ async function toggleBrowser(row) {
         for (const k of Object.keys(authStates)) {
           if (k.startsWith(`${row.ip}:`)) delete authStates[k];
         }
+        for (const k of Object.keys(lastExecAt)) {
+          if (k.startsWith(`${row.ip}:`)) delete lastExecAt[k];
+        }
+        for (const k of Object.keys(pulling)) {
+          if (k.startsWith(`${row.ip}:`)) delete pulling[k];
+        }
         ElMessage.success(`已关闭 ${row.ip} 的浏览器会话`);
       } else {
         ElMessage.error('关闭失败：' + ((r && r.error) || '未知错误'));
@@ -303,6 +323,8 @@ async function togglePlatform(row, p) {
       if (r && r.ok) {
         openedPlatforms.value[key] = false;
         delete authStates[key];
+        delete lastExecAt[key];
+        delete pulling[key];
         ElMessage.info(`已关闭 ${row.ip} · ${p.name}`);
       } else {
         ElMessage.error('关闭失败：' + ((r && r.error) || '未知错误'));
@@ -375,31 +397,132 @@ async function doPreviewJson(row, p) {
   }
 }
 
-async function doPull(row, p) {
+/**
+ * 拉取槽位并采集提交。
+ * fromAuto=true：自动调度触发，空任务只写日志不弹 toast；无论空/失败/完成都释放进行中。
+ */
+async function runPull(ip, platformKey, { fromAuto = false } = {}) {
   if (!isElectron) return;
-  const key = `${row.ip}:${p.key}`;
+  const p = platforms.find(x => x.key === platformKey);
+  const name = p ? p.name : platformKey;
+  const key = `${ip}:${platformKey}`;
   if (pulling[key] || running[key]) return;
   pulling[key] = true;
   try {
-    const r = await window.electronAPI.pullAndRun(row.ip, p.key);
+    const r = await window.electronAPI.pullAndRun(ip, platformKey);
     if (r && r.empty) {
-      ElMessage.info(r.message || `${p.name} 当前无待采集任务`);
+      if (fromAuto) {
+        pushLog({
+          ip, platform: platformKey, level: 'info', time: Date.now(),
+          message: r.message || `${name} 当前无待采集任务（已释放，可下次调度）`,
+        });
+      } else {
+        ElMessage.info(r.message || `${name} 当前无待采集任务`);
+      }
       return;
     }
     if (r && r.ok) {
       results[key] = true;
-      openedBrowsers.value[row.ip] = true;
+      openedBrowsers.value[ip] = true;
       if (r.openedPlatform) openedPlatforms.value[key] = true;
-      ElMessage.success(
-        `${p.name} 拉取完成并已提交：回答 ${(r.answer || '').length} 字 · 信源 ${((r.sources || []).length)} 条`
-      );
+      const tip = `${name} 拉取完成并已提交：回答 ${(r.answer || '').length} 字 · 信源 ${((r.sources || []).length)} 条`;
+      if (fromAuto) {
+        pushLog({ ip, platform: platformKey, level: 'success', time: Date.now(), message: tip });
+      } else {
+        ElMessage.success(tip);
+      }
     } else {
-      ElMessage.error(`${p.name} 拉取采集失败：${(r && r.error) || '未知错误'}`);
+      const err = (r && r.error) || '未知错误';
+      if (fromAuto) {
+        pushLog({
+          ip, platform: platformKey, level: 'error', time: Date.now(),
+          message: `${name} 拉取采集失败：${err}（已释放）`,
+        });
+      } else {
+        ElMessage.error(`${name} 拉取采集失败：${err}`);
+      }
     }
   } catch (e) {
-    ElMessage.error(`${p.name} 拉取采集失败：${(e && e.message) || e}`);
+    const err = (e && e.message) || e;
+    if (fromAuto) {
+      pushLog({
+        ip, platform: platformKey, level: 'error', time: Date.now(),
+        message: `${name} 拉取采集失败：${err}（已释放）`,
+      });
+    } else {
+      ElMessage.error(`${name} 拉取采集失败：${err}`);
+    }
   } finally {
+    // 无槽位 / 失败 / 完成：一律释放进行中，并记录上次执行时间供冷却
+    lastExecAt[key] = Date.now();
     delete pulling[key];
+  }
+}
+
+async function doPull(row, p) {
+  await runPull(row.ip, p.key, { fromAuto: false });
+}
+
+/** 某平台下：浏览器已开 + 该平台 tab 已开 + 该 tab 非忙 + 该 tab 冷却期满 → 选 lastExecAt 最久的 tab */
+function pickOldestIdleTab(platformKey) {
+  const now = Date.now();
+  let bestIp = null;
+  let bestAt = Infinity;
+  for (const row of rows.value) {
+    const ip = row.ip;
+    if (!isBrowserOpen(ip)) continue;
+    if (!isPlatformOpen(ip, platformKey)) continue;
+    // 不检查登录：已打开的浏览器/tab 视为可用
+    if (isBusy(ip, platformKey)) continue;
+    const tabKey = `${ip}:${platformKey}`;
+    const at = lastExecAt[tabKey] || 0; // 冷却按 tab，不是按 IP
+    if (now - at < COLLECT_COOLDOWN_MS) continue;
+    if (at < bestAt) {
+      bestAt = at;
+      bestIp = ip;
+    }
+  }
+  return bestIp;
+}
+
+/** 2s 调度：总控开启时，按平台各挑一个「该平台 tab」最久未跑的去拉取 */
+function collectTick() {
+  if (!collecting.value || !isElectron) return;
+  for (const p of platforms) {
+    const ip = pickOldestIdleTab(p.key);
+    if (!ip) continue;
+    // 先占坑（pulling[ip:platform]）再异步拉，避免同 tick / 下一 tick 重复选中同一 tab
+    void runPull(ip, p.key, { fromAuto: true });
+  }
+}
+
+function toggleCollecting() {
+  if (!isElectron) return;
+  collecting.value = !collecting.value;
+  if (collecting.value) {
+    ElMessage.success('已开始自动采集调度（每 2 秒检查）');
+    pushLog({
+      ip: '-', platform: 'collector', level: 'info', time: Date.now(),
+      message: '总控：开始采集',
+    });
+    collectTick();
+  } else {
+    ElMessage.info('已停止自动采集调度（进行中的任务仍会跑完并释放）');
+    pushLog({
+      ip: '-', platform: 'collector', level: 'warn', time: Date.now(),
+      message: '总控：停止采集',
+    });
+  }
+}
+
+function startCollectTimer() {
+  stopCollectTimer();
+  collectTimer = setInterval(collectTick, COLLECT_TICK_MS);
+}
+function stopCollectTimer() {
+  if (collectTimer) {
+    clearInterval(collectTimer);
+    collectTimer = null;
   }
 }
 
@@ -415,6 +538,12 @@ onMounted(() => {
   if (isElectron && window.electronAPI.onChatLog) {
     window.electronAPI.onChatLog(entry => pushLog(entry));
   }
+  if (isElectron) startCollectTimer();
+});
+
+onUnmounted(() => {
+  stopCollectTimer();
+  collecting.value = false;
 });
 </script>
 
@@ -455,6 +584,10 @@ body {
 .count {
   font-size: 13px;
   color: #6b7280;
+}
+.collect-hint {
+  font-size: 12px;
+  color: #16a34a;
 }
 .mb {
   margin-bottom: 14px;

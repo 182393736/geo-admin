@@ -59,8 +59,8 @@ const runningChats = new Set();
 /** 测试拉取：按 `${ip}:${platform}` 防重入（一次只拉一个平台槽位） */
 const runningPulls = new Set();
 
-/** 对话测试硬超时（秒）：整个对话流程超过即中止并返回错误，保证按钮不再卡在「对话中」 */
-const CHAT_TIMEOUT_MS = 180_000;
+/** 对话/采集硬超时：整个流程超过即中止并返回错误（须短于服务端 runningTtl 15 分钟） */
+const CHAT_TIMEOUT_MS = 600_000; // 10 分钟
 
 /**
  * 在指定 IP 会话上执行一次平台对话（打开/复用 tab → goto 初始 URL → runChat → 落盘）

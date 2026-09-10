@@ -326,7 +326,7 @@ async function readAnswerSnapshot(page) {
 }
 
 async function waitForAnswer(page, baselineText, log) {
-  const timeoutMs = 180_000;
+  const timeoutMs = 600_000; // 与主进程 CHAT_TIMEOUT_MS 对齐（10 分钟）
   const started = Date.now();
   let lastText = '';
   let contentStableRounds = 0;
