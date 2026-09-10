@@ -31,7 +31,10 @@ class AggregateService extends Service {
           { upsert: true });
       }
       /* ---- 2) 口碑日指标 ---- */
-      for (const platform of b.platforms) {
+      const bPlatforms = (b.platforms && b.platforms.length)
+        ? b.platforms
+        : (ctx.app.config.collector && ctx.app.config.collector.platforms) || ['doubao', 'deepseek', 'wenxin', 'yuanbao'];
+      for (const platform of bPlatforms) {
         const ops = await ctx.model.Opinion.find({ brand_id: b.brand_id, date: targetDate, platform }).lean();
         const rep = ctx.service.metrics.reputation(ops);
         await ctx.model.DailyMetricBrand.updateOne({ brand_id: b.brand_id, platform, date: targetDate }, { $set: rep }, { upsert: true });

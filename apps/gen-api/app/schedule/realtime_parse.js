@@ -11,24 +11,24 @@ const { Subscription } = require('egg');
 class RealtimeParse extends Subscription {
   static get schedule() { return { interval: 5000, type: 'worker', immediate: true }; }
   async subscribe() {
-    const { app } = this;
-    const config = app.config.parse || {};
+    const { ctx } = this;
+    const config = ctx.app.config.parse || {};
     if (config.mode !== 'realtime') return; // daily 模式由 daily_parse 负责
     if (this._running) return;              // 上一轮未跑完，跳过本轮
     this._running = true;
     try {
-      const today = app.dayjs().format('YYYY-MM-DD');
+      const today = ctx.app.dayjs().format('YYYY-MM-DD');
       // 1) 新答案即时解析 + 按受影响品牌聚合今天
-      await app.service.parse.runBatch({ date: today });
+      await ctx.service.parse.runBatch({ date: today });
       // 2) 定期全量清扫（默认 60s）：聚合所有 active 品牌的今天
       const sweepMs = Number(config.sweepIntervalMs) || 60 * 1000;
       const now = Date.now();
       if (!this._lastSweep || now - this._lastSweep >= sweepMs) {
         this._lastSweep = now;
-        await app.service.parse.runBatch({ date: today, all: true, skipParse: true });
+        await ctx.service.parse.runBatch({ date: today, all: true, skipParse: true });
       }
     } catch (e) {
-      app.logger.error(`[realtime_parse] 轮询异常: ${e.message}`);
+      ctx.logger.error(`[realtime_parse] 轮询异常: ${e.message}`);
     } finally {
       this._running = false;
     }

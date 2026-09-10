@@ -11,10 +11,10 @@ const { Subscription } = require('egg');
 class DailyParse extends Subscription {
   static get schedule() { return { cron: '0 0 4 * * *', type: 'worker' }; }
   async subscribe() {
-    const { app } = this;
-    if ((app.config.parse || {}).mode !== 'daily') return; // realtime 模式由 realtime_parse 负责
-    const date = app.dayjs().subtract(1, 'day').format('YYYY-MM-DD'); // 日批统计日 = 昨天
-    await app.service.parse.runBatch({ date, all: true });
+    const { ctx } = this;
+    if ((ctx.app.config.parse || {}).mode !== 'daily') return; // realtime 模式由 realtime_parse 负责
+    const date = ctx.app.dayjs().subtract(1, 'day').format('YYYY-MM-DD'); // 日批统计日 = 昨天
+    await ctx.service.parse.runBatch({ date, all: true });
   }
 }
 module.exports = DailyParse;

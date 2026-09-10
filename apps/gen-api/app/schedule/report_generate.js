@@ -9,8 +9,8 @@ const { Subscription } = require('egg');
 class ReportGenerate extends Subscription {
   static get schedule() { return { cron: '0 0 5 * * 0', type: 'worker' }; } // weekly 示例，monthly 另配
   async subscribe() {
-    const { app } = this;
-    await app.service.pipeline.reportBuild.run({ period_type: 'weekly' });
+    const { ctx } = this;
+    await ctx.service.pipeline.reportBuild.run({ period_type: 'weekly' });
   }
 }
 module.exports = ReportGenerate;
