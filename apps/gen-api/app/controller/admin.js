@@ -348,14 +348,47 @@ class AdminController extends Controller {
       M.RawAnswer.countDocuments(q),
       M.RawAnswer.find(q).sort({ created_at: -1 }).skip((page - 1) * page_size).limit(page_size).lean(),
     ]);
+    const bids = [...new Set(rows.map(a => a.brand_id).filter(Boolean))];
+    const brands = bids.length ? await M.Brand.find({ brand_id: { $in: bids } }).lean() : [];
+    const bm = {}; for (const b of brands) bm[b.brand_id] = b.name;
     this._ok({
       list: rows.map(a => ({
-        answer_id: a.answer_id, slot_id: a.slot_id, brand_id: a.brand_id, query_id: a.query_id,
+        answer_id: a.answer_id, slot_id: a.slot_id, brand_id: a.brand_id,
+        brand_name: bm[a.brand_id] || a.brand_id,
+        query_id: a.query_id,
         platform: a.platform, date: a.date, question_sent: a.question_sent,
         answer_len: (a.answer_text || '').length, cited_urls: (a.cited_urls || []).length,
         parsed: !!a.parsed, created_at: a.created_at,
       })),
       total, page, page_size,
+    });
+  }
+
+  /** 原始回答详情：正文 + 信源列表 */
+  async collectAnswerDetail() {
+    const { ctx } = this;
+    const M = ctx.model;
+    const id = ctx.params.id;
+    const a = await M.RawAnswer.findOne({ answer_id: id }).lean();
+    if (!a) { ctx.status = 404; ctx.body = { code: 404, msg: '回答不存在' }; return; }
+    const brand = a.brand_id ? await M.Brand.findOne({ brand_id: a.brand_id }).lean() : null;
+    this._ok({
+      answer_id: a.answer_id,
+      slot_id: a.slot_id,
+      brand_id: a.brand_id,
+      brand_name: (brand && brand.name) || a.brand_id,
+      query_id: a.query_id,
+      query_type: a.query_type,
+      platform: a.platform,
+      end: a.end,
+      date: a.date,
+      question_sent: a.question_sent,
+      answer_text: a.answer_text || '',
+      answer_len: (a.answer_text || '').length,
+      cited_urls: Array.isArray(a.cited_urls) ? a.cited_urls : [],
+      parsed: !!a.parsed,
+      model_meta: a.model_meta,
+      created_at: a.created_at,
     });
   }
 
@@ -370,9 +403,13 @@ class AdminController extends Controller {
       M.Snapshot.countDocuments(q),
       M.Snapshot.find(q).sort({ created_at: -1 }).skip((page - 1) * page_size).limit(page_size).lean(),
     ]);
+    const bids = [...new Set(rows.map(s => s.brand_id).filter(Boolean))];
+    const brands = bids.length ? await M.Brand.find({ brand_id: { $in: bids } }).lean() : [];
+    const bm = {}; for (const b of brands) bm[b.brand_id] = b.name;
     this._ok({
       list: rows.map(s => ({
         snapshot_id: s.snapshot_id, slot_id: s.slot_id, brand_id: s.brand_id,
+        brand_name: bm[s.brand_id] || s.brand_id,
         platform: s.platform, exec_date: s.exec_date, photo_url: s.photo_url, size: s.size,
       })),
       total, page, page_size,

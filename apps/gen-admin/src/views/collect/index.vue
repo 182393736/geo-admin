@@ -53,6 +53,9 @@
             <template #parsed="{ record }">
               <a-tag :color="record.parsed ? 'green' : 'orange'">{{ record.parsed ? '已解析' : '未解析' }}</a-tag>
             </template>
+            <template #op="{ record }">
+              <a-link @click="openAnswer(record)">查看</a-link>
+            </template>
           </a-table>
           <div class="pager">
             <a-pagination :total="answerTotal" :current="answerPage" :page-size="20" show-total @change="loadAnswers" />
@@ -99,13 +102,59 @@
         </template>
       </a-spin>
     </a-drawer>
+
+    <!-- 原始回答详情 -->
+    <a-drawer
+      :visible="answerDrawer"
+      :width="920"
+      :title="`原始回答 · ${answerDetail?.brand_name || ''} · ${answerDetail?.platform || ''} · ${answerDetail?.date || ''}`"
+      @cancel="answerDrawer = false"
+      :footer="false"
+    >
+      <a-spin :loading="answerDetailLoading">
+        <template v-if="answerDetail">
+          <div class="kv-row mb wrap">
+            <span>问题</span><span class="muted grow">{{ answerDetail.question_sent || '—' }}</span>
+          </div>
+          <div class="kv-row mb wrap">
+            <span>槽位</span><span class="muted grow mono">{{ answerDetail.slot_id }}</span>
+            <span>解析</span>
+            <a-tag :color="answerDetail.parsed ? 'green' : 'orange'" size="small">
+              {{ answerDetail.parsed ? '已解析' : '未解析' }}
+            </a-tag>
+          </div>
+
+          <h4 class="sec">回答正文（{{ answerDetail.answer_len }} 字）</h4>
+          <pre class="answer-body">{{ answerDetail.answer_text || '（空）' }}</pre>
+
+          <h4 class="sec">信源列表（{{ (answerDetail.cited_urls || []).length }} 条）</h4>
+          <div v-if="!(answerDetail.cited_urls || []).length" class="muted">暂无信源</div>
+          <ol v-else class="cite-list">
+            <li v-for="(c, i) in answerDetail.cited_urls" :key="`${c.url}-${i}`" class="cite-item">
+              <div class="cite-head">
+                <span class="cite-idx">[{{ c.index != null ? c.index : i + 1 }}]</span>
+                <a v-if="c.url" class="cite-title" :href="c.url" target="_blank" rel="noopener">{{ c.title || c.url }}</a>
+                <span v-else class="cite-title">{{ c.title || '（无标题）' }}</span>
+              </div>
+              <div v-if="c.site_name || c.domain || c.publish_time" class="cite-meta">
+                <span v-if="c.site_name">{{ c.site_name }}</span>
+                <span v-if="c.domain">{{ c.domain }}</span>
+                <span v-if="c.publish_time">{{ c.publish_time }}</span>
+              </div>
+              <div v-if="c.url && c.title" class="cite-url">{{ c.url }}</div>
+              <div v-if="c.snippet" class="cite-snippet">{{ c.snippet }}</div>
+            </li>
+          </ol>
+        </template>
+      </a-spin>
+    </a-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { adminApi } from '@/api/admin';
-import type { AdminCollectTaskRow, AdminSlotRow, AdminAnswerRow, AdminSnapshotRow } from '@geo-admin/contracts';
+import type { AdminCollectTaskRow, AdminSlotRow, AdminAnswerRow, AdminAnswerDetail, AdminSnapshotRow } from '@geo-admin/contracts';
 
 const tab = ref('tasks');
 
@@ -141,12 +190,13 @@ const answerLoading = ref(false);
 const parsedFilter = ref('');
 const answerCols = [
   { title: '日期', dataIndex: 'date', width: 110 },
-  { title: '品牌', dataIndex: 'brand_id', width: 130, ellipsis: true },
+  { title: '品牌', dataIndex: 'brand_name', width: 160, ellipsis: true },
   { title: '问题', dataIndex: 'question_sent', ellipsis: true },
   { title: '平台', dataIndex: 'platform', width: 90 },
   { title: '长度', dataIndex: 'answer_len', width: 80 },
   { title: '引用链接', dataIndex: 'cited_urls', width: 80 },
   { title: '解析', slotName: 'parsed', width: 90 },
+  { title: '', slotName: 'op', width: 60, fixed: 'right' as const },
 ];
 
 // 截图
@@ -156,7 +206,7 @@ const snapPage = ref(1);
 const snapLoading = ref(false);
 const snapCols = [
   { title: '日期', dataIndex: 'exec_date', width: 110 },
-  { title: '品牌', dataIndex: 'brand_id', width: 130, ellipsis: true },
+  { title: '品牌', dataIndex: 'brand_name', width: 160, ellipsis: true },
   { title: '平台', dataIndex: 'platform', width: 90 },
   { title: '槽位', dataIndex: 'slot_id', ellipsis: true },
   { title: '截图', slotName: 'photo', width: 80 },
@@ -229,16 +279,63 @@ async function openSlots(t: AdminCollectTaskRow) {
   } finally { slotLoading.value = false; }
 }
 
+const answerDrawer = ref(false);
+const answerDetailLoading = ref(false);
+const answerDetail = ref<AdminAnswerDetail | null>(null);
+
+async function openAnswer(row: AdminAnswerRow) {
+  answerDrawer.value = true;
+  answerDetail.value = null;
+  answerDetailLoading.value = true;
+  try {
+    answerDetail.value = await adminApi.collectAnswerDetail(row.answer_id);
+  } finally {
+    answerDetailLoading.value = false;
+  }
+}
+
 onMounted(() => loadTasks(1));
 </script>
 
 <style scoped lang="scss">
 .muted { color: #6b7280; font-size: 13px; }
 .kv-row { display: flex; gap: 24px; align-items: center; font-size: 13px; margin-bottom: 4px; }
-.kv-row > span:nth-child(odd) { color: #6b7280; }
+.kv-row.wrap { flex-wrap: wrap; align-items: flex-start; }
+.kv-row > span:nth-child(odd) { color: #6b7280; flex-shrink: 0; }
+.kv-row .grow { flex: 1; min-width: 0; word-break: break-all; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
 .mb { margin-bottom: 12px; }
+.sec { margin: 18px 0 8px; font-size: 14px; color: #1f2430; }
 .chip {
   display: inline-block; border-radius: 4px; padding: 2px 10px; margin-right: 8px;
   font-size: 12px; color: #1f2430;
 }
+.answer-body {
+  margin: 0;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #1f2430;
+  max-height: 46vh;
+  overflow: auto;
+}
+.cite-list { margin: 0; padding-left: 0; list-style: none; }
+.cite-item {
+  padding: 10px 12px;
+  border: 1px solid #eef0f4;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.cite-head { display: flex; gap: 8px; align-items: flex-start; }
+.cite-idx { color: #6b7280; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+.cite-title { color: #2563eb; text-decoration: none; font-size: 14px; word-break: break-all; }
+.cite-title:hover { text-decoration: underline; }
+.cite-meta { margin-top: 4px; font-size: 12px; color: #6b7280; display: flex; gap: 10px; flex-wrap: wrap; }
+.cite-url { margin-top: 3px; font-size: 12px; color: #9ca3af; word-break: break-all; }
+.cite-snippet { margin-top: 4px; font-size: 12.5px; color: #4b5563; line-height: 1.6; }
 </style>

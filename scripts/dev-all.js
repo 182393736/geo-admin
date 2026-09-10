@@ -197,10 +197,10 @@ async function startIfFree(name, start) {
   console.log('  按 Ctrl+C 停止全部服务。');
   console.log('');
 
-  // 自动在默认浏览器打开三个网页（dash / site / test）
+  // 自动在默认浏览器打开网页（dash / site / test / admin）
   if (AUTO_OPEN) {
     console.log('  🌐 正在默认浏览器打开网页…');
-    for (const k of ['dash', 'site', 'test']) {
+    for (const k of ['dash', 'site', 'test', 'admin']) {
       const ok = await openBrowser(SERVICES[k].url);
       console.log(`     ${ok ? '✅' : '⚠️ '}${SERVICES[k].label.padEnd(12, '　')} ${SERVICES[k].url}${ok ? '' : '（无法自动打开，请手动访问）'}`);
     }

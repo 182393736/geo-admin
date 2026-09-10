@@ -5,7 +5,7 @@ import { get, post } from './http';
 import type {
   AdminMe, AdminOverview, AdminPaged, AdminUserRow, AdminUserDetail,
   AdminBrandRow, AdminBrandDetail, AdminCollectTaskRow, AdminSlotRow,
-  AdminAnswerRow, AdminSnapshotRow, AdminParseOverview, AdminLlmLogRow, AdminLlmAgg,
+  AdminAnswerRow, AdminAnswerDetail, AdminSnapshotRow, AdminParseOverview, AdminLlmLogRow, AdminLlmAgg,
   AdminPlanRow, AdminSubscriptionRow, AdminOrderRow, AdminCreditAccountRow, AdminCreditTxnRow,
   AdminMediaRow, AdminPublishOrderRow, AdminArticleRow, AdminWritingJobRow,
   AdminReportRow, AdminOnboardingTaskRow, AdminOnboardingTraceRow,
@@ -41,6 +41,7 @@ export const adminApi = {
   collectTasks: (p: Record<string, any> = {}) => get<AdminPaged<AdminCollectTaskRow>>(`/admin/collect/tasks${qs(p)}`),
   collectSlots: (taskId: string) => get<{ task: AdminCollectTaskRow; summary: Record<string, number>; list: AdminSlotRow[] }>(`/admin/collect/tasks/${encodeURIComponent(taskId)}/slots`),
   collectAnswers: (p: Record<string, any> = {}) => get<AdminPaged<AdminAnswerRow>>(`/admin/collect/answers${qs(p)}`),
+  collectAnswerDetail: (answerId: string) => get<AdminAnswerDetail>(`/admin/collect/answers/${encodeURIComponent(answerId)}`),
   collectSnapshots: (p: Record<string, any> = {}) => get<AdminPaged<AdminSnapshotRow>>(`/admin/collect/snapshots${qs(p)}`),
 
   // 解析

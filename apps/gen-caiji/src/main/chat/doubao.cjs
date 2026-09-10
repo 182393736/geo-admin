@@ -255,6 +255,21 @@ async function clickSend(page, log) {
   log('info', '未找到发送按钮，已按 Enter 发送');
 }
 
+/** 过短 / 仍在思考 / 与提问原文几乎相同 → 视为未完成 */
+function isIncompleteAnswer(text, prompt = '') {
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!t) return true;
+  if (t.length < 60) return true;
+  if (/^(正在|思考中|搜索中|请稍候|生成中)/.test(t) && t.length < 120) return true;
+  const p = String(prompt || '').replace(/\s+/g, ' ').trim();
+  if (p) {
+    if (t === p) return true;
+    // 回答几乎整段复述提问（常见误抓用户气泡）
+    if (t.length <= p.length + 8 && (t.includes(p) || p.includes(t))) return true;
+  }
+  return false;
+}
+
 async function readAnswerSnapshot(page) {
   const frames = page.frames();
   let best = { text: '', streaming: false, sendVisible: false, stopVisible: false, assistantCount: 0, debug: 'no-frame' };
@@ -392,20 +407,50 @@ async function readAnswerSnapshot(page) {
           });
 
         const assistantTurns = turns.filter(t => t.role === 'Assistant');
-        let text = assistantTurns.length > 0 ? assistantTurns[assistantTurns.length - 1].text : '';
+        const userTurns = turns.filter(t => t.role === 'User');
+        const lastUserText = userTurns.length ? userTurns[userTurns.length - 1].text : '';
+
+        // 取最后一条助手回答；若与最后用户提问相同，说明误抓了用户气泡，换上一条或置空
+        let text = '';
+        for (let i = assistantTurns.length - 1; i >= 0; i--) {
+          const cand = assistantTurns[i].text || '';
+          const sameAsUser =
+            lastUserText &&
+            cand.replace(/\s+/g, ' ').trim() === lastUserText.replace(/\s+/g, ' ').trim();
+          if (sameAsUser) continue;
+          text = cand;
+          break;
+        }
 
         if (!text) {
           const bodies = Array.from(
             document.querySelectorAll('.flow-markdown-body, .md-box-root, [class*="md-box-root"]')
           )
             .filter(el => isVisible(el))
+            .filter(el => !el.closest('[class*="bg-g-send-msg-bubble"], [data-testid="send_message"], [class*="send-message"]'))
             .map(el => clean(el.innerText || ''))
-            .filter(t => t.length > 20 && !/^(请仔细甄别|下载电脑版)/.test(t))
+            .filter(t => {
+              if (t.length <= 20) return false;
+              if (/^(请仔细甄别|下载电脑版)/.test(t)) return false;
+              if (lastUserText && t.replace(/\s+/g, ' ').trim() === lastUserText.replace(/\s+/g, ' ').trim()) {
+                return false;
+              }
+              return true;
+            })
             .sort((a, b) => b.length - a.length);
           text = bodies[0] || '';
         }
 
-        const lastAssistantEl = assistantTurns.length > 0 ? assistantTurns[assistantTurns.length - 1].el : null;
+        const lastAssistantEl = (() => {
+          for (let i = assistantTurns.length - 1; i >= 0; i--) {
+            const cand = assistantTurns[i].text || '';
+            const sameAsUser =
+              lastUserText &&
+              cand.replace(/\s+/g, ' ').trim() === lastUserText.replace(/\s+/g, ' ').trim();
+            if (!sameAsUser) return assistantTurns[i].el;
+          }
+          return null;
+        })();
 
         const streamingInMessage = !!(
           lastAssistantEl &&
@@ -461,7 +506,7 @@ async function readAnswerSnapshot(page) {
   return best;
 }
 
-async function waitForAnswer(page, baselineText, log) {
+async function waitForAnswer(page, baselineText, log, prompt = '') {
   const timeoutMs = 180_000;
   const started = Date.now();
   let lastText = '';
@@ -469,19 +514,28 @@ async function waitForAnswer(page, baselineText, log) {
   let sawNewAnswer = false;
   let lastProgressLog = 0;
   let lastDebug = '';
+  let maxLen = 0;
 
   log('info', '等待豆包回答完成…');
 
   while (Date.now() - started < timeoutMs) {
-    await sleep(700);
+    await sleep(800);
     const snap = await readAnswerSnapshot(page);
-    const text = snap.text;
+    const text = String(snap.text || '').trim();
     lastDebug = snap.debug;
+    const incomplete = isIncompleteAnswer(text, prompt);
+    if (text.length > maxLen) maxLen = text.length;
 
-    if (text && text !== baselineText) sawNewAnswer = true;
-    if (text && text.length > baselineText.length + 20) sawNewAnswer = true;
+    if (text && !incomplete && text !== baselineText) sawNewAnswer = true;
+    if (text && !incomplete && text.length > Math.max((baselineText || '').length + 20, 80)) {
+      sawNewAnswer = true;
+    }
 
-    if (text && text === lastText) {
+    // 仍显示「停止」→ 还在生成，稳定轮次清零意义不大，直接继续等
+    if (snap.stopVisible) {
+      contentStableRounds = 0;
+      lastText = text;
+    } else if (text && !incomplete && text === lastText && text.length >= maxLen) {
       contentStableRounds += 1;
     } else {
       contentStableRounds = 0;
@@ -495,33 +549,67 @@ async function waitForAnswer(page, baselineText, log) {
         'info',
         `生成中… 已读 ${text.length} 字` +
           `${snap.stopVisible ? '（可停止）' : ''}` +
-          `${snap.streaming && snap.stopVisible ? '（流式中）' : ''}` +
+          `${snap.streaming ? '（流式中）' : ''}` +
+          `${incomplete ? '（过短/同提问）' : ''}` +
           `${sawNewAnswer ? '' : '（等待新回答）'}` +
           ` 稳定${contentStableRounds}轮` +
           ` [${snap.debug}]`
       );
     }
 
-    if (sawNewAnswer && text.length > 0 && contentStableRounds >= 4) {
+    if (snap.stopVisible) continue;
+
+    // 无停止钮 + 实质性正文稳定约 4.8s
+    if (
+      sawNewAnswer &&
+      !incomplete &&
+      contentStableRounds >= 6 &&
+      text.length >= 80 &&
+      text.length >= maxLen
+    ) {
       log('success', `回答已稳定（${text.length} 字）`);
       return text;
     }
-    if (sawNewAnswer && text.length > 0 && !snap.stopVisible && snap.sendVisible && contentStableRounds >= 2) {
+
+    // 发送钮恢复时稍严
+    if (
+      sawNewAnswer &&
+      !incomplete &&
+      snap.sendVisible &&
+      contentStableRounds >= 7 &&
+      text.length >= 120 &&
+      text.length >= maxLen
+    ) {
       log('success', `回答已稳定（发送按钮已恢复，${text.length} 字）`);
+      return text;
+    }
+
+    // 兜底：更长静默
+    if (
+      sawNewAnswer &&
+      !incomplete &&
+      contentStableRounds >= 15 &&
+      text.length >= 200 &&
+      text.length >= maxLen
+    ) {
+      log('success', `回答已长时间稳定（${text.length} 字）`);
       return text;
     }
   }
 
-  if (lastText) {
+  if (lastText && !isIncompleteAnswer(lastText, prompt) && lastText.length >= 80) {
     log('warn', `等待超时，返回当前已生成内容 [${lastDebug}]`);
     return lastText;
   }
-  throw new Error(`等待豆包回答超时 [${lastDebug}]`);
+  throw new Error(`等待豆包完整回答超时 [${lastDebug}]`);
 }
 
 /**
- * 豆包信源折叠在回答上方，文案形如「搜索 4 个关键词，参考 24 篇资料」。
- * 必须用 Playwright 点击带 cursor-pointer 的整行（DOM click 点到纯文字节点无效）。
+ * 豆包信源展开：
+ *  - 单次搜索：直接点「搜索 N 个关键词，参考 N 篇资料」
+ *  - 多次搜索：先点「已完成思考，参考 N 篇资料」展开思考面板，
+ *    再分别点下面的「搜索 N 个关键词，参考 N 篇资料」
+ * 必须用 Playwright 点带 cursor-pointer 的整行（DOM 点到纯文字节点无效）。
  */
 async function countExpandedSourceLinks(page) {
   return page.evaluate(() => {
@@ -547,49 +635,122 @@ async function countExpandedSourceLinks(page) {
   });
 }
 
-async function openSourcesPanel(page, log) {
-  const already = await countExpandedSourceLinks(page);
-  if (already >= 2) {
-    log('info', `信源列表已展开（${already} 条链接）`);
-    return true;
-  }
-
-  log('info', '点击回答上方「搜索 N 个关键词，参考 N 篇资料」展开…');
-
-  const candidates = [
-    page.locator('div.relative.flex-row.inline-flex.cursor-pointer', {
-      hasText: /搜索\s*\d+\s*个关键词[\s\S]*参考\s*\d+\s*篇资料/
-    }),
-    page.locator('[data-plugin-identifier*="search_query_result"] .cursor-pointer', {
-      hasText: /搜索\s*\d+\s*个关键词/
-    }),
-    page.locator('[data-copy-ignore].cursor-pointer', {
-      hasText: /搜索\s*\d+\s*个关键词/
-    }),
-    page.locator('div.cursor-pointer', {
-      hasText: /搜索\s*\d+\s*个关键词[\s\S]*参考\s*\d+\s*篇资料/
-    }),
-  ];
-
-  let clicked = false;
-  for (const loc of candidates) {
-    const target = loc.last();
-    if ((await target.count().catch(() => 0)) === 0) continue;
-    const visible = await target.isVisible().catch(() => false);
-    if (!visible) continue;
-    try {
-      await target.scrollIntoViewIfNeeded().catch(() => undefined);
-      await target.click({ timeout: 5000 });
-      clicked = true;
-      break;
-    } catch (err) {
-      log('warn', `点击信源入口失败：${String((err && err.message) || err).slice(0, 120)}`);
+/** 页面内按文案匹配可点击入口；preferLast=true 取靠下的一条 */
+async function clickByTextPattern(page, patterns, { preferLast = true } = {}) {
+  // 1) Playwright locator
+  for (const re of patterns) {
+    const locs = [
+      page.locator('div.relative.flex-row.inline-flex.cursor-pointer', { hasText: re }),
+      page.locator('[data-copy-ignore].cursor-pointer', { hasText: re }),
+      page.locator('div.cursor-pointer, span.cursor-pointer, button.cursor-pointer', { hasText: re }),
+      page.getByText(re),
+    ];
+    for (const loc of locs) {
+      const count = await loc.count().catch(() => 0);
+      if (!count) continue;
+      const target = preferLast ? loc.last() : loc.first();
+      if (!(await target.isVisible().catch(() => false))) continue;
+      try {
+        await target.scrollIntoViewIfNeeded().catch(() => undefined);
+        // 若点到文字叶子，尽量升到 cursor-pointer 祖先
+        const handle = await target.elementHandle().catch(() => null);
+        if (handle) {
+          const box = await handle.evaluate(el => {
+            const clickable =
+              el.closest('div.relative.flex-row.inline-flex.cursor-pointer') ||
+              el.closest('.cursor-pointer') ||
+              el.closest('[data-copy-ignore]') ||
+              el;
+            const r = clickable.getBoundingClientRect();
+            clickable.scrollIntoView({ block: 'center', inline: 'nearest' });
+            return { x: r.x + Math.min(r.width / 2, 80), y: r.y + r.height / 2, ok: r.width > 0 && r.height > 0 };
+          });
+          if (box && box.ok) {
+            await page.mouse.click(box.x, box.y);
+            return true;
+          }
+        }
+        await target.click({ timeout: 4000 });
+        return true;
+      } catch {
+        // try next
+      }
     }
   }
 
-  if (!clicked) {
-    // 兜底：在页面里找到 cursor-pointer 祖先再 dispatch 真实 pointer 事件
-    clicked = await page.evaluate(() => {
+  // 2) evaluate 兜底
+  return page.evaluate(patternSources => {
+    const isVisible = el => {
+      if (!(el instanceof HTMLElement)) return false;
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const regs = patternSources.map(s => new RegExp(s, 'i'));
+    const nodes = Array.from(document.querySelectorAll('div, span, button, a')).filter(isVisible);
+    const hits = [];
+    for (const el of nodes) {
+      const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!t || t.length > 80) continue;
+      if (!regs.some(re => re.test(t))) continue;
+      const target =
+        el.closest('div.relative.flex-row.inline-flex.cursor-pointer') ||
+        el.closest('.cursor-pointer') ||
+        el.closest('[data-copy-ignore]') ||
+        el;
+      const r = target.getBoundingClientRect();
+      hits.push({ el: target, y: r.y, h: r.height, w: r.width, t });
+    }
+    if (!hits.length) return false;
+    hits.sort((a, b) => b.y - a.y);
+    const pick = hits[0].el;
+    pick.scrollIntoView({ block: 'center' });
+    pick.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    pick.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    pick.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    pick.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    pick.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return true;
+  }, patterns.map(re => (re instanceof RegExp ? re.source : String(re))));
+}
+
+/** 统计可见的「搜索 N 个关键词」入口数量 */
+async function countKeywordSearchEntries(page) {
+  return page.evaluate(() => {
+    const isVisible = el => {
+      if (!(el instanceof HTMLElement)) return false;
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const re = /搜索\s*\d+\s*个关键词/;
+    const seen = new Set();
+    let n = 0;
+    for (const el of document.querySelectorAll('div, span')) {
+      if (!isVisible(el)) continue;
+      const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!re.test(t) || t.length > 60) continue;
+      const root =
+        el.closest('div.relative.flex-row.inline-flex.cursor-pointer') ||
+        el.closest('.cursor-pointer') ||
+        el;
+      if (seen.has(root)) continue;
+      seen.add(root);
+      n += 1;
+    }
+    return n;
+  });
+}
+
+/** 点击所有尚未展开的「搜索 N 个关键词，参考 N 篇资料」 */
+async function clickAllKeywordSearchEntries(page, log) {
+  let clickedTotal = 0;
+  for (let round = 0; round < 8; round++) {
+    const beforeLinks = await countExpandedSourceLinks(page);
+    // 真实鼠标点（纯 DOM click 对豆包无效）
+    const scrolled = await page.evaluate(() => {
       const isVisible = el => {
         if (!(el instanceof HTMLElement)) return false;
         const style = window.getComputedStyle(el);
@@ -597,29 +758,112 @@ async function openSourcesPanel(page, log) {
         const rect = el.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0;
       };
-      const nodes = Array.from(document.querySelectorAll('div, span')).filter(isVisible);
-      const leaf = nodes.find(el => {
+      const re = /搜索\s*\d+\s*个关键词/;
+      const seen = new Set();
+      const candidates = [];
+      for (const el of document.querySelectorAll('div, span')) {
+        if (!isVisible(el)) continue;
         const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
-        return /搜索\s*\d+\s*个关键词.*参考\s*\d+\s*篇资料/.test(t) && t.length < 40;
-      });
-      if (!leaf) return false;
-      const target =
-        leaf.closest('div.relative.flex-row.inline-flex.cursor-pointer') ||
-        leaf.closest('.cursor-pointer') ||
-        leaf.closest('[data-copy-ignore]') ||
-        leaf;
-      target.scrollIntoView({ block: 'center' });
-      target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-      target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-      target.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
-      target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-      target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      return true;
+        if (t.length > 60 || !re.test(t)) continue;
+        const root =
+          el.closest('div.relative.flex-row.inline-flex.cursor-pointer') ||
+          el.closest('.cursor-pointer') ||
+          el.closest('[data-copy-ignore]') ||
+          el;
+        if (seen.has(root)) continue;
+        seen.add(root);
+        const block =
+          root.closest('[data-plugin-identifier*="search_query_result"]') || root.parentElement;
+        const hasLinks = !!(
+          block &&
+          Array.from(block.querySelectorAll('a[href^="http"]')).some(a => {
+            if (!isVisible(a)) return false;
+            return !/doubao\.com\/(chat|download)|bytedance\.com|feishu\.cn/i.test(a.href);
+          })
+        );
+        if (hasLinks) continue;
+        candidates.push(root);
+      }
+      candidates.sort((a, b) => a.getBoundingClientRect().y - b.getBoundingClientRect().y);
+      const pick = candidates[0];
+      if (!pick) return null;
+      pick.scrollIntoView({ block: 'center', inline: 'nearest' });
+      const r = pick.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) return null;
+      return { x: r.x + Math.min(r.width / 2, 80), y: r.y + r.height / 2 };
     });
+
+    if (!scrolled) break;
+    await page.mouse.click(scrolled.x, scrolled.y);
+    clickedTotal += 1;
+    log('info', `已点击第 ${clickedTotal} 个「搜索 N 个关键词」入口`);
+    for (let i = 0; i < 12; i++) {
+      await sleep(300);
+      const n = await countExpandedSourceLinks(page);
+      if (n > beforeLinks) break;
+    }
+  }
+  return clickedTotal;
+}
+
+async function openSourcesPanel(page, log) {
+  const already = await countExpandedSourceLinks(page);
+  if (already >= 2) {
+    log('info', `信源列表已展开（${already} 条链接）`);
+    return true;
   }
 
-  if (!clicked) {
-    log('warn', '未找到「搜索 N 个关键词，参考 N 篇资料」入口');
+  // —— 步骤 1：多次搜索时先展开「已完成思考，参考 N 篇资料」——
+  let keywordCount = await countKeywordSearchEntries(page);
+  if (keywordCount === 0) {
+    log('info', '尝试展开「已完成思考 / 参考 N 篇资料」…');
+    const thinkPatterns = [
+      /已完成思考[，,\s]*参考\s*\d+\s*篇资料/,
+      /已完成思考/,
+      /参考\s*\d+\s*篇资料/,
+      /思考完成[，,\s]*参考\s*\d+\s*篇资料/,
+    ];
+    const openedThink = await clickByTextPattern(page, thinkPatterns, { preferLast: true });
+    if (openedThink) {
+      log('info', '已点击思考/资料汇总入口，等待关键词搜索项出现…');
+      for (let i = 0; i < 15; i++) {
+        await sleep(400);
+        keywordCount = await countKeywordSearchEntries(page);
+        if (keywordCount > 0) break;
+        // 有时点开后直接出链接
+        const n = await countExpandedSourceLinks(page);
+        if (n >= 2) {
+          log('info', `信源列表已展开（${n} 条链接）`);
+          return true;
+        }
+      }
+    } else {
+      log('info', '未找到思考汇总入口，继续直接找关键词搜索项');
+    }
+  }
+
+  // —— 步骤 2：点击「搜索 N 个关键词，参考 N 篇资料」（可能多条）——
+  log('info', '点击「搜索 N 个关键词，参考 N 篇资料」展开…');
+  let clicked = await clickAllKeywordSearchEntries(page, log);
+
+  // 若一轮没点到，再用单条 locator 兜底一次
+  if (clicked === 0) {
+    const ok = await clickByTextPattern(
+      page,
+      [
+        /搜索\s*\d+\s*个关键词[\s\S]*参考\s*\d+\s*篇资料/,
+        /搜索\s*\d+\s*个关键词/,
+      ],
+      { preferLast: true }
+    );
+    if (ok) {
+      clicked = 1;
+      log('info', '已通过兜底点击关键词搜索入口');
+    }
+  }
+
+  if (clicked === 0 && keywordCount === 0) {
+    log('warn', '未找到信源入口（思考汇总 / 关键词搜索）');
     return false;
   }
 
@@ -632,7 +876,7 @@ async function openSourcesPanel(page, log) {
     }
   }
 
-  log('warn', '已点击信源入口，但列表未出现');
+  log('warn', '已尝试展开信源，但列表未出现');
   return false;
 }
 
@@ -708,8 +952,10 @@ async function runConversation(page, prompt, log) {
   await sleep(300);
   await clickSend(page, log);
 
-  const answer = await waitForAnswer(page, baseline.text, log);
-  if (!answer) throw new Error('未获取到豆包回答内容');
+  const answer = await waitForAnswer(page, baseline.text, log, prompt);
+  if (!answer || isIncompleteAnswer(answer, prompt)) {
+    throw new Error('未获取到豆包完整回答内容');
+  }
 
   const rich = await extractAnswerHtml(page, {
     contentSelectors: ['.flow-markdown-body', '.md-box-root', '[class*="md-box-root"]'],
@@ -719,8 +965,9 @@ async function runConversation(page, prompt, log) {
       '[class*="ref-"]',
     ],
   });
-  const answerHtml = rich.html || '';
-  const finalAnswer = (rich.text && rich.text.length >= answer.length * 0.8 ? rich.text : answer) || answer;
+  const richOk = !!(rich.text && !isIncompleteAnswer(rich.text, prompt) && rich.text.length >= answer.length * 0.8);
+  const answerHtml = richOk ? rich.html || '' : '';
+  const finalAnswer = (richOk ? rich.text : answer) || answer;
 
   const sources = await extractSources(page, log);
   log('success', '豆包对话完成');

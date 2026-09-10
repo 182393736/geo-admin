@@ -57,6 +57,7 @@ module.exports = app => {
   router.get('/admin/collect/tasks', jwtAuth, adminAuth, controller.admin.collectTasks);
   router.get('/admin/collect/tasks/:id/slots', jwtAuth, adminAuth, controller.admin.collectSlots);
   router.get('/admin/collect/answers', jwtAuth, adminAuth, controller.admin.collectAnswers);
+  router.get('/admin/collect/answers/:id', jwtAuth, adminAuth, controller.admin.collectAnswerDetail);
   router.get('/admin/collect/snapshots', jwtAuth, adminAuth, controller.admin.collectSnapshots);
   // 解析监控
   router.get('/admin/parse/overview', jwtAuth, adminAuth, controller.admin.parseOverview);

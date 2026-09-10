@@ -3,7 +3,7 @@
     <header class="hd">
       <div>
         <h1 class="title">采集应用</h1>
-        <p class="sub">IP 代理列表 · 每个 IP 一个独立浏览器会话 · 5 平台标签页</p>
+        <p class="sub">IP 代理列表 · 每个 IP 一个独立浏览器会话 · 4 平台标签页 · 测试拉取对接 gen-api</p>
       </div>
       <div class="hd-actions">
         <span v-if="total > 0" class="count">共 {{ total }} 个 IP</span>
@@ -99,6 +99,24 @@
         </template>
       </el-table-column>
 
+      <el-table-column label="拉取" width="150">
+        <template #default="{ row }">
+          <div class="col">
+            <div v-for="p in platforms" :key="p.key" class="preview-row">
+              <el-button
+                size="small"
+                class="preview-btn"
+                type="warning"
+                plain
+                :loading="isPulling(row.ip, p.key)"
+                :disabled="isPulling(row.ip, p.key) || isRunning(row.ip, p.key)"
+                @click="doPull(row, p)"
+              >{{ isPulling(row.ip, p.key) ? '拉取中…' : '拉取' + p.name }}</el-button>
+            </div>
+          </div>
+        </template>
+      </el-table-column>
+
       <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
           <el-button
@@ -116,7 +134,7 @@
       </template>
     </el-table>
 
-    <p class="hint">提示：平台按钮打开/关闭标签页（绿色=已登录、黄色=未登录）；测试列输入问题后点「测试+平台名」在对应 tab 执行对话，完成后存 HTML 并点亮「预览+平台名」；浏览器按钮打开/关闭整个会话。</p>
+    <p class="hint">提示：平台按钮打开/关闭标签页（绿色=已登录、黄色=未登录）；测试列输入问题后点「测试+平台名」在对应 tab 执行对话；「拉取+平台名」只领该平台一条真实槽位并采集提交（无任务会提示）；浏览器按钮打开/关闭整个会话。</p>
 
     <div class="log-panel">
       <div class="log-hd">
@@ -153,6 +171,7 @@ const openedPlatforms = ref({});         // `${ip}:${platform}` -> true
 const testInputs = reactive({});         // `${ip}:${platform}` -> 测试输入内容
 const authStates = reactive({});         // `${ip}:${platform}` -> { loggedIn, username }
 const running = reactive({});            // `${ip}:${platform}` -> true（对话进行中）
+const pulling = reactive({});            // `${ip}:${platform}` -> true（该平台测试拉取中）
 const results = reactive({});            // `${ip}:${platform}` -> true（已有对话结果可预览）
 const logs = ref([]);                    // 页面底部日志区
 const logBox = ref(null);
@@ -162,9 +181,11 @@ const isBrowserOpen = ip => !!openedBrowsers.value[ip];
 const isPlatformOpen = (ip, platform) => !!openedPlatforms.value[`${ip}:${platform}`];
 const authOf = (ip, platform) => authStates[`${ip}:${platform}`];
 const isRunning = (ip, platform) => !!running[`${ip}:${platform}`];
+const isPulling = (ip, platform) => !!pulling[`${ip}:${platform}`];
 const hasResult = (ip, platform) => !!results[`${ip}:${platform}`];
 
 function platformName(key) {
+  if (key === 'collector') return '拉取';
   const p = platforms.find(x => x.key === key);
   return p ? p.name : key;
 }
@@ -351,6 +372,34 @@ async function doPreviewJson(row, p) {
     if (!r || !r.ok) ElMessage.info((r && r.error) || '暂无对话结果');
   } catch (e) {
     ElMessage.error('JSON 预览失败：' + ((e && e.message) || e));
+  }
+}
+
+async function doPull(row, p) {
+  if (!isElectron) return;
+  const key = `${row.ip}:${p.key}`;
+  if (pulling[key] || running[key]) return;
+  pulling[key] = true;
+  try {
+    const r = await window.electronAPI.pullAndRun(row.ip, p.key);
+    if (r && r.empty) {
+      ElMessage.info(r.message || `${p.name} 当前无待采集任务`);
+      return;
+    }
+    if (r && r.ok) {
+      results[key] = true;
+      openedBrowsers.value[row.ip] = true;
+      if (r.openedPlatform) openedPlatforms.value[key] = true;
+      ElMessage.success(
+        `${p.name} 拉取完成并已提交：回答 ${(r.answer || '').length} 字 · 信源 ${((r.sources || []).length)} 条`
+      );
+    } else {
+      ElMessage.error(`${p.name} 拉取采集失败：${(r && r.error) || '未知错误'}`);
+    }
+  } catch (e) {
+    ElMessage.error(`${p.name} 拉取采集失败：${(e && e.message) || e}`);
+  } finally {
+    delete pulling[key];
   }
 }
 

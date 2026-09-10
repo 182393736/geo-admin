@@ -6,7 +6,7 @@
  *  - 会话隔离：每个 IP 一个独立浏览器（playwright launchPersistentContext，userDataDir=profiles/<ip>）
  *  - 平台标签页：同一 IP 会话内 newPage 打开 5 个 AI 平台（同窗口多 tab）
  *
- * 本轮只搭骨架：不做采集的拉取/提交。
+ * 本轮：IP 列表 + 浏览器会话 + 平台对话测试 + 测试拉取（pull→采集→submit）
  */
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
@@ -14,7 +14,8 @@ const fs = require('node:fs');
 const { chromium } = require('playwright');
 const PLATFORMS = require('../shared/platforms.json');
 const { detectAuth, watchUsername } = require('./login-detect.cjs');
-const { runChat, saveResult, buildJsonPreviewHtml } = require('./chat/index.cjs');
+const { runChat, saveResult, buildJsonPreviewHtml, buildSubmitJson } = require('./chat/index.cjs');
+const { pullSlot, submitSlot, getConfig: getCollectorConfig } = require('./collector-api.cjs');
 
 const IP_LIST_URL = 'http://api.tupianseo.com/daili/daili_list';
 
@@ -55,9 +56,73 @@ const sessions = new Map();
 const lastResults = new Map();
 /** 对话测试：进行中的 `${ip}:${platform}` 集合（防重入） */
 const runningChats = new Set();
+/** 测试拉取：按 `${ip}:${platform}` 防重入（一次只拉一个平台槽位） */
+const runningPulls = new Set();
 
 /** 对话测试硬超时（秒）：整个对话流程超过即中止并返回错误，保证按钮不再卡在「对话中」 */
 const CHAT_TIMEOUT_MS = 180_000;
+
+/**
+ * 在指定 IP 会话上执行一次平台对话（打开/复用 tab → goto 初始 URL → runChat → 落盘）
+ * @returns {{ openedPlatform, answer, sources, htmlPath, jsonPath, submitBody }}
+ */
+async function executePlatformChat(ip, platform, prompt, log, startedAt = new Date()) {
+  const cfg = PLATFORMS.find(p => p.key === platform);
+  if (!cfg) throw new Error(`未知平台：${platform}`);
+  const q = String(prompt || '').trim();
+  if (!q) throw new Error('请输入测试问题');
+
+  let openedPlatform = false;
+  const s = await getSession(ip);
+  let page = s.pages.get(platform);
+  if (!page || page.isClosed()) {
+    page = await s.context.newPage();
+    s.pages.set(platform, page);
+    openedPlatform = true;
+  }
+  log('info', `打开新对话：${cfg.url}`);
+  await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  log('info', `开始 ${cfg.name} 对话：${q}`);
+  const r = await runChat(page, platform, q, log);
+  const saved = saveResult(resultsDirFor(ip), {
+    ip,
+    platform,
+    platformName: cfg.name,
+    prompt: q,
+    answer: r.answer || '',
+    answerHtml: r.answerHtml || '',
+    sources: r.sources || [],
+    startedAt,
+  });
+  lastResults.set(`${ip}:${platform}`, saved);
+  log(
+    'success',
+    `对话完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 ${saved.htmlPath} / ${saved.jsonPath}`
+  );
+  let submitBody = null;
+  try {
+    submitBody = JSON.parse(fs.readFileSync(saved.jsonPath, 'utf8'));
+  } catch {
+    submitBody = buildSubmitJson({
+      ip,
+      platform,
+      platformName: cfg.name,
+      prompt: q,
+      answer: r.answer || '',
+      sources: r.sources || [],
+      startedAt,
+      finishedAt: new Date(),
+    });
+  }
+  return {
+    openedPlatform,
+    answer: r.answer || '',
+    sources: r.sources || [],
+    htmlPath: saved.htmlPath,
+    jsonPath: saved.jsonPath,
+    submitBody,
+  };
+}
 
 /** 给 Promise 加硬超时：超时后无论底层是否结束，都立刻 reject（并在结束时清定时器） */
 function withTimeout(promise, ms, message) {
@@ -262,35 +327,21 @@ function registerIpc() {
 
     const log = makeChatLog(ip, platform);
     const startedAt = new Date();
-    let openedPlatform = false;
     runningChats.add(key);
     try {
-      // 整个对话流程（打开 tab → 执行对话 → 保存 HTML）加 180s 硬超时，
-      // 超时后必定返回，runningChats 与渲染层按钮状态才能被可靠清除
       const result = await withTimeout(
         (async () => {
-          const s = await getSession(ip);
-          let page = s.pages.get(platform);
-          if (!page || page.isClosed()) {
-            page = await s.context.newPage();
-            s.pages.set(platform, page);
-            openedPlatform = true;
-          }
-          // 每次对话都 goto 初始 URL，强制新会话（四平台统一）
-          log('info', `打开新对话：${cfg.url}`);
-          await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-          log('info', `开始 ${cfg.name} 对话：${q}`);
-          const r = await runChat(page, platform, q, log);
-          const saved = saveResult(resultsDirFor(ip), {
-            ip, platform, platformName: cfg.name, prompt: q,
-            answer: r.answer || '',
-            answerHtml: r.answerHtml || '',
-            sources: r.sources || [],
-            startedAt,
-          });
-          lastResults.set(key, saved);
-          log('success', `对话完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 ${saved.htmlPath} / ${saved.jsonPath}`);
-          return { ok: true, ip, platform, openedPlatform, answer: r.answer || '', sources: r.sources || [], htmlPath: saved.htmlPath, jsonPath: saved.jsonPath };
+          const r = await executePlatformChat(ip, platform, q, log, startedAt);
+          return {
+            ok: true,
+            ip,
+            platform,
+            openedPlatform: r.openedPlatform,
+            answer: r.answer,
+            sources: r.sources,
+            htmlPath: r.htmlPath,
+            jsonPath: r.jsonPath,
+          };
         })(),
         CHAT_TIMEOUT_MS,
         `${cfg.name} 对话超时（${Math.round(CHAT_TIMEOUT_MS / 1000)} 秒），已中止`
@@ -302,6 +353,128 @@ function registerIpc() {
       return { ok: false, error: msg };
     } finally {
       runningChats.delete(key);
+    }
+  });
+
+  // —— 测试拉取：向 gen-api 领「指定平台」一条槽位 → 本机 IP 对应 tab 采集 → 提交 ——
+  ipcMain.handle('collector:pull-run', async (_e, { ip, platform } = {}) => {
+    if (!ip) return { ok: false, error: '缺少 IP' };
+    if (!platform) return { ok: false, error: '缺少平台' };
+    const cfg = PLATFORMS.find(p => p.key === platform);
+    if (!cfg) return { ok: false, error: `未知平台：${platform}` };
+
+    const pullKey = `${ip}:${platform}`;
+    if (runningPulls.has(pullKey)) return { ok: false, error: `${cfg.name} 正在拉取采集中，请稍候` };
+    if (runningChats.has(pullKey)) return { ok: false, error: `${cfg.name} 正在对话中，请稍候` };
+
+    const apiCfg = getCollectorConfig();
+    const logPull = (level, message) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('chat-log', {
+          ip,
+          platform,
+          level,
+          message,
+          time: Date.now(),
+        });
+      }
+      console[level === 'error' ? 'error' : 'log'](`[collector-pull@${pullKey}] [${level}] ${message}`);
+    };
+
+    runningPulls.add(pullKey);
+    let slot = null;
+    try {
+      logPull('info', `向后台拉取 ${cfg.name} 槽位…（${apiCfg.baseUrl}）`);
+      const data = await pullSlot({ platform });
+      slot = data && data.slot ? data.slot : null;
+
+      if (!slot) {
+        logPull('info', `${cfg.name} 当前无待采集任务`);
+        return { ok: true, empty: true, message: `${cfg.name} 当前无待采集任务`, platform };
+      }
+
+      // 防御：后台偶发返回其它平台时拒绝执行并交还 fail
+      if (slot.platform && slot.platform !== platform) {
+        const msg = `领到的槽位平台为 ${slot.platform}，与请求的 ${platform} 不一致`;
+        await submitSlot(slot.slot_id, { status: 'fail', error: msg }).catch(() => {});
+        return { ok: false, error: msg, slot };
+      }
+
+      const question = String(slot.question_sent || '').trim();
+      if (!question) {
+        await submitSlot(slot.slot_id, { status: 'fail', error: '槽位缺少 question_sent' }).catch(() => {});
+        return { ok: false, error: '槽位缺少 question_sent', slot };
+      }
+
+      logPull(
+        'info',
+        `领到槽位 ${slot.slot_id} · ${cfg.name} · ${question.slice(0, 60)}${question.length > 60 ? '…' : ''}`
+      );
+
+      const log = makeChatLog(ip, platform);
+      const startedAt = new Date();
+      runningChats.add(pullKey);
+
+      try {
+        const r = await withTimeout(
+          executePlatformChat(ip, platform, question, log, startedAt),
+          CHAT_TIMEOUT_MS,
+          `${cfg.name} 对话超时（${Math.round(CHAT_TIMEOUT_MS / 1000)} 秒），已中止`
+        );
+
+        const payload = {
+          ...(r.submitBody || {}),
+          model_meta: {
+            ...((r.submitBody && r.submitBody.model_meta) || {}),
+            slot_id: slot.slot_id,
+            task_id: slot.task_id,
+            brand_id: slot.brand_id,
+            query_id: slot.query_id,
+            date: slot.date,
+            end: slot.end,
+            source: 'collector:pull-run',
+          },
+        };
+
+        logPull('info', `提交结果到后台（status=${payload.status}）…`);
+        const submitRes = await submitSlot(slot.slot_id, payload);
+        logPull(
+          'success',
+          `已提交：slot=${slot.slot_id} status=${submitRes && submitRes.status} answer_id=${submitRes && submitRes.answer_id}`
+        );
+
+        return {
+          ok: true,
+          empty: false,
+          ip,
+          platform,
+          openedPlatform: r.openedPlatform,
+          slot,
+          answer: r.answer,
+          sources: r.sources,
+          htmlPath: r.htmlPath,
+          jsonPath: r.jsonPath,
+          submit: submitRes,
+        };
+      } catch (err) {
+        const msg = String((err && err.message) || err);
+        log('error', `采集失败：${msg}`);
+        try {
+          await submitSlot(slot.slot_id, { status: 'fail', error: msg });
+          logPull('warn', `已向后台提交 fail：${msg}`);
+        } catch (submitErr) {
+          logPull('error', `提交 fail 也失败：${(submitErr && submitErr.message) || submitErr}`);
+        }
+        return { ok: false, error: msg, slot };
+      } finally {
+        runningChats.delete(pullKey);
+      }
+    } catch (err) {
+      const msg = String((err && err.message) || err);
+      logPull('error', `拉取失败：${msg}`);
+      return { ok: false, error: msg, platform };
+    } finally {
+      runningPulls.delete(pullKey);
     }
   });
 

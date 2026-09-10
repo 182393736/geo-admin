@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closePlatform: (ip, platform) => ipcRenderer.invoke('platform:close', { ip, platform }),
   /** 对话测试：在对应平台 tab 上执行一次对话 */
   runChat: (ip, platform, prompt) => ipcRenderer.invoke('chat:run', { ip, platform, prompt }),
+  /** 测试拉取：向 gen-api 领取指定平台的一条槽位，在本 IP 对应 tab 采集后提交 */
+  pullAndRun: (ip, platform) => ipcRenderer.invoke('collector:pull-run', { ip, platform }),
   /** 预览：打开最近一次对话结果 HTML */
   previewChat: (ip, platform) => ipcRenderer.invoke('chat:preview', { ip, platform }),
   /** 预览：打开最近一次模拟提交 JSON */

@@ -32,6 +32,7 @@ class CollectService extends Service {
           query_id: q.query_id, query_type: q.query_type, platform: p, end: 'web', date,
           question_sent: (q.question_list && q.question_list[0] && q.question_list[0].platform_query) || q.query,
           status: 'pending',
+          attempts: 0,
         });
       }
     }

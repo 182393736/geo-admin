@@ -115,6 +115,9 @@ const steps = [
     async run(page, ctx) {
       await page.waitForSelector('.trial-rd-card', { timeout: 30_000 });
       const text = (await page.locator('.trial-rd-card').innerText()).slice(0, 120).replace(/\n/g, ' ');
+      // LLM 落库名可能与输入不同（如输入「苹果手机」→ 品牌「iPhone」），后续断言必须用真实名
+      const m = text.match(/品牌[「『"']([^」』"']{1,40})[」』"']/);
+      if (m?.[1]) ctx.brandName = m[1].trim();
       return { status: 'ok', detail: text };
     },
   },
@@ -126,6 +129,8 @@ const steps = [
       if (!href) throw new Error('报告卡缺少「前往控制台」链接');
       await page.goto(href, { waitUntil: 'domcontentloaded' });
       await page.waitForFunction((dash) => location.href.includes(dash) || location.href.includes('/dashboard'), ctx.deps.DASH, { timeout: 30_000 });
+      // 等 hash token 被后台吸收，避免下一步 goto overview 时态竞态
+      await page.waitForFunction(() => !location.hash.includes('token='), null, { timeout: 15_000 }).catch(() => undefined);
       return { status: 'ok', detail: urlOf(page) };
     },
   },
@@ -133,13 +138,23 @@ const steps = [
     name: '概览页（品牌卡 / 采集状态）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/overview`, { waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(
-        brand => document.body.innerText.includes(brand),
-        ctx.brandName, { timeout: 30_000 },
-      );
+      // 等品牌卡异步加载（先渲染「—」占位），再读真实品牌名
+      await page.waitForFunction(() => {
+        const el = document.querySelector('.ov2-brand');
+        if (!el) return false;
+        const name = (el.childNodes[0]?.textContent || el.textContent || '').replace(/\s+/g, ' ').trim();
+        return name.length >= 2 && name !== '—';
+      }, null, { timeout: 45_000 });
+      const shown = (await page.locator('.ov2-brand').innerText()).split('\n')[0].trim();
+      // 纠正 ctx：无 trial 报告卡时也可能与 extractBrandName 不一致
+      if (shown && shown !== '—') ctx.brandName = shown.replace(/等待首次采集|采集正常/g, '').trim() || ctx.brandName;
       const body = await page.locator('body').innerText();
       const pending = body.includes('等待') || body.includes('首次') || body.includes('采集');
-      return { status: 'ok', detail: `品牌名展示=true，采集状态区存在=${pending}` };
+      const ok = !!(ctx.brandName && body.includes(ctx.brandName));
+      return {
+        status: ok ? 'ok' : 'fail',
+        detail: `品牌卡=${shown}，断言名=${ctx.brandName}，采集状态区存在=${pending}`,
+      };
     },
   },
   {

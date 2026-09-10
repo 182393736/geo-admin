@@ -103,11 +103,27 @@ export interface AdminSlotRow {
   error: string; attempts: number; finished_at: string | null;
 }
 export interface AdminAnswerRow {
-  answer_id: string; slot_id: string; brand_id: string; query_id: number; platform: string;
+  answer_id: string; slot_id: string; brand_id: string; brand_name?: string; query_id: number; platform: string;
   date: string; question_sent: string; answer_len: number; cited_urls: number; parsed: boolean; created_at: string;
 }
+/** 原始回答详情（含正文 + 信源清单） */
+export interface AdminAnswerDetail extends Omit<AdminAnswerRow, 'cited_urls'> {
+  answer_text: string;
+  cited_urls: {
+    url: string;
+    title?: string;
+    index?: number;
+    snippet?: string;
+    site_name?: string;
+    domain?: string;
+    publish_time?: string;
+  }[];
+  query_type?: string;
+  end?: string;
+  model_meta?: unknown;
+}
 export interface AdminSnapshotRow {
-  snapshot_id: string; slot_id: string; brand_id: string; platform: string;
+  snapshot_id: string; slot_id: string; brand_id: string; brand_name?: string; platform: string;
   exec_date: string; photo_url: string; size: number;
 }
 

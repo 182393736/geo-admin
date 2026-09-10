@@ -45,14 +45,21 @@ class CollectorController extends Controller {
     const rows = await M.CollectSlot.find(cond, { task_id: 1 }).lean();
     const taskIds = [...new Set(rows.map(r => r.task_id).filter(Boolean))];
     if (!taskIds.length) return;
-    // 终态 fail：本次超时 +1 后达上限
+    // 终态 fail：本次超时 +1 后达上限（缺 attempts 视为 0，不会进此支）
     await M.CollectSlot.updateMany(
       { ...cond, attempts: { $gte: this.maxAttempts - 1 } },
       { $set: { status: 'fail', error: '运行超时', finished_at: new Date() }, $inc: { attempts: 1 } },
     );
-    // 回退 pending：本次超时 +1 后未达上限，等待重新领取重试
+    // 回退 pending：未达上限，或 attempts 字段缺失（视为 0）
     await M.CollectSlot.updateMany(
-      { ...cond, attempts: { $lt: this.maxAttempts - 1 } },
+      {
+        ...cond,
+        $or: [
+          { attempts: { $lt: this.maxAttempts - 1 } },
+          { attempts: { $exists: false } },
+          { attempts: null },
+        ],
+      },
       { $set: { status: 'pending', error: '运行超时回收', started_at: null }, $inc: { attempts: 1 } },
     );
     for (const t of taskIds) await this._syncTask(t).catch(() => {});
@@ -83,7 +90,18 @@ class CollectorController extends Controller {
     const none = () => { ctx.body = { code: 200, msg: 'ok', data: { slot: null } }; };
     if (!platforms.length) return none(); // 指定的平台都不在白名单（如 kimi）
 
-    const q = { status: 'pending', attempts: { $lt: this.maxAttempts }, platform: { $in: platforms }, end, date };
+    // attempts 缺省视为 0（bulkWrite 展开时可能未写入该字段；$lt 不会匹配缺字段文档）
+    const q = {
+      status: 'pending',
+      platform: { $in: platforms },
+      end,
+      date,
+      $or: [
+        { attempts: { $lt: this.maxAttempts } },
+        { attempts: { $exists: false } },
+        { attempts: null },
+      ],
+    };
     if (b.query_type === 'industry' || b.query_type === 'brand') q.query_type = b.query_type;
 
     // 一步原子领取：按 query_id 升序找第一个 pending 槽位并置 running（并发下各 tab 必拿到不同槽位）
@@ -165,35 +183,56 @@ class CollectorController extends Controller {
         ctx.body = { code: 400, msg: 'status=ok 时 answer_text 必填' };
         return;
       }
-      answerId = ctx.helper.uuid();
-      await M.RawAnswer.create({
-        answer_id: answerId,
-        slot_id: slot.slot_id,
-        brand_id: slot.brand_id,
-        query_id: slot.query_id,
-        query_type: slot.query_type,          // 解析分流的唯一依据
-        platform: slot.platform,
-        end: slot.end,
-        date: slot.date,
-        question_sent: slot.question_sent,
-        answer_text: answerText,
-        cited_urls: this._mapCitedUrls(b.cited_urls),
-        model_meta: b.model_meta ?? undefined,
-        parsed: false,                        // 等 daily_parse 批处理
-      });
+      // 按 slot_id upsert：重采/重提不会撞 unique index
+      const existing = await M.RawAnswer.findOne({ slot_id: slot.slot_id }, { answer_id: 1 }).lean();
+      answerId = (existing && existing.answer_id) || ctx.helper.uuid();
+      await M.RawAnswer.updateOne(
+        { slot_id: slot.slot_id },
+        {
+          $set: {
+            answer_id: answerId,
+            brand_id: slot.brand_id,
+            query_id: slot.query_id,
+            query_type: slot.query_type,
+            platform: slot.platform,
+            end: slot.end,
+            date: slot.date,
+            question_sent: slot.question_sent,
+            answer_text: answerText,
+            cited_urls: this._mapCitedUrls(b.cited_urls),
+            model_meta: b.model_meta ?? undefined,
+            parsed: false,
+          },
+          $setOnInsert: { slot_id: slot.slot_id },
+        },
+        { upsert: true },
+      );
       slotUpdate.answer_id = answerId;
     } else if (status === 'empty') {
       // empty = 引擎无有效回答，但槽位有效（进指标分母）；有原文时也落 raw_answers 留证
       if (answerText) {
-        answerId = ctx.helper.uuid();
-        await M.RawAnswer.create({
-          answer_id: answerId, slot_id: slot.slot_id, brand_id: slot.brand_id,
-          query_id: slot.query_id, query_type: slot.query_type, platform: slot.platform,
-          end: slot.end, date: slot.date, question_sent: slot.question_sent,
-          answer_text: answerText,
-          cited_urls: this._mapCitedUrls(b.cited_urls),
-          parsed: false,
-        });
+        const existing = await M.RawAnswer.findOne({ slot_id: slot.slot_id }, { answer_id: 1 }).lean();
+        answerId = (existing && existing.answer_id) || ctx.helper.uuid();
+        await M.RawAnswer.updateOne(
+          { slot_id: slot.slot_id },
+          {
+            $set: {
+              answer_id: answerId,
+              brand_id: slot.brand_id,
+              query_id: slot.query_id,
+              query_type: slot.query_type,
+              platform: slot.platform,
+              end: slot.end,
+              date: slot.date,
+              question_sent: slot.question_sent,
+              answer_text: answerText,
+              cited_urls: this._mapCitedUrls(b.cited_urls),
+              parsed: false,
+            },
+            $setOnInsert: { slot_id: slot.slot_id },
+          },
+          { upsert: true },
+        );
         slotUpdate.answer_id = answerId;
       }
     } else { // fail：失败次数 +1，达上限即终态
