@@ -3,7 +3,7 @@
  * DeepSeek 对话测试（CommonJS 移植自上传的 deepseek.js）
  * runConversation(page, prompt, log) → { answer, sources }
  */
-const { sleep, findVisibleLocator } = require('./common.cjs');
+const { sleep, findVisibleLocator, extractAnswerHtml } = require('./common.cjs');
 
 const INPUT_SELECTORS = [
   'textarea#chat-input',
@@ -263,14 +263,25 @@ async function readAnswerSnapshot(page) {
     const stopVisible = Array.from(document.querySelectorAll('button, div[role="button"]')).some(el => {
       if (!isVisible(el)) return false;
       const t = (el.textContent || '').replace(/\s+/g, '');
-      const aria = el.getAttribute('aria-label') || '';
-      return t === '停止生成' || t === '停止' || /停止生成|Stop generating|Stop/i.test(aria) || /^Stop$/i.test(t);
+      const aria = (el.getAttribute('aria-label') || '').replace(/\s+/g, '');
+      // 避免单独「停止」误伤其它按钮；优先匹配停止生成
+      return (
+        t === '停止生成' ||
+        /^Stopgenerating$/i.test(t) ||
+        /停止生成|Stopgenerating/i.test(aria) ||
+        (t === '停止' && /生成|回答|输出/.test(aria))
+      );
     });
 
-    const streamingHint =
-      stopVisible ||
-      /正在生成|生成中|思考中|正在搜索/.test(bodyText.slice(-400)) ||
-      !!document.querySelector('.ds-markdown [class*="cursor"], .ds-markdown [class*="blink"]');
+    // 仅看最后一条回答内的光标，避免全局 loading/aria-busy 误判成一直生成中
+    let lastMd = null;
+    const mdAll = Array.from(document.querySelectorAll('.ds-markdown')).filter(isVisible);
+    if (mdAll.length) lastMd = mdAll[mdAll.length - 1];
+    const cursorInAnswer =
+      !!lastMd &&
+      Array.from(lastMd.querySelectorAll('[class*="cursor"], [class*="blink"]')).some(isVisible);
+
+    const streamingHint = stopVisible || cursorInAnswer;
 
     const debug = [
       `host=${location.host}`,
@@ -294,6 +305,7 @@ async function waitForAnswer(page, baselineText, log) {
   let sawNewAnswer = false;
   let lastProgressLog = 0;
   let lastDebug = '';
+  let maxLen = 0;
 
   log('info', '等待 DeepSeek 回答完成…');
 
@@ -303,11 +315,13 @@ async function waitForAnswer(page, baselineText, log) {
     lastDebug = snap.debug;
     const text = sanitizeAnswer(snap.text);
     const placeholder = isIncompleteAnswer(text);
+    if (text.length > maxLen) maxLen = text.length;
 
     if (text && !placeholder && text !== baselineText) sawNewAnswer = true;
     if (text && !placeholder && text.length > Math.max(baselineText.length + 20, 60)) sawNewAnswer = true;
 
-    if (text && !placeholder && text === lastText) {
+    // 以字数稳定为准累加；流式误判不再清零（否则永远卡在「对话中」）
+    if (text && !placeholder && text === lastText && text.length >= maxLen) {
       contentStableRounds += 1;
     } else {
       contentStableRounds = 0;
@@ -329,23 +343,48 @@ async function waitForAnswer(page, baselineText, log) {
       );
     }
 
-    if (sawNewAnswer && !placeholder && !snap.streaming && contentStableRounds >= 2 && text.length >= 40) {
+    // 仍能点「停止」→ 确实在生成，继续等
+    if (snap.stopVisible) continue;
+
+    // 无停止钮 + 字数稳定约 4s
+    if (
+      sawNewAnswer &&
+      !placeholder &&
+      contentStableRounds >= 5 &&
+      text.length >= 80 &&
+      text.length >= maxLen
+    ) {
       log('success', `回答已完成（${text.length} 字）`);
       return text;
     }
+
+    // 有搜索标记时稍严一点
     if (
-      sawNewAnswer && !placeholder && snap.hasSearchMark && !snap.stopVisible && contentStableRounds >= 3 && text.length >= 80
+      sawNewAnswer &&
+      !placeholder &&
+      snap.hasSearchMark &&
+      contentStableRounds >= 6 &&
+      text.length >= 120 &&
+      text.length >= maxLen
     ) {
       log('success', `回答已稳定（含搜索标记，${text.length} 字）`);
       return text;
     }
-    if (sawNewAnswer && !placeholder && contentStableRounds >= 5 && text.length >= 120) {
-      log('success', `回答已稳定（${text.length} 字）`);
+
+    // 兜底
+    if (
+      sawNewAnswer &&
+      !placeholder &&
+      contentStableRounds >= 12 &&
+      text.length >= 200 &&
+      text.length >= maxLen
+    ) {
+      log('success', `回答已长时间稳定（${text.length} 字）`);
       return text;
     }
   }
 
-  if (lastText && !isIncompleteAnswer(lastText) && lastText.length >= 40) {
+  if (lastText && !isIncompleteAnswer(lastText) && lastText.length >= 80) {
     log('warn', `等待超时，返回当前已生成内容 [${lastDebug}]`);
     return lastText;
   }
@@ -356,27 +395,287 @@ function domainFromUrl(url) {
   try { return new URL(url).hostname; } catch { return url; }
 }
 
+/** 右侧区域指纹：点击前后对比（链接 / favicon / 站点名） */
+async function rightPanelFingerprint(page) {
+  return page.evaluate(() => {
+    const mid = window.innerWidth * 0.68;
+    const isVisible = el => {
+      if (!(el instanceof HTMLElement)) return false;
+      const st = getComputedStyle(el);
+      if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && r.left >= mid;
+    };
+    let links = 0;
+    let favicons = 0;
+    const siteNames = [];
+    for (const a of document.querySelectorAll('a[href^="http"]')) {
+      if (!isVisible(a) || /deepseek\.com/i.test(a.href || '')) continue;
+      links += 1;
+    }
+    for (const img of document.querySelectorAll('img')) {
+      if (!isVisible(img)) continue;
+      const r = img.getBoundingClientRect();
+      if (r.width > 0 && r.width <= 28 && r.height <= 28) favicons += 1;
+    }
+    for (const el of document.querySelectorAll('div, span, a, p')) {
+      if (!isVisible(el)) continue;
+      const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length < 2 || t.length > 40) continue;
+      if (/搜索到|网页|引用|来源|DeepSeek|复制|分享/.test(t)) continue;
+      if (/^https?:/i.test(t)) continue;
+      if (/[。！？]/.test(t)) continue;
+      if (el.children.length > 3) continue;
+      siteNames.push(t);
+    }
+    const uniq = [...new Set(siteNames)].slice(0, 12);
+    return { links, favicons, siteNames: uniq, siteCount: uniq.length, textLen: uniq.join('').length };
+  });
+}
+
+/** 右侧信源抽屉是否真正打开：需要站点名/favicon，不能只靠正文引用链 */
+async function isSourcesDrawerOpen(page) {
+  const fp = await rightPanelFingerprint(page);
+  const open =
+    (fp.links >= 5 && fp.favicons >= 3) ||
+    (fp.links >= 4 && fp.siteCount >= 3 && fp.favicons >= 2);
+  return { open, links: fp.links, favicons: fp.favicons, siteCount: fp.siteCount, siteNames: fp.siteNames };
+}
+
+function panelShotDir() {
+  const path = require('node:path');
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const dir = path.join(os.homedir(), 'Library/Application Support/gen-caiji/results/_debug_deepseek_sources');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/**
+ * 打开 DeepSeek 右侧信源抽屉。
+ * 实测「搜索到 N 个网页」在助手消息顶部（回答正文上方）；滚到回答底部时该入口 top 为负，点击会落空。
+ * 流程：滚到消息顶部 → 点入口 → 截图前后对比（favicon/站点名）→ 未展开则失败。
+ */
 async function openSourcesPanel(page, log) {
-  const alreadyOpen = await page.evaluate(() => {
+  const path = require('node:path');
+  const shotDir = panelShotDir();
+  const stamp = Date.now();
+  const beforePath = path.join(shotDir, `${stamp}-before.png`);
+  const afterPath = path.join(shotDir, `${stamp}-after.png`);
+
+  log('info', '打开 DeepSeek 信源：先滚到消息顶部点击「搜索到 N 个网页」…');
+
+  await page.evaluate(() => {
+    document.querySelectorAll('[data-geo-ds-source-entry]').forEach(el => el.removeAttribute('data-geo-ds-source-entry'));
+  });
+
+  // 滚到最后一条 AI 消息顶部，让「搜索到 N 个网页」进入视口
+  await page.evaluate(() => {
     const msgs = Array.from(document.querySelectorAll('.ds-message'));
     const lastAi = [...msgs].reverse().find(msg => {
       const cls = String(msg.className || '');
       if (cls.includes('d29f3d7d')) return false;
-      return !!msg.querySelector('.ds-markdown, [class*="ds-markdown"]');
+      return !!msg.querySelector('.ds-markdown');
     });
-    const scope = lastAi || document;
-    return (
-      scope.querySelectorAll('a[class*="_04ab7b1"], .f2021e64 a[href^="http"], [class*="_02fb570"] a[href^="http"]').length >= 1
-    );
+    if (!lastAi) return;
+    lastAi.scrollIntoView({ block: 'start', inline: 'nearest' });
+    // 微调：避免被顶栏遮住
+    const scroller = lastAi.closest('[class*="scroll"]') || document.scrollingElement;
+    if (scroller) scroller.scrollTop = Math.max(0, scroller.scrollTop - 40);
   });
-  if (alreadyOpen) {
-    log('info', '信源卡片已可见');
-    return true;
+  await sleep(600);
+
+  const beforeFp = await rightPanelFingerprint(page);
+  await page.screenshot({ path: beforePath, fullPage: false }).catch(() => undefined);
+  log('info', `点击前指纹 links=${beforeFp.links} favicons=${beforeFp.favicons} sites=${beforeFp.siteCount} → ${beforePath}`);
+
+  const locateAndMark = async () =>
+    page.evaluate(() => {
+      const isVisible = el => {
+        if (!(el instanceof HTMLElement)) return false;
+        const st = getComputedStyle(el);
+        if (st.display === 'none' || st.visibility === 'hidden') return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+      document.querySelectorAll('[data-geo-ds-source-entry]').forEach(el => el.removeAttribute('data-geo-ds-source-entry'));
+
+      const msgs = Array.from(document.querySelectorAll('.ds-message'));
+      const lastAi = [...msgs].reverse().find(msg => {
+        const cls = String(msg.className || '');
+        if (cls.includes('d29f3d7d')) return false;
+        return !!msg.querySelector('.ds-markdown');
+      });
+      if (!lastAi) return { ok: false, reason: 'no-ai' };
+      lastAi.scrollIntoView({ block: 'start', inline: 'nearest' });
+
+      const md = lastAi.querySelector('.ds-markdown');
+      const mdTop = md ? md.getBoundingClientRect().top : 9999;
+
+      const candidates = [];
+      for (const el of lastAi.querySelectorAll('div, span, button, a, [role="button"]')) {
+        if (!isVisible(el)) continue;
+        const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const compact = t.replace(/\s+/g, '');
+        if (!/^已?搜索到\d+个网页$/.test(compact) && !/^已?搜索到\d+个网页/.test(compact)) continue;
+        if (compact.length > 20) continue;
+        const r = el.getBoundingClientRect();
+        // 优先：在 markdown 上方或紧贴其上方的入口（DeepSeek 常见位置）
+        const aboveMd = r.bottom <= mdTop + 8;
+        const nearTop = r.top >= 60 && r.top < 520;
+        let s = /^已?搜索到\d+个网页$/.test(compact) ? 100 : 80;
+        if (aboveMd) s += 40;
+        if (nearTop) s += 20;
+        // 同级取更小节点（叶子）
+        s -= Math.min(30, Math.floor((r.width * r.height) / 20000));
+        candidates.push({ el, t, s, top: r.top, aboveMd });
+      }
+      candidates.sort((a, b) => b.s - a.s || a.top - b.top);
+      const pick = candidates[0]?.el;
+      if (!pick) {
+        return {
+          ok: false,
+          reason: 'no-search-entry',
+          mdTop: Math.round(mdTop),
+          all: candidates.length
+        };
+      }
+      // 必须点「整行」宽容器（实测叶子文案仅 ~187px，整行约 700px+ 才可展开）
+      let target = pick;
+      let best = pick;
+      let bestW = pick.getBoundingClientRect().width;
+      for (let p = pick; p && p !== lastAi; p = p.parentElement) {
+        const pr = p.getBoundingClientRect();
+        if (pr.height < 18 || pr.height > 96) continue;
+        if (pr.width < 160) continue;
+        // 更宽的同行容器优先
+        if (pr.width > bestW && pr.width < window.innerWidth * 0.95) {
+          best = p;
+          bestW = pr.width;
+        }
+        // 含多个小图标的行直接采用
+        const imgs = Array.from(p.querySelectorAll('img')).filter(img => {
+          const ir = img.getBoundingClientRect();
+          return ir.width > 0 && ir.width <= 28;
+        });
+        if (imgs.length >= 2 && pr.width > 240) {
+          best = p;
+          bestW = pr.width;
+          break;
+        }
+      }
+      target = best;
+      target.setAttribute('data-geo-ds-source-entry', '1');
+      // 调试：把边框标红，方便截图确认点的是整行
+      try {
+        target.style.outline = '3px solid #ff2d55';
+        target.style.outlineOffset = '2px';
+      } catch (e) {}
+      target.scrollIntoView({ block: 'center', inline: 'nearest' });
+      const r = target.getBoundingClientRect();
+      return {
+        ok: true,
+        label: (candidates[0].t || '').slice(0, 40),
+        top: Math.round(r.top),
+        left: Math.round(r.left),
+        w: Math.round(r.width),
+        h: Math.round(r.height),
+        aboveMd: candidates[0].aboveMd,
+        score: candidates[0].s,
+        tag: target.tagName,
+        cls: String(target.className || '').slice(0, 80)
+      };
+    });
+
+  const changedEnough = (before, after) => {
+    if (!after) return false;
+    if (after.favicons >= Math.max(5, before.favicons + 4)) return true;
+    if (after.links >= before.links + 5 && after.favicons >= 3) return true;
+    if (after.siteCount >= before.siteCount + 5 && after.favicons >= 3) return true;
+    return false;
+  };
+
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const marked = await locateAndMark();
+    if (!marked?.ok) {
+      log('warn', `第${attempt}次未找到「搜索到N个网页」: ${JSON.stringify(marked)}`);
+      // 全文兜底
+      const fb = await page.getByText(/已?搜索到\s*\d+\s*个网页/).first();
+      if (await fb.isVisible().catch(() => false)) {
+        await fb.scrollIntoViewIfNeeded().catch(() => undefined);
+        await page.screenshot({ path: beforePath, fullPage: false }).catch(() => undefined);
+        await fb.click({ force: true });
+        log('info', `第${attempt}次 Playwright getByText 点击`);
+      } else {
+        await sleep(400);
+        continue;
+      }
+    } else {
+      log('info', `第${attempt}次入口「${marked.label}」top=${marked.top} aboveMd=${marked.aboveMd} box=${marked.w}x${marked.h}`);
+      if (marked.top < 50 || marked.top > 700) {
+        log('warn', '入口不在舒适视口，scrollIntoView 后再点');
+      }
+      const loc = page.locator('[data-geo-ds-source-entry="1"]').first();
+      await loc.scrollIntoViewIfNeeded().catch(() => undefined);
+      await sleep(250);
+      const box = await loc.boundingBox();
+      if (!box) {
+        log('warn', '无 boundingBox');
+        continue;
+      }
+      log('info', `准备点击整行 ${Math.round(box.width)}x${Math.round(box.height)} @(${Math.round(box.x + box.width / 2)},${Math.round(box.y + box.height / 2)})`);
+      // 先截一张「标红入口」图
+      await page.screenshot({ path: beforePath.replace('-before', `-entry${attempt}`), fullPage: false }).catch(() => undefined);
+      // 真实鼠标序列点整行中部偏左（避开纯文字叶子）
+      const cx = box.x + Math.min(Math.max(box.width * 0.25, 40), box.width - 20);
+      const cy = box.y + box.height / 2;
+      await page.mouse.move(cx, cy);
+      await page.mouse.down();
+      await sleep(80);
+      await page.mouse.up();
+      await sleep(150);
+      await loc.click({ timeout: 3000, force: true }).catch(() => undefined);
+      log('info', `已点击整行 @(${Math.round(cx)},${Math.round(cy)})`);
+    }
+
+    for (let w = 0; w < 18; w++) {
+      await sleep(400);
+      const afterFp = await rightPanelFingerprint(page);
+      if (changedEnough(beforeFp, afterFp) || (await isSourcesDrawerOpen(page)).open) {
+        await page.screenshot({ path: afterPath, fullPage: false }).catch(() => undefined);
+        log(
+          'info',
+          `右侧信源已展开 favicons=${afterFp.favicons} links=${afterFp.links} sites=${JSON.stringify(afterFp.siteNames.slice(0, 8))} → ${afterPath}`
+        );
+        await sleep(2000);
+        return true;
+      }
+    }
+    await page.screenshot({ path: afterPath, fullPage: false }).catch(() => undefined);
+    log('warn', `第${attempt}次未展开 after=${JSON.stringify(await rightPanelFingerprint(page))} shot=${afterPath}`);
   }
 
-  log('info', '尝试展开 DeepSeek「搜索到 N 个网页」…');
+  log('error', `信源抽屉未展开 shots=${beforePath} | ${afterPath}`);
+  return false;
+}
 
-  const clicked = await page.evaluate(() => {
+async function extractSources(page, log, networkSources = []) {
+  const opened = await openSourcesPanel(page, log);
+  if (!opened) {
+    throw new Error('DeepSeek 右侧信源列表未展开（已截图对比），拒绝在未展开时结束');
+  }
+  await sleep(700);
+
+  const sources = await page.evaluate(() => {
+    const results = [];
+    const seen = new Set();
+    const domainOf = url => {
+      try {
+        return new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+      } catch {
+        return '';
+      }
+    };
     const isVisible = el => {
       if (!(el instanceof HTMLElement)) return false;
       const style = window.getComputedStyle(el);
@@ -384,143 +683,204 @@ async function openSourcesPanel(page, log) {
       const rect = el.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     };
-    const msgs = Array.from(document.querySelectorAll('.ds-message'));
-    const lastAi = [...msgs].reverse().find(msg => {
-      const cls = String(msg.className || '');
-      if (cls.includes('d29f3d7d')) return false;
-      return !!msg.querySelector('.ds-markdown, [class*="ds-markdown"]');
-    });
-    const scope = lastAi || document;
-    const summary = scope.querySelector('span[class*="_08cbf39"], [class*="_08cbf39"]') || null;
+    const push = item => {
+      const url = (item.url || '').trim();
+      if (!url || /deepseek\.com/i.test(url)) return;
+      if (seen.has(url)) return;
+      seen.add(url);
+      results.push({
+        url,
+        title: String(item.title || '').trim(),
+        index: results.length + 1,
+        snippet: String(item.snippet || '').trim(),
+        site_name: String(item.site_name || '').trim(),
+        domain: String(item.domain || domainOf(url) || '').trim(),
+        publish_time: String(item.publish_time || '').trim()
+      });
+    };
 
-    const ranked = Array.from(scope.querySelectorAll('div, span, button, a'))
+    const mid = window.innerWidth * 0.55;
+    const panels = Array.from(document.querySelectorAll('aside, [role="dialog"], div'))
       .filter(isVisible)
       .map(el => {
-        const t = (el.textContent || '').replace(/\s+/g, '');
-        let s = 0;
-        if (/^搜索到\d+个网页$/.test(t) || /^已搜索到\d+个网页$/.test(t)) s = 100;
-        else if (/搜索到\d+个网页/.test(t) && t.length < 24) s = 90;
-        else if (/^找到\d+个结果$/.test(t)) s = 85;
-        else if (/Found\d+results/i.test(t) && t.length < 28) s = 80;
-        else if (/^来源\d*$/.test(t) || /^引用\d*$/.test(t)) s = 50;
-        return { el, s, y: el.getBoundingClientRect().y };
+        const r = el.getBoundingClientRect();
+        const links = Array.from(el.querySelectorAll('a[href^="http"]')).filter(
+          a => isVisible(a) && !/deepseek\.com/i.test(a.href || '')
+        );
+        return { el, r, links };
       })
-      .filter(x => x.s > 0)
-      .sort((a, b) => b.s - a.s || a.y - b.y);
+      .filter(x => x.r.left >= mid - 10 && x.r.width > 200 && x.r.height > 150 && x.links.length >= 2)
+      .sort((a, b) => b.links.length - a.links.length || b.r.left - a.r.left);
 
-    const pick = summary && isVisible(summary) ? summary : ranked[0]?.el;
-    if (!pick) return false;
-    pick.scrollIntoView({ block: 'center' });
-    pick.click();
-    return true;
-  });
+    const panel = panels[0]?.el || null;
+    if (!panel) return results;
 
-  if (!clicked) {
-    log('warn', '未找到搜索结果入口（可能未开启联网搜索）');
-    return false;
-  }
-
-  for (let i = 0; i < 14; i++) {
-    await sleep(350);
-    const ready = await page.evaluate(() => {
-      const msgs = Array.from(document.querySelectorAll('.ds-message'));
-      const lastAi = [...msgs].reverse().find(msg => {
-        const cls = String(msg.className || '');
-        if (cls.includes('d29f3d7d')) return false;
-        return !!msg.querySelector('.ds-markdown, [class*="ds-markdown"]');
-      });
-      const scope = lastAi || document;
-      return (
-        scope.querySelectorAll('a[class*="_04ab7b1"], .f2021e64 a[href^="http"], [class*="_02fb570"] a[href^="http"]').length >= 1
-      );
-    });
-    if (ready) {
-      log('info', '信源卡片已展开');
-      return true;
-    }
-  }
-
-  log('warn', '已点击搜索入口，但信源卡片未出现');
-  return false;
-}
-
-async function extractSources(page, log, networkSources = []) {
-  await openSourcesPanel(page, log);
-  await sleep(500);
-
-  const sources = await page.evaluate(() => {
-    const results = [];
-    const seen = new Set();
-    const push = (title, url, snippet) => {
-      const key = `${title || ''}|${url || ''}`;
-      if (!key || key === '|' || seen.has(key)) return;
-      if (!title && !url) return;
-      if (/deepseek\.com|accounts\.google|passport\./i.test(url || '')) return;
-      seen.add(key);
-      results.push({
-        title: title?.trim() || undefined,
-        url: url?.trim() || undefined,
-        snippet: snippet?.trim() || undefined
-      });
-    };
-    const domainOf = url => {
-      try { return new URL(url).hostname; } catch { return url; }
-    };
-    const msgs = Array.from(document.querySelectorAll('.ds-message'));
-    const lastAi = [...msgs].reverse().find(msg => {
-      const cls = String(msg.className || '');
-      if (cls.includes('d29f3d7d')) return false;
-      return !!msg.querySelector('.ds-markdown, [class*="ds-markdown"]');
-    });
-    const scope = lastAi || document;
-
-    let refLinks = Array.from(scope.querySelectorAll('a[class*="_04ab7b1"]'));
-    if (refLinks.length === 0) {
-      const section = scope.querySelector('.f2021e64, [class*="f2021e64"]');
-      if (section) refLinks = Array.from(section.querySelectorAll('a'));
-    }
-    if (refLinks.length === 0) {
-      refLinks = Array.from(scope.querySelectorAll('[class*="_02fb570"] a[href^="http"]'));
-    }
-
-    for (const link of refLinks) {
-      const url = (link.href || '').trim();
-      if (!url || /deepseek\.com/i.test(url)) continue;
-      let title = (link.textContent || '').replace(/\s+/g, ' ').trim();
-      if (/^-?\d+$/.test(title) || !title) title = domainOf(url);
-      push(title.slice(0, 220), url);
-    }
-
-    if (results.length === 0 && lastAi) {
-      for (const a of Array.from(lastAi.querySelectorAll('a[href^="http"]'))) {
-        const url = a.href;
-        if (!url || /deepseek\.com/i.test(url)) continue;
-        let title = (a.textContent || '').replace(/\s+/g, ' ').trim();
-        if (/^-?\d+$/.test(title) || !title) title = domainOf(url);
-        push(title.slice(0, 220), url);
+    const findCard = link => {
+      let best = link;
+      for (let el = link.parentElement; el && el !== panel; el = el.parentElement) {
+        const r = el.getBoundingClientRect();
+        if (r.height < 52 || r.height > 320 || r.width < 160) continue;
+        const links = el.querySelectorAll('a[href^="http"]');
+        // 单卡通常 1 个主链接；过大容器跳过
+        if (links.length >= 1 && links.length <= 2) {
+          best = el;
+          if (r.height <= 220) break;
+        }
       }
+      return best;
+    };
+
+    const dateRe = /(\d{4}\/\d{1,2}\/\d{1,2}|\d{4}-\d{1,2}-\d{1,2}|\d{4}年\d{1,2}月\d{1,2}日)/;
+    const parseCard = (card, link) => {
+      const url = (link.href || '').trim();
+      // 按视觉行拆：卡片结构 = 站点名+日期 / 标题 / 摘要
+      const lines = (card.innerText || '')
+        .split(/\n+/)
+        .map(s => s.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .filter(s => !/^\d{1,2}$/.test(s)); // 去掉角标数字
+
+      let site_name = '';
+      let publish_time = '';
+      let title = '';
+      let snippet = '';
+
+      for (const line of lines) {
+        const dm = line.match(dateRe);
+        if (dm && !publish_time && line.length <= 48) {
+          publish_time = dm[1] || dm[0];
+          const rest = line.replace(dateRe, '').replace(/\s+/g, ' ').trim();
+          if (rest && rest.length <= 40 && !site_name) site_name = rest;
+          continue;
+        }
+        if (!site_name && line.length >= 2 && line.length <= 30 && !dateRe.test(line)) {
+          site_name = line;
+          continue;
+        }
+        if (!title && line.length >= 6) {
+          title = line;
+          continue;
+        }
+        if (title) {
+          snippet = snippet ? `${snippet} ${line}` : line;
+        }
+      }
+
+      // 链接自身文案若更干净，优先作标题（排除整卡粘连）
+      const linkText = (link.textContent || '').replace(/\s+/g, ' ').trim();
+      if (
+        linkText &&
+        linkText.length >= 6 &&
+        linkText.length <= 180 &&
+        (!site_name || !linkText.startsWith(site_name)) &&
+        !/^\d{4}\/\d{1,2}\/\d{1,2}/.test(linkText)
+      ) {
+        // 若 linkText 明显短于粘连 title，或 title 仍含站点名，则用 linkText
+        if (!title || title.startsWith(site_name) || (site_name && title.includes(site_name) && title.includes(publish_time))) {
+          if (linkText !== site_name && linkText !== publish_time) title = linkText;
+        }
+      }
+
+      // 清理 title 里误带的站点名 / 日期 / 开头角标
+      if (site_name && title.startsWith(site_name)) title = title.slice(site_name.length).trim();
+      if (publish_time && title.startsWith(publish_time)) title = title.slice(publish_time.length).trim();
+      if (site_name && publish_time && title.startsWith(`${site_name}${publish_time}`)) {
+        title = title.slice(site_name.length + publish_time.length).trim();
+      }
+      // 粘连形态：百度百科2025/10/281标题…
+      if (site_name) {
+        title = title.replace(new RegExp(`^${site_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), '').trim();
+      }
+      if (publish_time) {
+        title = title.replace(new RegExp(`^${publish_time.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), '').trim();
+      }
+      title = title.replace(/^\d{1,3}(?!\d)/, '').trim();
+      // 去重「标题 - 标题」
+      const halves = title.split(/\s+-\s+/);
+      if (halves.length === 2 && halves[0] === halves[1]) title = halves[0];
+
+      if (!title) title = domainOf(url);
+      snippet = snippet.slice(0, 300);
+      // snippet 不要再含完整 title 前缀时强行截断即可
+      if (snippet.startsWith(title)) snippet = snippet.slice(title.length).trim();
+
+      return {
+        url,
+        title: title.slice(0, 220),
+        snippet,
+        site_name: site_name.slice(0, 80),
+        publish_time: publish_time.slice(0, 40)
+      };
+    };
+
+    // 每个卡片只取一次（避免同一卡多个 a 重复）
+    const usedCards = new Set();
+    const links = Array.from(panel.querySelectorAll('a[href^="http"]')).filter(
+      a => isVisible(a) && !/deepseek\.com/i.test(a.href || '')
+    );
+    for (const link of links) {
+      const card = findCard(link);
+      if (usedCards.has(card)) continue;
+      usedCards.add(card);
+      // 主链接：卡片内最长文案的 http 链接，或第一个
+      const cardLinks = Array.from(card.querySelectorAll('a[href^="http"]')).filter(
+        a => isVisible(a) && !/deepseek\.com/i.test(a.href || '')
+      );
+      const main =
+        cardLinks.sort(
+          (a, b) =>
+            (b.textContent || '').replace(/\s+/g, '').length - (a.textContent || '').replace(/\s+/g, '').length
+        )[0] || link;
+      push(parseCard(card, main));
     }
 
     return results.slice(0, 40);
   });
 
   const merged = [...sources];
-  const seen = new Set(merged.map(s => `${s.title || ''}|${s.url || ''}`));
+  const seen = new Set(merged.map(s => s.url));
   for (const item of networkSources) {
-    const key = `${item.title || ''}|${item.url || ''}`;
-    if (seen.has(key)) continue;
-    if (!item.title && !item.url) continue;
-    if (item.url && /deepseek\.com/i.test(item.url)) continue;
-    seen.add(key);
+    const url = item.url || '';
+    if (!url || seen.has(url) || /deepseek\.com/i.test(url)) continue;
+    seen.add(url);
     merged.push({
-      title: item.title || (item.url ? domainFromUrl(item.url) : undefined),
-      url: item.url,
-      snippet: item.snippet
+      url,
+      title: item.title || '',
+      index: merged.length + 1,
+      snippet: item.snippet || '',
+      site_name: item.site_name || '',
+      domain: item.domain || domainFromUrl(url) || '',
+      publish_time: item.publish_time || ''
     });
   }
 
-  log('info', `提取到信源 ${merged.length} 条`);
-  return merged.slice(0, 40);
+  const stripMetaFromTitle = s => {
+    let title = String(s.title || '').trim();
+    const site = String(s.site_name || '').trim();
+    const time = String(s.publish_time || '').trim();
+    const esc = v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (site && title.startsWith(site)) title = title.slice(site.length).trim();
+    if (time && title.startsWith(time)) title = title.slice(time.length).trim();
+    if (site && time) {
+      title = title.replace(new RegExp(`^${esc(site)}\\s*${esc(time)}`), '').trim();
+      title = title.replace(new RegExp(`^${esc(site)}${esc(time)}`), '').trim();
+    }
+    title = title.replace(/^\d{1,3}(?!\d)/, '').trim();
+    return title;
+  };
+
+  const normalized = merged.slice(0, 40).map((s, i) => ({
+    url: s.url || '',
+    title: stripMetaFromTitle(s) || s.title || '',
+    index: s.index != null ? s.index : i + 1,
+    snippet: s.snippet || '',
+    site_name: s.site_name || '',
+    domain: s.domain || domainFromUrl(s.url) || '',
+    publish_time: s.publish_time || ''
+  }));
+
+  log('info', `提取到信源 ${normalized.length} 条`);
+  return normalized;
 }
 
 function attachDeepseekSourceListener(page) {
@@ -652,9 +1012,27 @@ async function runConversation(page, prompt, log) {
       throw new Error('未获取到 DeepSeek 完整回答内容');
     }
 
+    const rich = await extractAnswerHtml(page, {
+      contentSelectors: ['.ds-markdown', '[class*="ds-markdown"]'],
+      stripSelectors: [
+        '[class*="thinking"]',
+        '[class*="Think"]',
+        '[class*="search-view"]',
+        '[class*="SearchView"]',
+        '[class*="citation"]',
+        '[class*="ref-list"]',
+      ],
+    });
+    // 优先用完整 markdown 容器文本；过短则回退 wait 阶段文本
+    const answerHtml = rich.html || '';
+    const finalAnswer =
+      rich.text && rich.text.length >= Math.max(80, answer.length * 0.5)
+        ? rich.text
+        : answer;
+
     const sources = await extractSources(page, log, sourceListener.getSources());
     log('success', 'DeepSeek 对话完成');
-    return { answer, sources };
+    return { answer: finalAnswer, answerHtml, sources };
   } finally {
     sourceListener.dispose();
   }

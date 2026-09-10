@@ -33,21 +33,40 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-/** 生成自包含（内联样式）的结果 HTML */
-function buildResultHtml({ ip, platform, platformName, prompt, answer, sources, startedAt, finishedAt }) {
+/** 生成自包含（内联样式）的结果 HTML；优先嵌入 answerHtml 保留原排版 */
+function buildResultHtml({ ip, platform, platformName, prompt, answer, answerHtml, sources, startedAt, finishedAt }) {
   const sourceItems = (sources || [])
     .map((s, i) => {
-      const title = escapeHtml(s.title || s.url || `来源 ${i + 1}`);
+      const index = s.index != null ? s.index : i + 1;
+      const title = escapeHtml(s.title || s.url || `来源 ${index}`);
       const url = s.url || '';
       const snippet = escapeHtml(s.snippet || '');
+      const siteName = escapeHtml(s.site_name || '');
+      const domain = escapeHtml(s.domain || (url ? domainFromUrl(url) : '') || '');
+      const publishTime = escapeHtml(s.publish_time || '');
       const linkHtml = url
         ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${title}</a>`
         : `<span>${title}</span>`;
-      const urlLine = url ? `<div class="url">${escapeHtml(url)}</div>` : '';
-      const snippetLine = snippet ? `<div class="snippet">${snippet}</div>` : '';
-      return `<li>${linkHtml}${urlLine}${snippetLine}</li>`;
+      const metaBits = [
+        domain ? `domain: ${domain}` : '',
+        siteName ? `site: ${siteName}` : '',
+        publishTime ? `time: ${publishTime}` : '',
+      ].filter(Boolean);
+      const metaLine = metaBits.length
+        ? `<div class="meta-line">${metaBits.join(' · ')}</div>`
+        : '<div class="meta-line empty-field">domain / site_name / publish_time 为空</div>';
+      const urlLine = `<div class="url">${url ? escapeHtml(url) : '<span class="empty-field">(url 空)</span>'}</div>`;
+      const snippetLine = snippet
+        ? `<div class="snippet">${snippet}</div>`
+        : '<div class="snippet empty-field">(snippet 空)</div>';
+      return `<li><div class="idx">[${escapeHtml(String(index))}]</div>${linkHtml}${metaLine}${urlLine}${snippetLine}</li>`;
     })
     .join('');
+
+  const rich = !!(answerHtml && String(answerHtml).trim());
+  const answerBody = rich
+    ? String(answerHtml)
+    : escapeHtml(answer || '');
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -68,13 +87,40 @@ function buildResultHtml({ ip, platform, platformName, prompt, answer, sources, 
   .meta { font-size: 12px; color: #9ca3af; }
   .label { font-size: 12px; color: #6b7280; margin: 0 0 6px; font-weight: 600; letter-spacing: .5px; }
   .question { white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.7; }
-  .answer { white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.8; }
+  .answer { word-break: break-word; font-size: 14px; line-height: 1.8; }
+  .answer.plain { white-space: pre-wrap; }
+  .answer.rich h1, .answer.rich h2, .answer.rich h3, .answer.rich h4 {
+    margin: 1.1em 0 .45em; font-weight: 700; line-height: 1.35; }
+  .answer.rich h1 { font-size: 1.35em; } .answer.rich h2 { font-size: 1.2em; }
+  .answer.rich h3 { font-size: 1.08em; } .answer.rich h4 { font-size: 1em; }
+  .answer.rich p { margin: .55em 0; }
+  .answer.rich ul, .answer.rich ol { margin: .55em 0; padding-left: 1.4em; }
+  .answer.rich li { margin: .25em 0; }
+  .answer.rich blockquote {
+    margin: .7em 0; padding: .35em .9em; border-left: 3px solid #d1d5db; color: #4b5563; }
+  .answer.rich pre {
+    margin: .7em 0; padding: 12px 14px; overflow: auto; background: #f3f4f6;
+    border-radius: 8px; font-size: 12.5px; line-height: 1.6; }
+  .answer.rich code {
+    font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: .92em; }
+  .answer.rich :not(pre) > code {
+    padding: .1em .35em; background: #f3f4f6; border-radius: 4px; }
+  .answer.rich table { border-collapse: collapse; width: 100%; margin: .7em 0; font-size: 13px; }
+  .answer.rich th, .answer.rich td {
+    border: 1px solid #e5e7eb; padding: 6px 10px; vertical-align: top; }
+  .answer.rich th { background: #f9fafb; font-weight: 600; }
+  .answer.rich img { max-width: 100%; height: auto; }
+  .answer.rich a { color: #2563eb; }
+  .answer.rich hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1em 0; }
   .sources { list-style: none; margin: 0; padding: 0; }
-  .sources li { padding: 10px 12px; border: 1px solid #eef0f4; border-radius: 8px; margin-bottom: 8px; }
+  .sources li { padding: 10px 12px; border: 1px solid #eef0f4; border-radius: 8px; margin-bottom: 8px; position: relative; }
+  .sources .idx { font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 4px; }
   .sources a { color: #2563eb; text-decoration: none; font-size: 14px; word-break: break-all; }
   .sources a:hover { text-decoration: underline; }
+  .meta-line { font-size: 12px; color: #6b7280; margin-top: 4px; }
   .url { font-size: 12px; color: #9ca3af; margin-top: 3px; word-break: break-all; }
   .snippet { font-size: 12.5px; color: #4b5563; margin-top: 4px; line-height: 1.6; }
+  .empty-field { color: #c4c9d2; font-style: italic; }
   .empty { color: #9ca3af; font-size: 13px; }
 </style>
 </head>
@@ -89,7 +135,7 @@ function buildResultHtml({ ip, platform, platformName, prompt, answer, sources, 
   </div>
   <div class="card">
     <p class="label">回答</p>
-    <div class="answer">${escapeHtml(answer || '')}</div>
+    <div class="answer ${rich ? 'rich' : 'plain'}">${answerBody}</div>
   </div>
   <div class="card">
     <p class="label">信源（${(sources || []).length} 条）</p>
@@ -130,25 +176,29 @@ function domainFromUrl(url) {
 }
 
 /**
- * 生成「模拟提交后台接口」的结果 JSON（对齐 SubmitAnswerRequest 结构）
- *   status: ok（有回答）/ empty（无有效回答）
- *   answer_text：回答原文（与信源分离）
- *   cited_urls[]：url 必填；index=正文 [1][2] 角标序号（1 起）；title/snippet/domain 可选
- *   model_meta：引擎/会话元信息（平台、IP、问题、起止时间、长度等）
+ * 生成「模拟提交后台接口」的结果 JSON（对齐 SubmitAnswerRequest / CitedUrl）
+ * cited_urls 每条固定带齐字段：url/title/index/snippet/site_name/domain/publish_time
+ * 缺省用空字符串（index 用序号数字）
  */
 function buildSubmitJson({ ip, platform, platformName, prompt, answer, sources, startedAt, finishedAt }) {
-  // url 为必填：仅保留带链接的信源（与后台 cited_urls 契约一致）
   const cited = (sources || [])
-    .filter(s => s && s.url)
+    .filter(s => s && (s.url || s.title))
     .map((s, i) => {
-      const url = String(s.url);
-      const domain = domainFromUrl(url);
-      const item = { url, index: i + 1 };
-      if (s.title) item.title = s.title;
-      if (s.snippet) item.snippet = s.snippet;
-      if (domain) item.domain = domain;
-      return item;
-    });
+      const url = String(s.url || '');
+      const domain =
+        String(s.domain || '').trim().toLowerCase().replace(/^www\./, '') ||
+        (url ? domainFromUrl(url) : '');
+      return {
+        url,
+        title: String(s.title || ''),
+        index: s.index != null && s.index !== '' ? Number(s.index) : i + 1,
+        snippet: String(s.snippet || ''),
+        site_name: String(s.site_name || ''),
+        domain: domain || '',
+        publish_time: String(s.publish_time || ''),
+      };
+    })
+    .filter(s => s.url); // 后台 url 必填
   const hasAnswer = !!(answer && String(answer).trim());
   return {
     status: hasAnswer ? 'ok' : 'empty',
@@ -162,7 +212,7 @@ function buildSubmitJson({ ip, platform, platformName, prompt, answer, sources, 
       started_at: startedAt,
       finished_at: finishedAt,
       answer_length: (answer || '').length,
-      sources_count: (sources || []).length,
+      sources_count: cited.length,
     },
   };
 }
@@ -195,10 +245,12 @@ function buildJsonPreviewHtml(content) {
 }
 
 /** 保存结果：同时写 HTML 与模拟提交 JSON（同时间戳成对），返回 { htmlPath, jsonPath } */
-function saveResult(dir, { ip, platform, platformName, prompt, answer, sources, startedAt }) {
+function saveResult(dir, { ip, platform, platformName, prompt, answer, answerHtml, sources, startedAt }) {
   const finishedAt = fmt(new Date());
   const started = fmtTime(startedAt) || finishedAt;
-  const html = buildResultHtml({ ip, platform, platformName, prompt, answer, sources, startedAt: started, finishedAt });
+  const html = buildResultHtml({
+    ip, platform, platformName, prompt, answer, answerHtml, sources, startedAt: started, finishedAt,
+  });
   const json = buildSubmitJson({ ip, platform, platformName, prompt, answer, sources, startedAt: started, finishedAt });
   fs.mkdirSync(dir, { recursive: true });
   const stamp = ts();

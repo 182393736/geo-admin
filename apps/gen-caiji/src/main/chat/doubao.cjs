@@ -2,7 +2,7 @@
 /**
  * 豆包对话测试（CommonJS 移植自上传的 doubao.js）
  */
-const { sleep, findVisibleLocator } = require('./common.cjs');
+const { sleep, findVisibleLocator, extractAnswerHtml } = require('./common.cjs');
 
 const INPUT_SELECTORS = [
   '.tiptap.ProseMirror',
@@ -21,9 +21,190 @@ const SEND_SELECTORS = [
   'button[class*="send" i]'
 ];
 
+/** 新对话页打开后输入框可能晚于 DOMContentLoaded，轮询等待可见可编辑 */
+async function waitForInput(page, log) {
+  log('info', '等待豆包输入框加载…');
+  const timeoutMs = 45_000;
+  const started = Date.now();
+  const joined = INPUT_SELECTORS.join(', ');
+
+  try {
+    await page.waitForSelector(joined, { state: 'visible', timeout: timeoutMs });
+  } catch {
+    // 继续用轮询兜底
+  }
+
+  while (Date.now() - started < timeoutMs) {
+    const input = await findVisibleLocator(page, INPUT_SELECTORS);
+    if (input) {
+      const ready = await input
+        .evaluate(el => {
+          if (!(el instanceof HTMLElement)) return false;
+          if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+            return !el.disabled && !el.readOnly;
+          }
+          return el.isContentEditable;
+        })
+        .catch(() => false);
+      if (ready) return input;
+    }
+    await sleep(400);
+  }
+
+  throw new Error(`未找到豆包输入框（当前页 ${page.url()}）`);
+}
+
+/**
+ * 每次开跑前：若「最近」里有历史会话，hover → 三点 → 删除 → 确认，删掉一条（通常最新一条）。
+ * 没有历史则跳过，不抛错。
+ */
+async function deleteOneHistorySession(page, log) {
+  log('info', '检查并删除一条历史会话…');
+  await sleep(600);
+
+  const itemLocator = page.locator('[class*="group/conversation-item"], [class*="conversation-item"]').first();
+  const visible = await itemLocator.isVisible({ timeout: 4000 }).catch(() => false);
+  if (!visible) {
+    log('info', '无历史会话，跳过删除');
+    return false;
+  }
+
+  const title = ((await itemLocator.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  await itemLocator.scrollIntoViewIfNeeded().catch(() => undefined);
+  await itemLocator.hover({ force: true }).catch(() => undefined);
+  await sleep(350);
+
+  // hover 后右侧三点：data-dbx-name=button
+  let openedMenu = false;
+  const moreInItem = itemLocator.locator('[data-dbx-name="button"]');
+  if ((await moreInItem.count().catch(() => 0)) > 0) {
+    await moreInItem.last().click({ force: true, timeout: 3000 }).catch(() => undefined);
+    openedMenu = true;
+  }
+
+  if (!openedMenu) {
+    const box = await itemLocator.boundingBox().catch(() => null);
+    if (box) {
+      await page.mouse.move(box.x + box.width - 14, box.y + box.height / 2);
+      await sleep(200);
+      await page.mouse.click(box.x + box.width - 14, box.y + box.height / 2);
+      openedMenu = true;
+    }
+  }
+
+  if (!openedMenu) {
+    log('warn', `未能打开历史会话菜单${title ? `（${title}）` : ''}`);
+    return false;
+  }
+  await sleep(400);
+
+  // 菜单项「删除」
+  const deleteCandidates = [
+    page.locator('[role="menuitem"]').filter({ hasText: /^删除/ }),
+    page.getByRole('menuitem', { name: /删除/ }),
+    page.locator('[data-radix-collection-item], [class*="menu"] [class*="item"]').filter({ hasText: /^删除/ }),
+    page.getByText(/^删除$/, { exact: true }),
+  ];
+  let deletedMenu = false;
+  for (const loc of deleteCandidates) {
+    const target = loc.first();
+    if (await target.isVisible({ timeout: 800 }).catch(() => false)) {
+      await target.click({ timeout: 3000 }).catch(() => undefined);
+      deletedMenu = true;
+      break;
+    }
+  }
+  if (!deletedMenu) {
+    // evaluate 兜底
+    deletedMenu = await page.evaluate(() => {
+      const isVisible = el => {
+        if (!(el instanceof HTMLElement)) return false;
+        const st = getComputedStyle(el);
+        if (st.display === 'none' || st.visibility === 'hidden') return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+      const nodes = Array.from(
+        document.querySelectorAll('[role="menuitem"], [data-radix-collection-item], button, div, span, li')
+      ).filter(isVisible);
+      const pick = nodes.find(el => {
+        const t = (el.textContent || '').replace(/\s+/g, '').trim();
+        return t === '删除' || t === '删除对话' || t === '删除会话';
+      });
+      if (!pick) return false;
+      (pick.closest('[role="menuitem"], button, [role="button"]') || pick).click();
+      return true;
+    });
+  }
+
+  if (!deletedMenu) {
+    log('warn', '未找到「删除」菜单项');
+    await page.keyboard.press('Escape').catch(() => undefined);
+    return false;
+  }
+  await sleep(500);
+
+  // 确认弹窗：确认删除 / 确定 / 删除
+  const confirmCandidates = [
+    page.getByRole('button', { name: /确认删除|确定删除/ }),
+    page.locator('button').filter({ hasText: /确认删除|确定删除/ }),
+    page.getByRole('button', { name: /^确定$/ }),
+    page.locator('[class*="modal"] button, [class*="dialog"] button, [role="dialog"] button').filter({
+      hasText: /^删除$|^确定$|确认删除/,
+    }),
+  ];
+  let confirmed = false;
+  for (const loc of confirmCandidates) {
+    const target = loc.first();
+    if (await target.isVisible({ timeout: 1200 }).catch(() => false)) {
+      await target.click({ timeout: 3000 }).catch(() => undefined);
+      confirmed = true;
+      break;
+    }
+  }
+  if (!confirmed) {
+    confirmed = await page.evaluate(() => {
+      const isVisible = el => {
+        if (!(el instanceof HTMLElement)) return false;
+        const st = getComputedStyle(el);
+        if (st.display === 'none' || st.visibility === 'hidden') return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+      const nodes = Array.from(document.querySelectorAll('button, [role="button"]')).filter(isVisible);
+      const rank = t => {
+        if (/确认删除|确定删除/.test(t)) return 100;
+        if (t === '确定' || t === '确认') return 80;
+        if (t === '删除') return 60;
+        return 0;
+      };
+      const scored = nodes
+        .map(el => {
+          const t = (el.textContent || '').replace(/\s+/g, '').trim();
+          return { el, t, s: rank(t) };
+        })
+        .filter(x => x.s > 0 && x.t.length < 12 && x.t !== '取消')
+        .sort((a, b) => b.s - a.s);
+      const pick = scored[0]?.el;
+      if (!pick) return false;
+      pick.click();
+      return true;
+    });
+  }
+
+  if (!confirmed) {
+    log('warn', '未找到删除确认按钮');
+    await page.keyboard.press('Escape').catch(() => undefined);
+    return false;
+  }
+
+  await sleep(800);
+  log('success', `已删除一条历史会话${title ? `：${title}` : ''}`);
+  return true;
+}
+
 async function fillPrompt(page, prompt, log) {
-  const input = await findVisibleLocator(page, INPUT_SELECTORS);
-  if (!input) throw new Error('未找到豆包输入框');
+  const input = await waitForInput(page, log);
 
   log('info', '定位到输入框，准备写入提示词');
   await input.click({ timeout: 5000 });
@@ -338,14 +519,135 @@ async function waitForAnswer(page, baselineText, log) {
   throw new Error(`等待豆包回答超时 [${lastDebug}]`);
 }
 
+/**
+ * 豆包信源折叠在回答上方，文案形如「搜索 4 个关键词，参考 24 篇资料」。
+ * 必须用 Playwright 点击带 cursor-pointer 的整行（DOM click 点到纯文字节点无效）。
+ */
+async function countExpandedSourceLinks(page) {
+  return page.evaluate(() => {
+    const isVisible = el => {
+      if (!(el instanceof HTMLElement)) return false;
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const blocks = Array.from(
+      document.querySelectorAll('[data-plugin-identifier*="search_query_result"]')
+    );
+    let n = 0;
+    for (const block of blocks) {
+      for (const a of block.querySelectorAll('a[href^="http"]')) {
+        if (!isVisible(a)) continue;
+        if (/doubao\.com\/(chat|download)|bytedance\.com|feishu\.cn/i.test(a.href)) continue;
+        n += 1;
+      }
+    }
+    return n;
+  });
+}
+
+async function openSourcesPanel(page, log) {
+  const already = await countExpandedSourceLinks(page);
+  if (already >= 2) {
+    log('info', `信源列表已展开（${already} 条链接）`);
+    return true;
+  }
+
+  log('info', '点击回答上方「搜索 N 个关键词，参考 N 篇资料」展开…');
+
+  const candidates = [
+    page.locator('div.relative.flex-row.inline-flex.cursor-pointer', {
+      hasText: /搜索\s*\d+\s*个关键词[\s\S]*参考\s*\d+\s*篇资料/
+    }),
+    page.locator('[data-plugin-identifier*="search_query_result"] .cursor-pointer', {
+      hasText: /搜索\s*\d+\s*个关键词/
+    }),
+    page.locator('[data-copy-ignore].cursor-pointer', {
+      hasText: /搜索\s*\d+\s*个关键词/
+    }),
+    page.locator('div.cursor-pointer', {
+      hasText: /搜索\s*\d+\s*个关键词[\s\S]*参考\s*\d+\s*篇资料/
+    }),
+  ];
+
+  let clicked = false;
+  for (const loc of candidates) {
+    const target = loc.last();
+    if ((await target.count().catch(() => 0)) === 0) continue;
+    const visible = await target.isVisible().catch(() => false);
+    if (!visible) continue;
+    try {
+      await target.scrollIntoViewIfNeeded().catch(() => undefined);
+      await target.click({ timeout: 5000 });
+      clicked = true;
+      break;
+    } catch (err) {
+      log('warn', `点击信源入口失败：${String((err && err.message) || err).slice(0, 120)}`);
+    }
+  }
+
+  if (!clicked) {
+    // 兜底：在页面里找到 cursor-pointer 祖先再 dispatch 真实 pointer 事件
+    clicked = await page.evaluate(() => {
+      const isVisible = el => {
+        if (!(el instanceof HTMLElement)) return false;
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      };
+      const nodes = Array.from(document.querySelectorAll('div, span')).filter(isVisible);
+      const leaf = nodes.find(el => {
+        const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        return /搜索\s*\d+\s*个关键词.*参考\s*\d+\s*篇资料/.test(t) && t.length < 40;
+      });
+      if (!leaf) return false;
+      const target =
+        leaf.closest('div.relative.flex-row.inline-flex.cursor-pointer') ||
+        leaf.closest('.cursor-pointer') ||
+        leaf.closest('[data-copy-ignore]') ||
+        leaf;
+      target.scrollIntoView({ block: 'center' });
+      target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      target.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+      target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return true;
+    });
+  }
+
+  if (!clicked) {
+    log('warn', '未找到「搜索 N 个关键词，参考 N 篇资料」入口');
+    return false;
+  }
+
+  for (let i = 0; i < 20; i++) {
+    await sleep(350);
+    const n = await countExpandedSourceLinks(page);
+    if (n >= 2) {
+      log('info', `信源列表已展开（${n} 条链接）`);
+      return true;
+    }
+  }
+
+  log('warn', '已点击信源入口，但列表未出现');
+  return false;
+}
+
 async function extractSources(page, log) {
+  await openSourcesPanel(page, log);
+  await sleep(400);
+
   const sources = await page.evaluate(() => {
     const results = [];
     const seen = new Set();
-
     const push = (title, url, snippet) => {
       const key = `${title || ''}|${url || ''}`;
       if (!key || key === '|' || seen.has(key)) return;
+      if (!title && !url) return;
+      if (url && /doubao\.com\/(chat|download)|bytedance\.com|feishu\.cn/i.test(url)) return;
       seen.add(key);
       results.push({
         title: title?.trim() || undefined,
@@ -354,34 +656,34 @@ async function extractSources(page, log) {
       });
     };
 
-    const receive = document.querySelectorAll(
-      '[data-testid="receive_message"], [class*="bg-g-receive-msg-bubble"], [class*="receive-msg-bubble"], .flow-markdown-body, [class*="message-item"]'
-    );
-    const scope = receive.length > 0 ? receive[receive.length - 1] : document.body;
+    const isVisible = el => {
+      if (!(el instanceof HTMLElement)) return false;
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
 
-    const anchors = Array.from(scope.querySelectorAll('a[href]'));
-    for (const a of anchors) {
-      const href = a.href || '';
-      if (!/^https?:/i.test(href)) continue;
-      if (/doubao\.com|bytedance\.com|feishu\.cn/i.test(href)) continue;
-      const title = (a.getAttribute('title') || a.textContent || '').replace(/\s+/g, ' ').trim();
-      if (!title || title.length > 120) continue;
-      push(title, href);
+    const blocks = Array.from(
+      document.querySelectorAll('[data-plugin-identifier*="search_query_result"]')
+    );
+    const scopes = blocks.length > 0 ? blocks : [document.body];
+
+    for (const scope of scopes) {
+      const anchors = Array.from(scope.querySelectorAll('a[href^="http"]')).filter(isVisible);
+      for (const a of anchors) {
+        const url = (a.href || '').trim();
+        if (!url) continue;
+        if (/doubao\.com\/(chat|download)|bytedance\.com|feishu\.cn/i.test(url)) continue;
+        let title = (a.textContent || '').replace(/\s+/g, ' ').trim();
+        // 去掉前缀序号「1.」「12.」
+        title = title.replace(/^\d+\.\s*/, '').trim();
+        if (!title || title.length < 2) title = url;
+        push(title.slice(0, 200), url);
+      }
     }
 
-    const refBlocks = Array.from(
-      scope.querySelectorAll(
-        '[class*="source" i], [class*="reference" i], [class*="cite" i], [data-testid*="search" i], [data-testid*="ref" i]'
-      )
-    );
-    for (const block of refBlocks) {
-      const text = (block.textContent || '').replace(/\s+/g, ' ').trim();
-      if (!text || text.length < 2 || text.length > 200) continue;
-      const link = block.querySelector('a[href]');
-      push(text.slice(0, 120), link?.href);
-    }
-
-    return results.slice(0, 30);
+    return results.slice(0, 40);
   });
 
   log('info', `提取到信源 ${sources.length} 条`);
@@ -391,7 +693,15 @@ async function extractSources(page, log) {
 async function runConversation(page, prompt, log) {
   log('info', `开始豆包对话：${prompt}`);
   await page.bringToFront().catch(() => undefined);
-  await page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => undefined);
+  await page.waitForLoadState('domcontentloaded', { timeout: 20000 }).catch(() => undefined);
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => undefined);
+  // 新会话页 SPA 渲染输入框需要一点时间
+  await sleep(800);
+
+  // 开跑前删掉一条「最近」历史（有则删，无则跳过）
+  await deleteOneHistorySession(page, log).catch(err => {
+    log('warn', `删除历史会话失败（继续对话）：${err?.message || err}`);
+  });
 
   const baseline = await readAnswerSnapshot(page);
   await fillPrompt(page, prompt, log);
@@ -401,9 +711,20 @@ async function runConversation(page, prompt, log) {
   const answer = await waitForAnswer(page, baseline.text, log);
   if (!answer) throw new Error('未获取到豆包回答内容');
 
+  const rich = await extractAnswerHtml(page, {
+    contentSelectors: ['.flow-markdown-body', '.md-box-root', '[class*="md-box-root"]'],
+    stripSelectors: [
+      '[class*="search_query_result"]',
+      '[data-plugin-identifier*="search_query_result"]',
+      '[class*="ref-"]',
+    ],
+  });
+  const answerHtml = rich.html || '';
+  const finalAnswer = (rich.text && rich.text.length >= answer.length * 0.8 ? rich.text : answer) || answer;
+
   const sources = await extractSources(page, log);
   log('success', '豆包对话完成');
-  return { answer, sources };
+  return { answer: finalAnswer, answerHtml, sources };
 }
 
 module.exports = { runConversation };

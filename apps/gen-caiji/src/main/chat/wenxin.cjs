@@ -2,7 +2,7 @@
 /**
  * 文心一言对话测试（CommonJS 移植自上传的 yiyan.js）
  */
-const { sleep, findVisibleLocator } = require('./common.cjs');
+const { sleep, findVisibleLocator, extractAnswerHtml } = require('./common.cjs');
 
 const INPUT_SELECTORS = [
   '#chat-textarea',
@@ -242,65 +242,86 @@ async function readAnswerSnapshot(page) {
       return clean(clone.innerText || clone.textContent || '');
     };
 
-    const texts = [];
+    // 取最外层可见回答容器（不要取段落叶子，否则字数会卡在一两百）
+    const pickBodies = selectors => {
+      const matches = Array.from(document.querySelectorAll(selectors)).filter(isVisible);
+      const outers = matches.filter(
+        el => !matches.some(other => other !== el && other.contains(el))
+      );
+      return outers
+        .map(el => ({ el, text: stripChrome(el), y: el.getBoundingClientRect().y }))
+        .filter(x => x.text.length > 20)
+        .sort((a, b) => a.y - b.y);
+    };
 
-    const wenxinBodies = Array.from(
-      document.querySelectorAll(
-        [
-          '.cosd-markdown-content',
-          '[class*="cosd-markdown-content"]',
-          '[class*="answerBox"] [class*="markdown"]',
-          '[class*="answerBox"]',
-          '[class*="md-content"]',
-          '[class*="ai-content"]',
-          '[data-module="answer"]'
-        ].join(',')
-      )
-    )
-      .filter(el => isVisible(el))
-      .map(el => stripChrome(el))
-      .filter(t => t.length > 40);
-    texts.push(...wenxinBodies);
+    let bodies = pickBodies(
+      [
+        '.cosd-markdown-content',
+        '[class*="cosd-markdown-content"]',
+        '[class*="answerBox"] [class*="markdown"]',
+        '[class*="md-content"]',
+        '[class*="ai-content"]',
+        '[data-module="answer"]'
+      ].join(',')
+    );
 
-    if (texts.length === 0) {
-      const alts = Array.from(
-        document.querySelectorAll('[class*="markdown"], [class*="search-result"], [class*="ai-message"]')
-      )
-        .filter(el => isVisible(el))
-        .map(el => stripChrome(el))
-        .filter(t => t.length > 40);
-      texts.push(...alts);
+    if (bodies.length === 0) {
+      bodies = pickBodies('[class*="markdown"], [class*="search-result"], [class*="ai-message"], [class*="answerBox"]');
     }
 
-    let text = '';
-    for (const candidate of texts) {
-      if (candidate.length >= text.length) text = candidate;
+    // 优先靠下的一条；若最后一条明显短于最长条（侧栏/追问卡），改用最长
+    let chosen = bodies[bodies.length - 1];
+    if (bodies.length >= 2) {
+      const longest = bodies.reduce((a, b) => (a.text.length >= b.text.length ? a : b));
+      if (
+        chosen &&
+        longest &&
+        chosen !== longest &&
+        (chosen.text.length < 300 || chosen.text.length < longest.text.length * 0.45)
+      ) {
+        chosen = longest;
+      }
     }
+    const text = chosen?.text || '';
+    const answerRoot = chosen?.el || null;
 
     const bodyText = document.body?.innerText || '';
     const hasReferences = /共参考\d+篇资料/.test(bodyText);
 
-    const stopVisible = Array.from(document.querySelectorAll('button')).some(el => {
+    const stopVisible = Array.from(document.querySelectorAll('button, [role="button"]')).some(el => {
       if (!isVisible(el)) return false;
       const t = (el.textContent || '').replace(/\s+/g, '');
-      const aria = el.getAttribute('aria-label') || '';
-      return t === '停止生成' || t === '停止' || /停止生成/.test(aria);
+      const aria = (el.getAttribute('aria-label') || '').replace(/\s+/g, '');
+      return (
+        t === '停止生成' ||
+        /^Stopgenerating$/i.test(t) ||
+        /停止生成|Stopgenerating/i.test(aria) ||
+        (t === '停止' && /生成|回答|输出/.test(aria))
+      );
     });
 
-    const answeringHint = /智能体回答中|正在生成|请等待回答/.test(bodyText);
-    const streaming = stopVisible || answeringHint;
+    // 仅看回答内光标，避免全局 loading / 「生成中」文案把 stream 钉死
+    const cursorInAnswer =
+      !!answerRoot &&
+      Array.from(
+        answerRoot.querySelectorAll(
+          '[class*="cursor"], [class*="blink"], [class*="typing"], [class*="streaming"]'
+        )
+      ).some(isVisible);
+
+    const streaming = stopVisible || cursorInAnswer;
 
     const debug = [
       `host=${location.host}`,
       `path=${location.pathname.slice(0, 40)}`,
-      `answers=${texts.length}`,
+      `answers=${bodies.length}`,
       `ref=${hasReferences ? 1 : 0}`,
       `stream=${streaming ? 1 : 0}`,
       `stop=${stopVisible ? 1 : 0}`,
       `len=${text.length}`
     ].join(' ');
 
-    return { text, streaming, hasReferences, assistantCount: texts.length, debug };
+    return { text, streaming, stopVisible, hasReferences, assistantCount: bodies.length, debug };
   });
 }
 
@@ -312,6 +333,7 @@ async function waitForAnswer(page, baselineText, log) {
   let sawNewAnswer = false;
   let lastProgressLog = 0;
   let lastDebug = '';
+  let maxLen = 0;
 
   log('info', '等待文心一言回答完成…');
 
@@ -321,11 +343,13 @@ async function waitForAnswer(page, baselineText, log) {
     lastDebug = snap.debug;
     const text = sanitizeAnswer(snap.text);
     const placeholder = isIncompleteAnswer(text);
+    if (text.length > maxLen) maxLen = text.length;
 
     if (text && !placeholder && text !== baselineText) sawNewAnswer = true;
     if (text && !placeholder && text.length > Math.max(baselineText.length + 20, 60)) sawNewAnswer = true;
 
-    if (text && !placeholder && text === lastText) {
+    // 以字数稳定为准累加；流式误判不再清零
+    if (text && !placeholder && text === lastText && text.length >= maxLen) {
       contentStableRounds += 1;
     } else {
       contentStableRounds = 0;
@@ -347,21 +371,48 @@ async function waitForAnswer(page, baselineText, log) {
       );
     }
 
-    if (sawNewAnswer && !placeholder && !snap.streaming && contentStableRounds >= 2 && text.length >= 40) {
+    // 仍能点「停止」→ 确实在生成，继续等
+    if (snap.stopVisible) continue;
+
+    // 无停止钮 + 字数稳定约 5.6s
+    if (
+      sawNewAnswer &&
+      !placeholder &&
+      contentStableRounds >= 7 &&
+      text.length >= 120 &&
+      text.length >= maxLen
+    ) {
       log('success', `回答已完成（${text.length} 字）`);
       return text;
     }
-    if (sawNewAnswer && !placeholder && snap.hasReferences && contentStableRounds >= 3 && text.length >= 80) {
+
+    // 有资料标记时稍严一点
+    if (
+      sawNewAnswer &&
+      !placeholder &&
+      snap.hasReferences &&
+      contentStableRounds >= 8 &&
+      text.length >= 150 &&
+      text.length >= maxLen
+    ) {
       log('success', `回答已稳定（含资料标记，${text.length} 字）`);
       return text;
     }
-    if (sawNewAnswer && !placeholder && contentStableRounds >= 5 && text.length >= 120) {
-      log('success', `回答已稳定（${text.length} 字）`);
+
+    // 兜底：更长静默（约 12s）
+    if (
+      sawNewAnswer &&
+      !placeholder &&
+      contentStableRounds >= 15 &&
+      text.length >= 200 &&
+      text.length >= maxLen
+    ) {
+      log('success', `回答已长时间稳定（${text.length} 字）`);
       return text;
     }
   }
 
-  if (lastText && !isIncompleteAnswer(lastText) && lastText.length >= 40) {
+  if (lastText && !isIncompleteAnswer(lastText) && lastText.length >= 80) {
     log('warn', `等待超时，返回当前已生成内容 [${lastDebug}]`);
     return lastText;
   }
@@ -566,9 +617,32 @@ async function runConversation(page, prompt, log) {
     throw new Error('未获取到文心一言完整回答内容');
   }
 
+  const rich = await extractAnswerHtml(page, {
+    contentSelectors: [
+      '.cosd-markdown-content',
+      '[class*="cosd-markdown-content"]',
+      '[class*="md-content"]',
+      '[class*="answerBox"] [class*="markdown"]',
+      '[class*="marklang"]',
+    ],
+    stripSelectors: [
+      '[class*="sourceContainer"]',
+      '[class*="_reference_"]',
+      '[class*="reference-list"]',
+      '[class*="_reference-item_"]',
+      '[class*="_could-expand_"]',
+      '[class*="_main-header_"]',
+      '.thinking-steps-title-extra',
+    ],
+  });
+  // 富文本明显短于 waitForAnswer 结果时不用（避免 HTML 只剩追问尾卡）
+  const richOk = !!(rich.text && rich.text.length >= Math.max(80, answer.length * 0.8));
+  const answerHtml = richOk ? rich.html || '' : '';
+  const finalAnswer = (richOk ? rich.text : answer) || answer;
+
   const sources = await extractSources(page, log);
   log('success', '文心一言对话完成');
-  return { answer, sources };
+  return { answer: finalAnswer, answerHtml, sources };
 }
 
 module.exports = { runConversation };

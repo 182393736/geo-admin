@@ -275,14 +275,17 @@ function registerIpc() {
             page = await s.context.newPage();
             s.pages.set(platform, page);
             openedPlatform = true;
-            log('info', `打开 ${cfg.name} 标签页：${cfg.url}`);
-            await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
           }
+          // 每次对话都 goto 初始 URL，强制新会话（四平台统一）
+          log('info', `打开新对话：${cfg.url}`);
+          await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
           log('info', `开始 ${cfg.name} 对话：${q}`);
           const r = await runChat(page, platform, q, log);
           const saved = saveResult(resultsDirFor(ip), {
             ip, platform, platformName: cfg.name, prompt: q,
-            answer: r.answer || '', sources: r.sources || [],
+            answer: r.answer || '',
+            answerHtml: r.answerHtml || '',
+            sources: r.sources || [],
             startedAt,
           });
           lastResults.set(key, saved);
