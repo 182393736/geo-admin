@@ -448,6 +448,118 @@ class AdminController extends Controller {
     });
   }
 
+  // ---------- 流水线时间轴（品牌×天：槽位→采集→解析→聚合→报告） ----------
+  /** 品牌×天 列表 + 各阶段状态汇总 */
+  async pipelineDays() {
+    const { ctx } = this;
+    const M = ctx.model;
+    const { page, page_size } = this._page();
+    const q = {};
+    if (ctx.query.brand_id) q.brand_id = ctx.query.brand_id;
+    const { from, to } = this._range();
+    if (from || to) { q.date = {}; if (from) q.date.$gte = from; if (to) q.date.$lte = to; }
+    const [total, tasks] = await Promise.all([
+      M.CollectTask.countDocuments(q),
+      M.CollectTask.find(q).sort({ date: -1, brand_id: 1 }).skip((page - 1) * page_size).limit(page_size).lean(),
+    ]);
+    const bids = [...new Set(tasks.map(t => t.brand_id))];
+    const brands = await M.Brand.find({ brand_id: { $in: bids } }).lean();
+    const bm = {}; for (const b of brands) bm[b.brand_id] = b.name;
+    // 一次取出这些品牌×天的全部阶段事件
+    const orKeys = tasks.map(t => ({ brand_id: t.brand_id, date: t.date }));
+    const events = orKeys.length ? await M.PipelineEvent.find({ $or: orKeys }).lean() : [];
+    const evBy = {}; for (const e of events) evBy[`${e.brand_id}|${e.date}|${e.stage}`] = e;
+    const STAGES = ['expand', 'collect', 'parse', 'aggregate', 'report'];
+    const list = tasks.map(t => {
+      const stages = {};
+      let hasError = false;
+      let latest = null;
+      for (const s of STAGES) {
+        const e = evBy[`${t.brand_id}|${t.date}|${s}`];
+        stages[s] = e ? e.status : 'none';
+        if (e) {
+          if (e.status === 'fail' || e.status === 'partial') hasError = true;
+          if (!latest || (e.updated_at && (!latest.updated_at || e.updated_at > latest.updated_at))) latest = e;
+        }
+      }
+      return {
+        brand_id: t.brand_id, brand_name: bm[t.brand_id] || t.brand_id, date: t.date,
+        task_status: t.status, completeness_rate: t.completeness_rate,
+        expected_slots: this._safeNum(t.expected_slots), actual_slots: this._safeNum(t.actual_slots), failed_slots: this._safeNum(t.failed_slots),
+        stages, has_error: hasError, latest_event_at: latest ? latest.updated_at : null,
+      };
+    });
+    this._ok({ list, total, page, page_size });
+  }
+
+  /** 单品牌×单天 完整时间轴 + 槽位明细 + 结果汇总 */
+  async pipelineTimeline() {
+    const { ctx } = this;
+    const M = ctx.model;
+    const brandId = String(ctx.query.brand_id || '');
+    const date = String(ctx.query.date || '');
+    if (!brandId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: 'brand_id 与 date(YYYY-MM-DD) 必填' };
+      return;
+    }
+    const [brand, task, events, slots, answers, parsedAnswers] = await Promise.all([
+      M.Brand.findOne({ brand_id: brandId }).lean(),
+      M.CollectTask.findOne({ brand_id: brandId, date }).lean(),
+      M.PipelineEvent.find({ brand_id: brandId, date }).lean(),
+      M.CollectSlot.find({ brand_id: brandId, date }).sort({ query_id: 1, platform: 1 }).lean(),
+      M.RawAnswer.countDocuments({ brand_id: brandId, date }),
+      M.RawAnswer.countDocuments({ brand_id: brandId, date, parsed: true }),
+    ]);
+    const [mentions, opinions, edges, dmq, dmb, sds, lb] = await Promise.all([
+      M.BrandMention.countDocuments({ brand_id: brandId, date }),
+      M.Opinion.countDocuments({ brand_id: brandId, date }),
+      M.CitationEdge.countDocuments({ brand_id: brandId, date }),
+      M.DailyMetricQuery.countDocuments({ brand_id: brandId, date }),
+      M.DailyMetricBrand.countDocuments({ brand_id: brandId, date }),
+      M.SourceDailyStat.countDocuments({ brand_id: brandId, date }),
+      M.LeaderboardDaily.countDocuments({ brand_id: brandId, date }),
+    ]);
+    const slotSummary = {};
+    const slotErrors = [];
+    for (const s of slots) {
+      slotSummary[s.status] = (slotSummary[s.status] || 0) + 1;
+      if (s.status === 'fail' && s.error) {
+        slotErrors.push({ slot_id: s.slot_id, platform: s.platform, query_id: s.query_id, error: s.error, attempts: this._safeNum(s.attempts) });
+      }
+    }
+    const lastReport = await M.Report.findOne({ brand_id: brandId }).sort({ generated_at: -1 }).lean();
+    this._ok({
+      brand: brand ? { brand_id: brand.brand_id, name: brand.name, industry: brand.industry || '' } : { brand_id: brandId, name: brandId, industry: '' },
+      date,
+      task: task ? this._fmtCollectTask(task) : null,
+      timeline: events.map(e => this._fmtEvent(e)),
+      slots: {
+        summary: slotSummary,
+        list: slots.map(s => ({
+          slot_id: s.slot_id, query_id: s.query_id, query_type: s.query_type,
+          platform: s.platform, end: s.end, question_sent: s.question_sent,
+          mock_account_id: s.mock_account_id, status: s.status, answer_id: s.answer_id,
+          error: s.error, attempts: s.attempts, finished_at: s.finished_at,
+        })),
+        errors: slotErrors,
+      },
+      answers: { total: answers, parsed: parsedAnswers, unparsed: answers - parsedAnswers },
+      results: { mentions, opinions, citation_edges: edges, daily_metric_queries: dmq, daily_metric_brands: dmb, source_daily_stats: sds, leaderboard_dailies: lb },
+      report: lastReport ? {
+        period_type: lastReport.period_type, period_key: lastReport.period_key, label: lastReport.label,
+        status: lastReport.status, generated_at: lastReport.generated_at,
+      } : null,
+    });
+  }
+
+  _fmtEvent(e) {
+    return {
+      event_id: e.event_id, stage: e.stage, status: e.status, message: e.message,
+      error: e.error, detail: e.detail, created_at: e.created_at, updated_at: e.updated_at,
+    };
+  }
+
   // ---------- LLM ----------
   async llmLogs() {
     const { ctx } = this;

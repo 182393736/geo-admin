@@ -227,3 +227,50 @@ export interface AdminSystem {
   queue: { impl: string; backlog: number; topics: string[] };
   menus: { menu_code: string; category: string; label: string; path: string; icon: string; sort_order: number; visible: boolean; min_plan: string }[];
 }
+
+// ---- 流水线时间轴（品牌×天，槽位→采集→解析→聚合→报告） ----
+export interface AdminPipelineEvent {
+  event_id: string;
+  stage: 'expand' | 'collect' | 'parse' | 'aggregate' | 'report';
+  status: 'pending' | 'running' | 'ok' | 'partial' | 'fail';
+  message: string;
+  error: string | null;
+  detail: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface AdminPipelineDayRow {
+  brand_id: string;
+  brand_name: string;
+  date: string;
+  task_status: string;
+  completeness_rate: number | null;
+  expected_slots: number;
+  actual_slots: number;
+  failed_slots: number;
+  stages: Record<string, string>; // 每阶段状态：ok/partial/fail/running/pending/none
+  has_error: boolean;
+  latest_event_at: string | null;
+}
+export interface AdminPipelineTimeline {
+  brand: { brand_id: string; name: string; industry: string };
+  date: string;
+  task: AdminCollectTaskRow | null;
+  timeline: AdminPipelineEvent[];
+  slots: {
+    summary: Record<string, number>;
+    list: AdminSlotRow[];
+    errors: { slot_id: string; platform: string; query_id: number; error: string; attempts: number }[];
+  };
+  answers: { total: number; parsed: number; unparsed: number };
+  results: {
+    mentions: number;
+    opinions: number;
+    citation_edges: number;
+    daily_metric_queries: number;
+    daily_metric_brands: number;
+    source_daily_stats: number;
+    leaderboard_dailies: number;
+  };
+  report: { period_type: string; period_key: string; label: string; status: string; generated_at: string | null } | null;
+}

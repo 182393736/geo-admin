@@ -10,7 +10,8 @@ class AggregateService extends Service {
   async run(brandId, date) {
     const { ctx } = this, app = ctx.app;
     const brands = brandId ? [{ brand_id: brandId }] : null;
-    const targetDate = date || app.dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+    // 统计日默认=今天（测试期实时聚合）；日批由调用方显式传「昨天」
+    const targetDate = date || app.dayjs().format('YYYY-MM-DD');
     const brandList = brands || await ctx.model.Brand.find({ status: 'active' }).lean();
     for (const b of brandList) {
       /* ---- 1) 问题级日指标：denominator 来自有效槽位 ---- */

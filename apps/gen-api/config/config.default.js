@@ -93,6 +93,12 @@ module.exports = () => {
     maxAttempts: Number(process.env.COLLECT_MAX_ATTEMPTS || 2),     // 每槽最多失败/超时 2 次后终态 fail
     runningTtlMs: Number(process.env.COLLECT_RUNNING_TTL_MS || 15 * 60 * 1000), // running 超时回收阈值（默认 15 分钟）
   },
+  // 解析+聚合调度：realtime=5s 轮询（测试期尽快出结果）；daily=凌晨 04:00（量大后回切）
+  parse: {
+    mode: String(process.env.PARSE_MODE || 'realtime'),       // 'realtime' | 'daily'
+    batchSize: Number(process.env.PARSE_BATCH_SIZE || 200),   // 每轮最多解析的回答数
+    sweepIntervalMs: Number(process.env.PARSE_SWEEP_INTERVAL_MS || 60 * 1000), // 实时全量清扫间隔（覆盖 empty/fail 槽位）
+  },
   // Agent 交互约束：免费版候选问题确认上限（对齐对标 free 套餐 query_limit=3）
   geoAgent: { freeQueryLimit: Number(process.env.GEO_FREE_QUERY_LIMIT || 3) },
   // CORS 兜底（前端直连场景；nitro 代理路径下同源不需要但无害）

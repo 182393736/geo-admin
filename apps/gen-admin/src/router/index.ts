@@ -18,6 +18,7 @@ const routes = [
       { path: '/brands', name: 'Brands', component: () => import('@/views/brands/index.vue'), meta: { title: '品牌管理' } },
       { path: '/collect', name: 'Collect', component: () => import('@/views/collect/index.vue'), meta: { title: '采集监控' } },
       { path: '/parse', name: 'Parse', component: () => import('@/views/parse/index.vue'), meta: { title: '解析监控' } },
+      { path: '/pipeline', name: 'Pipeline', component: () => import('@/views/pipeline/index.vue'), meta: { title: '流水线时间轴' } },
       { path: '/llm', name: 'Llm', component: () => import('@/views/llm/index.vue'), meta: { title: 'LLM 调用' } },
       { path: '/billing', name: 'Billing', component: () => import('@/views/billing/index.vue'), meta: { title: '计费中心' } },
       { path: '/content', name: 'Content', component: () => import('@/views/content/index.vue'), meta: { title: '内容与发稿' } },

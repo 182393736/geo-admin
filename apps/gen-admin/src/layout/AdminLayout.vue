@@ -43,6 +43,7 @@ const menus = [
   { path: '/brands', label: '品牌管理', icon: '🏷️' },
   { path: '/collect', label: '采集监控', icon: '📡' },
   { path: '/parse', label: '解析监控', icon: '🧩' },
+  { path: '/pipeline', label: '流水线时间轴', icon: '⏱️' },
   { path: '/llm', label: 'LLM 调用', icon: '🤖' },
   { path: '/billing', label: '计费中心', icon: '💰' },
   { path: '/content', label: '内容与发稿', icon: '📰' },

@@ -8,7 +8,7 @@ const { Service } = require('egg');
 class ReputationExtractService extends Service {
   async run(answer) {
     const { ctx } = this;
-    const units = await ctx.service.llm.extractOpinions(answer.answer_text); // [{quote, label, polarity}]
+    const units = await ctx.service.llm.deepseek.extractOpinions(answer.answer_text); // [{quote, label, polarity, target}]
     for (const u of units) {
       const topic = await ctx.model.OpinionTopic.findOneAndUpdate(
         { brand_id: answer.brand_id, label: u.label },

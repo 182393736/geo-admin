@@ -307,6 +307,16 @@ class CollectorController extends Controller {
     if (!task.started_at) update.started_at = new Date();
     if (settled >= expected) update.finished_at = new Date();
     await M.CollectTask.updateOne({ task_id: taskId }, { $set: update }).catch(() => {});
+
+    // 流水线时间轴：collect 阶段事件（进度 + 失败原因）
+    const finalStatus = settled >= expected ? (fail > 0 ? 'partial' : 'ok') : (settled > 0 ? 'running' : 'pending');
+    await ctx.service.pipelineEvent.record({
+      brand_id: task.brand_id, date: task.date, stage: 'collect',
+      status: finalStatus,
+      message: `应采 ${expected} / 已采 ${actual}（ok ${ok} / empty ${empty}）/ 失败 ${fail}`,
+      error: fail > 0 ? `${fail} 个槽位采集失败` : null,
+      detail: { expected, actual, failed: fail, ok, empty, ...by },
+    });
   }
 }
 

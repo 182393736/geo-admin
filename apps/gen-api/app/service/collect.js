@@ -47,6 +47,13 @@ class CollectService extends Service {
         updateOne: { filter: { slot_id: s.slot_id }, update: { $setOnInsert: { ...s, task_id } }, upsert: true },
       })));
     }
+    // 流水线时间轴：expand 阶段事件
+    await ctx.service.pipelineEvent.record({
+      brand_id: brand.brand_id, date, stage: 'expand',
+      status: slots.length ? 'ok' : 'partial',
+      message: slots.length ? `展开 ${slots.length} 个槽位（${[...new Set(platforms)].join('/')}）` : '无启用且可执行的监控词，未展开槽位',
+      detail: { expected_slots: slots.length, queries: queries.length, platforms },
+    });
     return M.CollectTask.findOne({ task_id }).lean();
   }
 }

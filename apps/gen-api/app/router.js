@@ -61,6 +61,9 @@ module.exports = app => {
   router.get('/admin/collect/snapshots', jwtAuth, adminAuth, controller.admin.collectSnapshots);
   // 解析监控
   router.get('/admin/parse/overview', jwtAuth, adminAuth, controller.admin.parseOverview);
+  // 流水线时间轴（品牌×天：槽位→采集→解析→聚合→报告）
+  router.get('/admin/pipeline/days', jwtAuth, adminAuth, controller.admin.pipelineDays);
+  router.get('/admin/pipeline/timeline', jwtAuth, adminAuth, controller.admin.pipelineTimeline);
   // LLM
   router.get('/admin/llm/logs', jwtAuth, adminAuth, controller.admin.llmLogs);
   // 计费

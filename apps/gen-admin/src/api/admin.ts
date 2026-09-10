@@ -10,6 +10,7 @@ import type {
   AdminMediaRow, AdminPublishOrderRow, AdminArticleRow, AdminWritingJobRow,
   AdminReportRow, AdminOnboardingTaskRow, AdminOnboardingTraceRow,
   AdminBehaviorEventRow, AdminDiagnosisRow, AdminAgentHistoryRow, AdminReminderRow, AdminSystem,
+  AdminPipelineDayRow, AdminPipelineTimeline,
 } from '@geo-admin/contracts';
 
 export interface LoginRespLike { accessToken: string; user: { id: string; username: string }; brands: unknown[] }
@@ -46,6 +47,10 @@ export const adminApi = {
 
   // 解析
   parseOverview: () => get<AdminParseOverview>('/admin/parse/overview'),
+
+  // 流水线时间轴
+  pipelineDays: (p: Record<string, any> = {}) => get<AdminPaged<AdminPipelineDayRow>>(`/admin/pipeline/days${qs(p)}`),
+  pipelineTimeline: (brandId: string, date: string) => get<AdminPipelineTimeline>(`/admin/pipeline/timeline${qs({ brand_id: brandId, date })}`),
 
   // LLM
   llmLogs: (p: Record<string, any> = {}) => get<AdminPaged<AdminLlmLogRow> & { agg: AdminLlmAgg[] }>(`/admin/llm/logs${qs(p)}`),
