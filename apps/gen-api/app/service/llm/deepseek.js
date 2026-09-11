@@ -47,33 +47,52 @@ class DeepseekService extends Service {
     return keys[this._keyCursor++ % keys.length];
   }
 
+  /**
+   * 显式 HTTP(S) 代理 dispatcher（与 geo-agent 同口径）：
+   * urllib v4 已移除 proxy 选项（undici 内核），必须挂 undici ProxyAgent 作 dispatcher 才会真正走代理；
+   * 生产环境 LLM_PROXY 为空 → 直连。本地开发走本机代理（如 http://localhost:1087）。
+   */
+  _proxyDispatcher() {
+    const proxyUrl = this.cfg.proxy;
+    if (!proxyUrl) return null;
+    if (this.__dispatcher === undefined) {
+      try {
+        const { ProxyAgent } = require('undici');
+        this.__dispatcher = new ProxyAgent(proxyUrl);
+      } catch (e) {
+        this.__dispatcher = null;
+        (this.ctx && this.ctx.logger && this.ctx.logger.warn)
+          ? this.ctx.logger.warn(`[llm] 已配置代理 ${proxyUrl} 但无法加载 undici，直连: ${e.message}`)
+          : console.warn(`[llm] 已配置代理 ${proxyUrl} 但无法加载 undici，直连: ${e.message}`);
+      }
+    }
+    return this.__dispatcher;
+  }
+
   async chat(messages, { model, temperature = 0.2, jsonMode = true, maxTokens = 4096 } = {}) {
     const { ctx } = this;
     const c = this.cfg;
     if (!c.apiKeys.length) throw new Error('LLM 未配置 API Key（请设置 LLM_PROVIDER 对应供应商的 *_API_KEY / *_API_KEYS）');
+    const dispatcher = this._proxyDispatcher();
     const body = {
       model: model || c.model, temperature, messages, max_tokens: maxTokens,
       ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
       ...(c.chatTemplateKwargs ? { chat_template_kwargs: c.chatTemplateKwargs } : {}),
     };
+    const opts = () => ({
+      method: 'POST', timeout: 60000,
+      headers: { Authorization: `Bearer ${this.nextKey()}`, 'Content-Type': 'application/json' },
+      contentType: 'json', dataType: 'json',
+      ...(dispatcher ? { dispatcher } : {}),
+    });
     let resp;
     try {
-      resp = await ctx.curl(`${c.baseURL}/chat/completions`, {
-        method: 'POST', timeout: 60000,
-        headers: { Authorization: `Bearer ${this.nextKey()}`, 'Content-Type': 'application/json' },
-        contentType: 'json', data: body, dataType: 'json',
-        ...(c.proxy ? { proxy: c.proxy } : {}),
-      });
+      resp = await ctx.curl(`${c.baseURL}/chat/completions`, { ...opts(), data: body });
     } catch (e) {
       // 供应商不认 response_format → 去掉重试一次
       if (jsonMode && e.status === 400) {
         const { response_format, ...rest } = body;
-        resp = await ctx.curl(`${c.baseURL}/chat/completions`, {
-          method: 'POST', timeout: 60000,
-          headers: { Authorization: `Bearer ${this.nextKey()}`, 'Content-Type': 'application/json' },
-          contentType: 'json', data: rest, dataType: 'json',
-          ...(c.proxy ? { proxy: c.proxy } : {}),
-        });
+        resp = await ctx.curl(`${c.baseURL}/chat/completions`, { ...opts(), data: rest });
       } else {
         throw e;
       }
