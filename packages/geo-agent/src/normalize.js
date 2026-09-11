@@ -60,7 +60,7 @@ function normalizeCandidates(raw, { limit = 8, brandTokens = null, onDrop = null
     const platformQuery = s(c && c.platform_query) || query;
     return {
       query,
-      // 监控问题一律行业中立：不再产出 brand 口碑题（口碑由中立问题里 AI 自发提及的品牌拆解得出）
+      // LLM 候选一律行业中立；brand 口碑题由 persist.js 用品牌名模板单独生成
       query_type: 'industry',
       weight: clampInt(c && c.weight, 1, 10, 1),
       is_golden: !!(c && c.is_golden),

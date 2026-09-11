@@ -102,6 +102,32 @@ async function persistResult(models, opts) {
     } catch (e) { /* 单条失败不阻断整体 */ }
   }
 
+  // ---- 口碑题（query_type='brand'）：建档即落首批，刻意含品牌名 ----
+  // 对标真实站（「大艺园林雕塑怎么样，好不好」）。与中立题相反，口碑题就是要
+  // 带着品牌名问 AI——口碑页统计的正是「AI 被问及本品牌时的情感倾向」，
+  // 由流水线B（reputation_extract）拆解为 Opinion。品牌名缺失/占位时跳过。
+  const brandName = String((result.brand && result.brand.name) || '').trim();
+  if (brandName && brandName !== '未命名品牌') {
+    const brandQueries = [...new Set([
+      `${brandName}怎么样，好不好`,
+      `${brandName}口碑怎么样`,
+      `${brandName}评价怎么样`,
+    ])];
+    for (const q of brandQueries) {
+      try {
+        const qid = opts.nextSeq ? await opts.nextSeq('monitor_query') : undefined;
+        await models.MonitorQuery.create({
+          query_id: qid, user_id: opts.userId, brand_id: brandId,
+          query: q, question_list: [{ user_friendly: q, platform_query: q }],
+          platform_prompt: q, query_description: '品牌口碑 · 综合',
+          query_type: 'brand', weight: 1, is_golden: false,
+          query_order: ++order, task_id: opts.taskId || undefined,
+        });
+        counts.queries++;
+      } catch (e) { /* 单条失败不阻断整体 */ }
+    }
+  }
+
   // ---- 过程留痕 + 确认留痕 ----
   const traceDocs = (result.traces || []).map(t => ({
     task_id: opts.taskId || undefined, brand_id: brandId, user_id: opts.userId,
