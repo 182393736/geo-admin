@@ -70,28 +70,40 @@ class SourceController extends Controller {
     if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
     const page = Math.max(1, parseInt(b.page, 10) || 1);
     const size = Math.min(100, Math.max(1, parseInt(b.page_size, 10) || 20));
+    // category 请求参数 = 问题类型维度（industry=排名 / brand=口碑），对标站实测如此；
+    // 信源本身的媒体类目（视频/社交/B2B…）在响应的 category 字段返回，二者不是一回事
+    const qt = b.category === 'brand' ? 'brand' : 'industry';
     const q = { brand_id: brand.brand_id };
     const start = String(b.start_date || '').slice(0, 10);
     const end = String(b.end_date || '').slice(0, 10);
     if (start && end) q.date = { $gte: start, $lte: end };
 
-    const [rows, sources, channels] = await Promise.all([
-      ctx.model.SourceDailyStat.find(q).lean(),
+    // 直接从 citation_edges 聚合（query_type 分流后的原子事实），再联 CanonicalSource/MediaChannel 补元数据
+    const [edges, sources, channels] = await Promise.all([
+      ctx.model.CitationEdge.find(q).select('source_id platform article_id query_id query_type is_own').lean(),
       ctx.model.CanonicalSource.find({}).lean(),
       ctx.model.MediaChannel.find({}).select('media_key name sell_price list_price').lean(),
     ]);
+    // 回填 query_type：旧数据 citation_edges 未带该字段，按 query_id 从 monitor_queries 解析
+    const missing = [...new Set(edges.filter(e => !e.query_type).map(e => e.query_id))];
+    const qtMap = {};
+    if (missing.length) {
+      const mqs = await ctx.model.MonitorQuery.find({ query_id: { $in: missing } }).select('query_id query_type').lean();
+      for (const m of mqs) qtMap[m.query_id] = m.query_type;
+    }
     const srcMap = {}; for (const s of sources) srcMap[s.source_id] = s;
     const chMap = {}; for (const c of channels) chMap[c.media_key] = c;
     const agg = {};
-    for (const r of rows) {
-      const a = (agg[r.source_id] ||= { ref_count: 0, article_count: 0, query_count: 0, own_article_count: 0, platforms: {} });
-      a.ref_count += r.ref_count || 0;
-      a.article_count += r.article_count || 0;
-      a.query_count += r.query_count || 0;
-      a.own_article_count += r.own_article_count || 0;
-      (a.platforms[r.platform] ||= { ref_count: 0, article_count: 0 });
-      a.platforms[r.platform].ref_count += r.ref_count || 0;
-      a.platforms[r.platform].article_count += r.article_count || 0;
+    for (const e of edges) {
+      if ((e.query_type || qtMap[e.query_id] || 'industry') !== qt) continue;
+      const a = (agg[e.source_id] ||= { ref_count: 0, article_ids: new Set(), query_ids: new Set(), own_article_count: 0, platforms: {} });
+      a.ref_count += 1;
+      a.article_ids.add(e.article_id);
+      a.query_ids.add(e.query_id);
+      if (e.is_own) a.own_article_count += 1;
+      const p = (a.platforms[e.platform] ||= { ref_count: 0, article_ids: new Set() });
+      p.ref_count += 1;
+      p.article_ids.add(e.article_id);
     }
     let list = Object.entries(agg).map(([sid, v]) => {
       const meta = srcMap[sid] || {};
@@ -102,18 +114,15 @@ class SourceController extends Controller {
         domain: (meta.domains && meta.domains[0]) || null,
         auth_info_des: meta.auth_info_des || null,
         auth_info_level: meta.auth_info_level || null,
-        ref_count: v.ref_count, article_count: v.article_count, query_count: v.query_count, own_article_count: v.own_article_count,
+        ref_count: v.ref_count, article_count: v.article_ids.size, query_count: v.query_ids.size, own_article_count: v.own_article_count,
         first_cited_at: meta.first_cited_at || null,
-        platforms: v.platforms,
+        platforms: Object.fromEntries(Object.entries(v.platforms).map(([k, p]) => [k, { ref_count: p.ref_count, article_count: p.article_ids.size }])),
         media_key: meta.media_key || null,
         sell_price: ch ? (ch.sell_price != null ? ch.sell_price : null) : null,
         list_price: ch ? (ch.list_price != null ? ch.list_price : null) : null,
         cost_per_citation: ch && ch.sell_price && v.ref_count ? this._n(ch.sell_price / v.ref_count) : null,
       };
     }).sort((a, z) => z.ref_count - a.ref_count);
-    if (b.category && b.category !== '') {
-      list = list.filter(x => x.category === b.category);
-    }
     const total = list.length;
     const paged = list.slice((page - 1) * size, page * size);
     const totalRef = list.reduce((s, x) => s + x.ref_count, 0);

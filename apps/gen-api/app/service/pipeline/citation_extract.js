@@ -126,7 +126,7 @@ class CitationExtractService extends Service {
       );
       await ctx.model.CitationEdge.create({
         slot_id: answer.slot_id, date: answer.date, brand_id: answer.brand_id,
-        query_id: answer.query_id, platform: answer.platform,
+        query_id: answer.query_id, query_type: answer.query_type, platform: answer.platform,
         article_id: article.article_id, source_id: source.source_id,
         is_own: mine.has(canon), mentioned_entity: null,
       });

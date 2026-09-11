@@ -13,6 +13,7 @@ module.exports = app => {
     date: { type: String, index: true },
     brand_id: { type: String, index: true },
     query_id: { type: Number, index: true },
+    query_type: { type: String, enum: ['industry', 'brand'], index: true },  // 问题类型：industry=排名 / brand=口碑（/reference_source/stats 按此分流）
     platform: { type: String, index: true },
     article_id: String,
     source_id: { type: String, index: true },
