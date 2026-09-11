@@ -34,9 +34,9 @@ export const monitorApi = {
   // --- 竞品/引用 ---
   getReferences: () => post<GetReferencesResp>('/summary/get_references', { platform: 'all', platforms: ['all'] }),
   competitorInsight: () => post<CompetitorInsightResp>('/competitor/insight', { start_date: null, end: 'all' }),
-  sourceStats: (start: string, end: string, page = 1, page_size = 20) =>
+  sourceStats: (start: string, end: string, page = 1, page_size = 20, category: 'industry' | 'brand' = 'industry') =>
     post<SourceStatsResp>('/reference_source/stats',
-      { page, page_size, start_date: start, end_date: end, end: 'web', sort_field: 'ref_count', sort_order: 'desc' }),
+      { page, page_size, start_date: start, end_date: end, end: 'web', sort_field: 'ref_count', sort_order: 'desc', category }),
 
   // --- 信源洞察 4 件套 ---
   siSourceTrend: (start: string, end: string) => post<SourceTrendResp>('/source_intelligence/source_trend', { start_date: start, end_date: end, platform: null, top_n: 10 }),
@@ -49,6 +49,6 @@ export const monitorApi = {
   siTopics: () => get<{ query_id: number; name: string }[]>('/source_intelligence/topics'),
 
   // --- 快照 ---
-  snapshotList: (date: string, query_id: number, page = 1) =>
-    post<{ list: SnapshotItem[] }>('/snapshot/export/list', { page, page_size: 10, start_date: date, query_id, query_type: 'industry' }),
+  snapshotList: (date: string, query_id: number, page = 1, query_type: 'industry' | 'brand' = 'industry') =>
+    post<{ list: SnapshotItem[] }>('/snapshot/export/list', { page, page_size: 10, start_date: date, query_id, query_type }),
 };

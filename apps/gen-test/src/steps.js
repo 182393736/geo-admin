@@ -186,7 +186,8 @@ const steps = [
   {
     name: '口碑·监控问题管理（采集前应 0 行）',
     async run(page, ctx) {
-      await page.goto(`${ctx.deps.DASH}/dashboard/sentiment/question-mgmt`, { waitUntil: 'domcontentloaded' });
+      // 口碑与排名共用监控问题管理页，仅 ?type=brand 区分（口碑词）
+      await page.goto(`${ctx.deps.DASH}/dashboard/topic-management?type=brand`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.qm-card-title', { timeout: 30_000 });
       const rows = await page.locator('.qm-row').count();
       return { status: rows === 0 ? 'ok' : 'fail', detail: `行数=${rows}（采集前应 0）` };
@@ -195,7 +196,8 @@ const steps = [
   {
     name: '口碑·识别管理（品牌名）',
     async run(page, ctx) {
-      await page.goto(`${ctx.deps.DASH}/dashboard/sentiment/recognition-mgmt`, { waitUntil: 'domcontentloaded' });
+      // 口碑与排名共用监控识别管理页，仅 ?type=brand 区分
+      await page.goto(`${ctx.deps.DASH}/dashboard/monitor-recognition?type=brand`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('input.rm-brand-input', { timeout: 30_000 });
       const brand = await page.locator('input.rm-brand-input').inputValue();
       return { status: brand.includes(ctx.brandName) ? 'ok' : 'fail', detail: `品牌名=${brand}` };

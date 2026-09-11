@@ -22,7 +22,7 @@
             </div>
             <div class="px-5 py-2.5 flex flex-col justify-center border-r border-gray-100 relative group cursor-help bg-white">
               <div class="flex items-center gap-1.5 mb-0.5">
-                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">本页 · 排名词</span>
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">本页 · {{ typeLabel }}</span>
               </div>
               <span class="text-xl font-extrabold leading-none text-indigo-600">
                 {{ rankCount }}<span class="text-xs text-gray-400 font-normal">个</span>
@@ -48,7 +48,7 @@
       <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col relative min-h-[400px]">
         <!-- 卡片头 -->
         <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-          <div class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 group relative cursor-help w-fit">
+          <div class="qm-card-title text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 group relative cursor-help w-fit">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></svg>
             问题列表 ({{ rankCount }})
           </div>
@@ -133,11 +133,17 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { monitorApi } from '@/api/modules/monitor';
 import { userApi } from '@/api/modules/user';
 
 const TYPE_LABEL: Record<string, string> = { industry: '排名词', brand: '口碑词' };
 const fmtDate = (d: string) => (d || '').slice(0, 10).replace(/-/g, '/');
+
+// 排名/口碑共用本页：?type=industry（默认，排名词）/ ?type=brand（口碑词）
+const route = useRoute();
+const type = computed<'industry' | 'brand'>(() => (route.query.type === 'brand' ? 'brand' : 'industry'));
+const typeLabel = computed(() => TYPE_LABEL[type.value] || type.value);
 
 const rankQueries = ref<{ id: number; typeLabel: string; content: string; group: string; date: string; statusLabel: string }[]>([]);
 const totalUsed = ref(0);
@@ -148,7 +154,7 @@ const rankCount = computed(() => rankQueries.value.length);
 onMounted(async () => {
   try {
     const [indResp, sub] = await Promise.all([
-      monitorApi.queryList('industry').catch(() => null),
+      monitorApi.queryList(type.value).catch(() => null),
       userApi.subscription().catch(() => null),
     ]);
     rankQueries.value = (indResp?.list || []).map(q => ({

@@ -192,8 +192,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { monitorApi } from '@/api/modules/monitor';
 import { lastNDays } from '@/utils/engines';
+
+// 排名/口碑共用本页：?type=industry（默认，category=industry）/ ?type=brand（category=brand）
+const route = useRoute();
+const type = computed<'industry' | 'brand'>(() => (route.query.type === 'brand' ? 'brand' : 'industry'));
 
 const PLATFORM_META: Record<string, { name: string; color: string }> = {
   doubao: { name: '豆包', color: '#f59e0b' },
@@ -240,7 +245,7 @@ onMounted(async () => {
   rangeStart.value = start;
   rangeEnd.value = end;
   try {
-    const resp: any = await monitorApi.sourceStats(start, end, 1, 100);
+    const resp: any = await monitorApi.sourceStats(start, end, 1, 100, type.value);
     list.value = resp?.list || [];
     summary.value = resp?.summary || summary.value;
   } catch { list.value = []; }

@@ -121,8 +121,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { monitorApi } from '@/api/modules/monitor';
+
+// 排名/口碑共用本页：?type=industry（默认）/ ?type=brand（口碑词）
+const route = useRoute();
+const type = computed<'industry' | 'brand'>(() => (route.query.type === 'brand' ? 'brand' : 'industry'));
 
 const PLATFORM_NAME: Record<string, string> = {
   doubao: '豆包', deepseek: 'DeepSeek', wenxin: '文心一言', qwen: '通义千问', yuanbao: '元宝',
@@ -142,7 +147,7 @@ const fileName = (s: any) => `${PLATFORM_PREFIX[s.platform] || s.platform}_${que
 
 async function load() {
   try {
-    const resp: any = await monitorApi.snapshotList(date.value, queryId.value, 1);
+    const resp: any = await monitorApi.snapshotList(date.value, queryId.value, 1, type.value);
     list.value = resp?.list || [];
   } catch { list.value = []; }
 }
@@ -151,8 +156,14 @@ onMounted(async () => {
   const d = new Date();
   date.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   try {
-    const t: any = await monitorApi.siTopics();
-    topics.value = Array.isArray(t) ? t : [];
+    if (type.value === 'brand') {
+      // 口碑词：话题下拉来自 /query/list?query_type=brand
+      const qs: any = await monitorApi.queryList('brand');
+      topics.value = (qs?.list || []).map((q: any) => ({ query_id: q.id, name: q.query }));
+    } else {
+      const t: any = await monitorApi.siTopics();
+      topics.value = Array.isArray(t) ? t : [];
+    }
     if (topics.value.length) {
       queryLabel.value = topics.value[0].name || '全部问题';
       queryId.value = topics.value[0].query_id || 0;

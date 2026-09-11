@@ -25,6 +25,13 @@ class SummaryController extends Controller {
 
   _n(v, d = 2) { const n = Number(v); return Number.isFinite(n) ? +n.toFixed(d) : 0; }
 
+  /** 由观点列表计算口碑分（正面占比×100，对标 score 口径），无观点返回 0 */
+  _repScore(opinions, d = 1) {
+    if (!opinions || !opinions.length) return 0;
+    const { ratio } = this.ctx.service.metrics.reputation(opinions);
+    return this._n(ratio.positive * 100, d);
+  }
+
   /** 最近有数据的日期（无则回退今天） */
   async _latestDate(model, brandId) {
     const row = await model.findOne({ brand_id: brandId }).sort({ date: -1 }).select('date').lean();
@@ -142,37 +149,38 @@ class SummaryController extends Controller {
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
     const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { list: {}, group_rows: [] } }; return; }
-    const today = await this._latestDate(ctx.model.DailyMetricBrand, brand.brand_id);
+    const empty = { list: {}, group_rows: [] };
+    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    const qids = (Array.isArray(b.query_id) ? b.query_id : (b.query_id != null ? [b.query_id] : []))
+      .map(Number).filter(Number.isFinite);
+    if (!qids.length) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    const today = String(b.start_date || '').slice(0, 10) || await this._latestDate(ctx.model.DailyMetricBrand, brand.brand_id);
     const yest = ctx.app.dayjs(today).subtract(1, 'day').format('YYYY-MM-DD');
-    const [cur, prev] = await Promise.all([
-      ctx.model.DailyMetricBrand.find({ brand_id: brand.brand_id, date: today }).lean(),
-      ctx.model.DailyMetricBrand.find({ brand_id: brand.brand_id, date: yest }).lean(),
-    ]);
-    const scoreMap = rows => {
+    // 对标 /summary/ai_ranking_matrix：list 按 query_id 键；每引擎口碑分 + all（全平台观点整体口碑分）
+    const scoreMap = async (qid, date) => {
+      const opinions = await ctx.model.Opinion.find({ brand_id: brand.brand_id, query_id: qid, date }).lean();
       const m = {};
-      const all = rows.filter(r => r.rep_score != null);
-      m.all = all.length ? this._n(all.reduce((s, r) => s + Number(r.rep_score), 0) / all.length, 1) : 0;
       for (const p of PLATFORMS) {
-        const pr = rows.filter(r => r.platform === p && r.rep_score != null);
-        m[p] = pr.length ? this._n(pr.reduce((s, r) => s + Number(r.rep_score), 0) / pr.length, 1) : 0;
+        const ops = opinions.filter(o => o.platform === p);
+        m[p] = ops.length ? this._repScore(ops, 1) : 0;
       }
+      m.all = opinions.length ? this._repScore(opinions, 1) : 0;
       return m;
     };
-    const todayScore = scoreMap(cur);
-    const yesterdayScore = scoreMap(prev);
-    const change = {};
-    for (const k of Object.keys(todayScore)) {
-      const d = this._n(todayScore[k] - yesterdayScore[k], 1);
-      change[k] = { value: todayScore[k], trend: d === 0 ? 'flat' : d > 0 ? 'up' : 'down' };
+    const list = {};
+    for (const qid of qids) {
+      const [todayScore, yesterdayScore] = await Promise.all([scoreMap(qid, today), scoreMap(qid, yest)]);
+      const change = {};
+      for (const k of Object.keys(todayScore)) {
+        const d = this._n(todayScore[k] - yesterdayScore[k], 1);
+        change[k] = { value: d, trend: d === 0 ? 'flat' : d > 0 ? 'up' : 'down' };
+      }
+      list[String(qid)] = { today_score: todayScore, yesterday_score: yesterdayScore, change };
     }
-    ctx.body = {
-      code: 200, msg: 'ok',
-      data: { list: { all: { today_score: todayScore, yesterday_score: yesterdayScore, change } }, group_rows: [] },
-    };
+    ctx.body = { code: 200, msg: 'ok', data: { list, group_rows: [] } };
   }
 
-  /* ---------- 口碑数据 ---------- */
+  /* ---------- 口碑数据（对标 /summary/reputation_data） ---------- */
   async reputationData() {
     const { ctx } = this;
     const userId = ctx.state.user.id;
@@ -181,39 +189,62 @@ class SummaryController extends Controller {
     const empty = { query_dict: {}, query_id: null, result: [], score_result: [], valid_data_date_list: [], user_data_status: false };
     if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
     const query_id = Number(b.query_id) || null;
+    const start_date = String(b.start_date || '').slice(0, 10);
+    const end_date = String(b.end_date || '').slice(0, 10);
     const q = { brand_id: brand.brand_id };
     if (query_id) q.query_id = query_id;
-    const [opinions, topics, scores, queries] = await Promise.all([
+    if (start_date || end_date) {
+      q.date = {};
+      if (start_date) q.date.$gte = start_date;
+      if (end_date) q.date.$lte = end_date;
+    }
+    const [opinions, topics, queries] = await Promise.all([
       ctx.model.Opinion.find(q).sort({ date: 1 }).lean(),
       ctx.model.OpinionTopic.find({ brand_id: brand.brand_id }).lean(),
-      ctx.model.DailyMetricBrand.find({ brand_id: brand.brand_id }).sort({ date: 1 }).lean(),
       ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_type: 'brand' }).lean(),
     ]);
     const queryDict = {};
     for (const mq of queries) queryDict[mq.query_id] = mq.query;
-    // 按极性分组的观点（label → { platforms, variants_count }）
-    const bucket = () => ({});
-    const analysis = { ratio: { positive: 0, neutral: 0, negative: 0 }, positive: bucket(), neutral: bucket(), negative: bucket() };
+    if (query_id && !queryDict[query_id]) {
+      const mq = await ctx.model.MonitorQuery.findOne({ brand_id: brand.brand_id, query_id }).lean();
+      if (mq) queryDict[mq.query_id] = mq.query;
+    }
+    // 对标 reputation_analysis.platforms 固定 9 键（我方仅 4 家 web 引擎有数据，其余留空数组）
+    const PLATFORM_KEYS = ['kimi', 'qwen', 'doubao', 'wenxin', 'yuanbao', 'deepseek', 'mobile_qwen', 'mobile_doubao', 'mobile_deepseek'];
+    const emptyPlatforms = () => { const o = {}; for (const p of PLATFORM_KEYS) o[p] = []; return o; };
     const topicLabel = {}; for (const t of topics) topicLabel[t.topic_id] = t.label;
+    const analysis = { ratio: { positive: 0, neutral: 0, negative: 0 }, positive: {}, neutral: {}, negative: {} };
     for (const o of opinions) {
       const pol = ['positive', 'neutral', 'negative'].includes(o.polarity) ? o.polarity : 'neutral';
       const label = topicLabel[o.topic_id] || '综合';
-      const grp = analysis[pol][label] || (analysis[pol][label] = { platforms: {}, variants_count: 0 });
-      (grp.platforms[o.platform || 'all'] ||= []).push(o.quote_text);
+      const grp = analysis[pol][label] || (analysis[pol][label] = { platforms: emptyPlatforms(), variants_count: 0 });
+      if (PLATFORM_KEYS.includes(o.platform)) grp.platforms[o.platform].push(o.quote_text);
       grp.variants_count += 1;
     }
     const total = opinions.length || 1;
     analysis.ratio.positive = this._n(opinions.filter(o => o.polarity === 'positive').length / total, 4);
     analysis.ratio.neutral = this._n(opinions.filter(o => o.polarity === 'neutral').length / total, 4);
     analysis.ratio.negative = this._n(opinions.filter(o => o.polarity === 'negative').length / total, 4);
-    const dates = [...new Set(scores.map(s => s.date))].sort();
+    // score_result：platform=all 的每日口碑分（两段小数，对标形状）
+    const scoreDates = [...new Set(opinions.map(o => o.date))].sort();
+    const score_result = scoreDates.map(date => ({
+      date_day: date,
+      score: String(this._repScore(opinions.filter(o => o.date === date), 2)),
+      platform: 'all',
+      query_id: query_id || 0,
+    }));
+    // valid_data_date_list：有采集指标/观点的日期并集，降序（对标形状）
+    const metricDates = await ctx.model.DailyMetricBrand.distinct('date', { brand_id: brand.brand_id });
+    const validDates = [...new Set([...metricDates, ...scoreDates])].sort().reverse();
+    const latestDate = scoreDates.length ? scoreDates[scoreDates.length - 1] : (end_date || ctx.app.dayjs().format('YYYY-MM-DD'));
     ctx.body = {
       code: 200, msg: 'ok',
       data: {
         query_dict: queryDict, query_id,
-        result: [{ id: 1, query_id: query_id || 0, date_day: dates[dates.length - 1] || '', platform: 'all', reputation_analysis: analysis }],
-        score_result: scores.map(s => ({ date_day: s.date, score: String(s.rep_score != null ? s.rep_score : 0), platform: s.platform, query_id: query_id || 0 })),
-        valid_data_date_list: dates, user_data_status: scores.length > 0,
+        result: [{ id: 0, query_id: query_id || 0, date_day: latestDate, platform: 'all', reputation_analysis: analysis }],
+        score_result,
+        valid_data_date_list: validDates.slice(0, 7),
+        user_data_status: scoreDates.length > 0,
       },
     };
   }

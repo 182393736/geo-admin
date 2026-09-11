@@ -175,7 +175,7 @@
             </div>
           </div>
           <div class="border border-gray-100 rounded-xl bg-gray-50/50 p-4">
-            <SparkLine v-if="ownPoints.length > 1" :points="ownPoints" :labels="ownLabels" color="#059669" height="180" :digits="0" />
+            <SparkLine v-if="ownPoints.length > 1" :points="ownPoints" :labels="ownLabels" color="#059669" :height="180" :digits="0" />
             <div v-else class="h-[180px] flex items-center justify-center text-sm text-gray-400">暂无自有内容趋势</div>
             <div class="mt-2 text-center text-xs text-gray-500">
               最新收录率 <span class="font-bold text-emerald-700">{{ ownRate }}%</span>

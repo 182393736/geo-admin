@@ -332,13 +332,34 @@ class SourceController extends Controller {
     ctx.body = { code: 200, msg: 'ok', data: rows.map(m => ({ query_id: m.query_id, name: m.query })) };
   }
 
-  /* ---------- 快照（暂空） ---------- */
+  /* ---------- 快照（对齐 /snapshot/export/list） ---------- */
   async snapshotList() {
     const { ctx } = this;
     const b = ctx.request.body || {};
-    // 对标请求：{ page, page_size, start_date, query_id, query_type }
+    // 对标请求：{ page, page_size, start_date, query_id, query_type }；query_type 决定话题类型，query_id 已唯一到具体问题
     void b.query_type;
-    ctx.body = { code: 200, msg: 'ok', data: { list: [], total: 0, page: 1, page_size: 10 } };
+    const empty = { list: [], total: 0, page: 1, page_size: 10 };
+    const userId = ctx.state.user.id;
+    const brand = await this._resolveBrand(userId, b.brand_id);
+    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    const page = Math.max(1, parseInt(b.page, 10) || 1);
+    const size = Math.min(50, Math.max(1, parseInt(b.page_size, 10) || 10));
+    const q = { brand_id: brand.brand_id };
+    const start = String(b.start_date || '').slice(0, 10);
+    if (start) q.exec_date = start;
+    const qid = parseInt(b.query_id, 10);
+    if (Number.isFinite(qid) && qid > 0) q.query_id = qid;
+    const [rows, total] = await Promise.all([
+      ctx.model.Snapshot.find(q).sort({ created_at: -1 }).skip((page - 1) * size).limit(size).lean(),
+      ctx.model.Snapshot.countDocuments(q),
+    ]);
+    ctx.body = { code: 200, msg: 'ok', data: {
+      list: rows.map(r => ({
+        id: r.snapshot_id, platform: r.platform, photo_url: r.photo_url || null,
+        exec_date: r.exec_date, query_id: r.query_id, size: r.size || null,
+      })),
+      total, page, page_size: size,
+    } };
   }
 }
 

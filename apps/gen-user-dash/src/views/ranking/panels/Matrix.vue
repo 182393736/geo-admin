@@ -96,7 +96,7 @@
               </div>
             </div>
             <div class="h-[120px]">
-              <SparkLine :points="kpi.points" :labels="kpi.labels" :color="kpi.line" height="120" :digits="2" />
+              <SparkLine :points="kpi.points" :labels="kpi.labels" :color="kpi.line" :height="120" :digits="2" />
             </div>
             <div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
               <span class="text-xs text-gray-400">提及问题 / 监控总数</span>
@@ -189,7 +189,7 @@
                   <span class="text-xs text-gray-400 font-medium">近 7 天</span>
                 </div>
                 <div class="flex-1 min-h-0">
-                  <SparkLine v-if="hasRankTrend" :points="rankTrendPoints" :labels="rankTrendLabels" color="#4f46e5" height="380" :digits="0" />
+                  <SparkLine v-if="hasRankTrend" :points="rankTrendPoints" :labels="rankTrendLabels" color="#4f46e5" :height="380" :digits="0" />
                   <div v-else class="h-full flex items-center justify-center text-sm text-gray-400">暂无趋势数据</div>
                 </div>
               </div>

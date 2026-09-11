@@ -28,7 +28,7 @@
                   修改
                 </button>
               </div>
-              <input readonly class="h-[38px] px-3 rounded-lg text-[14px] font-semibold cursor-pointer" :value="data.brandName" style="background: rgb(245, 246, 250); border: 1px solid rgb(230, 232, 238); color: rgb(15, 17, 21);" />
+              <input readonly class="rm-brand-input h-[38px] px-3 rounded-lg text-[14px] font-semibold cursor-pointer" :value="data.brandName" style="background: rgb(245, 246, 250); border: 1px solid rgb(230, 232, 238); color: rgb(15, 17, 21);" />
             </div>
             <div class="flex flex-col gap-2">
               <div class="flex items-center gap-2 flex-wrap text-[12.5px]">

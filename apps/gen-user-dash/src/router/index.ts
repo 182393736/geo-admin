@@ -67,36 +67,13 @@ const routes = [
         component: () => import('@/views/ranking/index.vue'),
         meta: { title: '搜索快照下载' },
       },
-      // 口碑 - 5个子页面
+      // 口碑 - AI口碑分析主页（引用源追溯/监控问题管理/搜索快照下载/监控识别管理
+      // 复用排名同名页面，仅 ?type=brand 区分，见 MainLayout 口碑子菜单）
       {
         path: '/dashboard/sentiment',
         name: 'Sentiment',
         component: () => import('@/views/sentiment/index.vue'),
         meta: { title: 'AI口碑分析' },
-      },
-      {
-        path: '/dashboard/sentiment/citation',
-        name: 'SentimentCitation',
-        component: () => import('@/views/sentiment/citation.vue'),
-        meta: { title: '引用源追溯' },
-      },
-      {
-        path: '/dashboard/sentiment/question-mgmt',
-        name: 'SentimentQuestionMgmt',
-        component: () => import('@/views/sentiment/question-mgmt.vue'),
-        meta: { title: '监控问题管理' },
-      },
-      {
-        path: '/dashboard/sentiment/recognition-mgmt',
-        name: 'SentimentRecognitionMgmt',
-        component: () => import('@/views/sentiment/recognition-mgmt.vue'),
-        meta: { title: '监控识别管理' },
-      },
-      {
-        path: '/dashboard/sentiment/snapshot',
-        name: 'SentimentSnapshot',
-        component: () => import('@/views/sentiment/snapshot.vue'),
-        meta: { title: '搜索快照下载' },
       },
       // 优化 - 4个子页面
       {

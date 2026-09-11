@@ -84,7 +84,7 @@
             v-for="sub in group.items"
             :key="sub.path"
             class="sub-item"
-            :class="{ 'sub-item--active': route.path === sub.path }"
+            :class="{ 'sub-item--active': route.fullPath === sub.path || route.path === sub.path }"
             @click="navigate(sub.path)"
           >
             <span class="sub-item-icon"><component :is="sub.icon" /></span>
@@ -214,10 +214,15 @@ const menuItems: MenuItem[] = [
       {
         items: [
           { path: '/dashboard/sentiment', label: 'AI口碑分析', icon: IconThumbUp },
-          { path: '/dashboard/sentiment/citation', label: '引用源追溯', icon: IconLink },
-          { path: '/dashboard/sentiment/question-mgmt', label: '监控问题管理', icon: IconQuestionCircle },
-          { path: '/dashboard/sentiment/recognition-mgmt', label: '监控识别管理', icon: IconCheckCircle },
-          { path: '/dashboard/sentiment/snapshot', label: '搜索快照下载', icon: IconCamera },
+          { path: '/dashboard/citation-sources?type=brand', label: '引用源追溯', icon: IconLink },
+        ],
+      },
+      {
+        label: '管理',
+        items: [
+          { path: '/dashboard/topic-management?type=brand', label: '监控问题管理', icon: IconQuestionCircle },
+          { path: '/dashboard/monitor-recognition?type=brand', label: '监控识别管理', icon: IconCheckCircle },
+          { path: '/dashboard/downloads?type=brand', label: '搜索快照下载', icon: IconCamera },
         ],
       },
     ],
@@ -282,9 +287,12 @@ const brandGroups: SubGroup[] = [
 
 const activeGroup = computed(() => {
   const path = route.path;
+  // 口碑与排名共用 4 个页面，仅 ?type=brand 区分归属
+  const shared = ['/dashboard/citation-sources', '/dashboard/topic-management', '/dashboard/monitor-recognition', '/dashboard/downloads'];
   if (path.startsWith('/dashboard/brand-card')) return 'brand';
-  if (path.startsWith('/dashboard/ai-index') || path.startsWith('/dashboard/competitor-insight') || path.startsWith('/dashboard/citation-sources') || path.startsWith('/dashboard/source-preference') || path.startsWith('/dashboard/source-intelligence') || path.startsWith('/dashboard/topic-management') || path.startsWith('/dashboard/monitor-recognition') || path.startsWith('/dashboard/downloads')) return 'ranking';
   if (path.startsWith('/dashboard/sentiment')) return 'sentiment';
+  if (shared.some(p => path.startsWith(p))) return route.query.type === 'brand' ? 'sentiment' : 'ranking';
+  if (path.startsWith('/dashboard/ai-index') || path.startsWith('/dashboard/competitor-insight') || path.startsWith('/dashboard/source-preference') || path.startsWith('/dashboard/source-intelligence')) return 'ranking';
   if (path.startsWith('/dashboard/media-library')) return 'optimize';
   if (path.startsWith('/dashboard/overview')) return 'overview';
   if (path.startsWith('/dashboard/new-agent')) return 'agent';
