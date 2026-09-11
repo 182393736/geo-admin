@@ -3,11 +3,16 @@
  * LLM 统一客户端（gen-api 侧所有 LLM 调用唯一入口）
  * ------------------------------------------------------------------
  * 协议：OpenAI 兼容 POST {baseURL}/chat/completions，默认跟随 config.llm 当前供应商
- *       （siliconflow / agnes / deepseek，LLM_PROVIDER 切换），向后兼容旧 config.deepseek。
+ *       （siliconflow / agnes / deepseek / mistral，LLM_PROVIDER 切换），向后兼容旧 config.deepseek。
+ * 传输层：复用 @geo-admin/geo-agent 的 createSiliconFlowClient —— 全局 fetch + undici ProxyAgent
+ *         显式代理，与「首登分析」完全同一条通道。开发环境走 LLM_PROXY（如 http://localhost:1087），
+ *         生产不设置即直连。⚠️ 不再用 ctx.curl：urllib v4 已移除 proxy 选项，dispatcher 透传不可靠，
+ *         曾导致直连 api.mistral.ai 超时。
  * 约定：所有结构化抽取强制 JSON Mode（response_format: json_object）；
  *       供应商不认该参数（400）时自动去掉重试一次；解析失败再按 JSON 修复重试一次。
  */
 const { Service } = require('egg');
+const { createSiliconFlowClient } = require('@geo-admin/geo-agent');
 
 /** 品牌名规范化兜底：去空白、去常见公司/法律/电商后缀（LLM 未给 norm_name 时使用） */
 const BRAND_SUFFIXES = [
@@ -21,6 +26,9 @@ function normalizeBrandName(name) {
   }
   return s;
 }
+
+// 传输层参数只打印一次（schedule 每 tick 新建实例，避免刷屏）
+let transportLogged = false;
 
 class DeepseekService extends Service {
   /** 当前供应商配置：config.llm（apiKey(s)/baseURL/model/chatTemplateKwargs）> config.deepseek */
@@ -39,79 +47,38 @@ class DeepseekService extends Service {
     };
   }
 
-  /** 多 key 轮询：每次调用取下一个 key，重试自动换 key 分摊速率限制 */
-  nextKey() {
-    const keys = this.cfg.apiKeys;
-    if (!keys.length) return '';
-    if (this._keyCursor === undefined) this._keyCursor = 0;
-    return keys[this._keyCursor++ % keys.length];
-  }
-
-  /**
-   * 显式 HTTP(S) 代理 dispatcher（与 geo-agent 同口径）：
-   * urllib v4 已移除 proxy 选项（undici 内核），必须挂 undici ProxyAgent 作 dispatcher 才会真正走代理；
-   * 生产环境 LLM_PROXY 为空 → 直连。本地开发走本机代理（如 http://localhost:1087）。
-   */
-  _proxyDispatcher() {
-    const proxyUrl = this.cfg.proxy;
-    if (!proxyUrl) return null;
-    if (this.__dispatcher === undefined) {
-      try {
-        const { ProxyAgent } = require('undici');
-        this.__dispatcher = new ProxyAgent(proxyUrl);
-      } catch (e) {
-        this.__dispatcher = null;
-        (this.ctx && this.ctx.logger && this.ctx.logger.warn)
-          ? this.ctx.logger.warn(`[llm] 已配置代理 ${proxyUrl} 但无法加载 undici，直连: ${e.message}`)
-          : console.warn(`[llm] 已配置代理 ${proxyUrl} 但无法加载 undici，直连: ${e.message}`);
+  /** geo-agent 客户端（与首登分析同源：fetch + undici ProxyAgent；多 key 轮询 + 网络重试） */
+  get client() {
+    if (!this._client) {
+      const c = this.cfg;
+      this._client = createSiliconFlowClient({
+        apiKey: c.apiKeys[0] || '',
+        apiKeys: c.apiKeys,
+        baseURL: c.baseURL,
+        model: c.model,
+        chatTemplateKwargs: c.chatTemplateKwargs || null,
+        proxy: c.proxy || undefined,
+      });
+      if (!transportLogged) {
+        transportLogged = true;
+        const log = this.ctx && this.ctx.logger ? this.ctx.logger.info : console.log;
+        log(`[llm] 传输层=geo-agent fetch 通道 model=${c.model} baseURL=${c.baseURL} proxy=${c.proxy || '(直连)'}`);
       }
     }
-    return this.__dispatcher;
+    return this._client;
   }
 
-  async chat(messages, { model, temperature = 0.2, jsonMode = true, maxTokens = 4096 } = {}) {
-    const { ctx } = this;
-    const c = this.cfg;
-    if (!c.apiKeys.length) throw new Error('LLM 未配置 API Key（请设置 LLM_PROVIDER 对应供应商的 *_API_KEY / *_API_KEYS）');
-    const dispatcher = this._proxyDispatcher();
-    const body = {
-      model: model || c.model, temperature, messages, max_tokens: maxTokens,
-      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-      ...(c.chatTemplateKwargs ? { chat_template_kwargs: c.chatTemplateKwargs } : {}),
-    };
-    const opts = () => ({
-      method: 'POST', timeout: 60000,
-      headers: { Authorization: `Bearer ${this.nextKey()}`, 'Content-Type': 'application/json' },
-      contentType: 'json', dataType: 'json',
-      ...(dispatcher ? { dispatcher } : {}),
-    });
-    let resp;
-    try {
-      resp = await ctx.curl(`${c.baseURL}/chat/completions`, { ...opts(), data: body });
-    } catch (e) {
-      // 供应商不认 response_format → 去掉重试一次
-      if (jsonMode && e.status === 400) {
-        const { response_format, ...rest } = body;
-        resp = await ctx.curl(`${c.baseURL}/chat/completions`, { ...opts(), data: rest });
-      } else {
-        throw e;
-      }
-    }
-    const content = resp.data?.choices?.[0]?.message?.content ?? '';
-    return { content, usage: resp.data?.usage };
+  /** 原始对话：messages → { content, usage } */
+  async chat(messages, opts = {}) {
+    if (!this.cfg.apiKeys.length) throw new Error('LLM 未配置 API Key（请设置 LLM_PROVIDER 对应供应商的 *_API_KEY / *_API_KEYS）');
+    const { content, usage } = await this.client.chat(messages, opts);
+    return { content, usage };
   }
 
-  /** 结构化调用：schema 仅用于提示词注入与校验注释，返回 JSON 对象 */
+  /** 结构化调用：schema 仅用于提示词注入，返回 { data, usage }（JSON 模式 + 解析失败补救） */
   async chatJson({ system, user, schemaHint, ...opts }) {
-    const sys = `${system}\n【严格要求】只输出合法 JSON 对象，不要任何解释、不要 markdown 围栏。结构必须符合：\n${schemaHint}`;
-    let { content, usage } = await this.chat([{ role: 'system', content: sys }, { role: 'user', content: user }], opts);
-    let data = this.safeParse(content);
-    if (data === null) {
-      // 失败补救：抽取第一个 {...} 区块重试一次
-      const m = content.match(/\{[\s\S]*\}/);
-      if (m) data = this.safeParse(m[0]);
-    }
-    if (data === null) throw new Error(`LLM JSON 解析失败: ${content.slice(0, 200)}`);
+    if (!this.cfg.apiKeys.length) throw new Error('LLM 未配置 API Key（请设置 LLM_PROVIDER 对应供应商的 *_API_KEY / *_API_KEYS）');
+    const { data, usage } = await this.client.chatJson({ system, user, schemaHint, ...opts });
     return { data, usage };
   }
 
@@ -120,10 +87,6 @@ class DeepseekService extends Service {
   /**
    * 流水线A：排名抽取 —— 从 AI 回答原文抽取有序品牌/厂家名录
    * 返回 [{ name, norm_name, position, snippet }]
-   *  - name      回答中出现的原始名称
-   *  - norm_name 规范化简称（去公司/集团/实业等后缀与地名），作 canonical_name 归并与别名命中的键
-   *  - position  位次（1 起）
-   *  - snippet   名称附近原文短句
    */
   async extractRankedList(answerText) {
     const schemaHint = `{
@@ -135,6 +98,7 @@ class DeepseekService extends Service {
       system: '你是品牌榜单抽取助手。从 AI 引擎回答原文中按出现顺序抽取被推荐的品牌/厂家/公司。规则：\n1. 只抽取真实品牌或公司实体，不抽产品型号、材质、地名、平台名；\n2. 同一品牌只保留第一次出现的位置；\n3. 去掉「推荐/第一名/首选」等修饰词，保留名称本体；\n4. 回答未明确推荐任何品牌时返回空列表 list: []。',
       user: `回答原文：\n${String(answerText || '').slice(0, 8000)}`,
       schemaHint,
+      timeoutMs: 60000,
     });
     const list = Array.isArray(data && data.list) ? data.list : [];
     return list
@@ -156,10 +120,6 @@ class DeepseekService extends Service {
   /**
    * 流水线B：口碑抽取 —— 从 AI 回答原文抽取市场/用户评价观点
    * 返回 [{ quote, label, polarity, target }]
-   *  - quote    观点原文短句（逐字来自原文）
-   *  - label    观点主题归并词（同义观点用同一 label）
-   *  - polarity positive | neutral | negative
-   *  - target   该观点针对的品牌/厂家名（无则空字符串）
    */
   async extractOpinions(answerText) {
     const schemaHint = `{
@@ -171,6 +131,7 @@ class DeepseekService extends Service {
       system: '你是口碑观点抽取助手。从 AI 回答原文中抽取市场/用户对品牌、产品、厂家的评价观点。规则：\n1. quote 必须逐字来自原文，不得改写或拼接；\n2. label 是观点主题的归并词，同义观点用同一 label；\n3. polarity 三选一（positive/neutral/negative）；\n4. 没有明确评价时返回空列表 opinions: []。',
       user: `回答原文：\n${String(answerText || '').slice(0, 8000)}`,
       schemaHint,
+      timeoutMs: 60000,
     });
     const opinions = Array.isArray(data && data.opinions) ? data.opinions : [];
     return opinions
