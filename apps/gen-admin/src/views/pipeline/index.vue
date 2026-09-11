@@ -74,7 +74,7 @@
               </div>
               <div class="tl-body">
                 <div class="tl-head">
-                  <span class="tl-title">{{ stageLabel(s) }}</span>
+                  <span class="tl-title">{{ stageLabel[s] }}</span>
                   <a-tag :color="stageColor(stageStatus(s))" size="small">{{ stageStatusText(s) }}</a-tag>
                   <span v-if="stageEvent(s)?.updated_at" class="tl-time">{{ fmtTime(stageEvent(s).updated_at) }}</span>
                 </div>
