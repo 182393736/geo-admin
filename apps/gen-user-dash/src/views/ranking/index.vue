@@ -1,31 +1,31 @@
 <template>
   <div class="ranking-page">
     <div v-if="currentTab === 'Ranking'" class="tab-content">
-      <PreCollectionEmpty title="AI排名透视" />
+      <MatrixPanel />
     </div>
 
     <div v-else-if="currentTab === 'RankingCompetitor'" class="tab-content">
-      <PreCollectionEmpty title="AI竞品透视" />
+      <CompetitorPanel />
     </div>
 
     <div v-else-if="currentTab === 'RankingCitation'" class="tab-content">
-      <PreCollectionEmpty title="引用源追溯" />
+      <CitationPanel />
     </div>
 
     <div v-else-if="currentTab === 'RankingSourcePref'" class="tab-content">
-      <PreCollectionEmpty title="信源平台偏好" />
+      <SourcePrefPanel />
     </div>
 
     <div v-else-if="currentTab === 'RankingSourceIntel'" class="tab-content">
-      <PreCollectionEmpty title="引用源洞察" />
+      <SourceIntelPanel />
     </div>
 
     <div v-else-if="currentTab === 'RankingSnapshot'" class="tab-content">
-      <PreCollectionEmpty title="搜索快照下载" />
+      <SnapshotPanel />
     </div>
 
     <div v-else-if="currentTab === 'RankingExport'" class="tab-content">
-      <PreCollectionEmpty title="导出品牌透视报告" />
+      <ExportPanel />
     </div>
 
     <div v-else-if="currentTab === 'RankingQuestionMgmt'" class="qm-page">
@@ -258,7 +258,13 @@ import { useRoute } from 'vue-router';
 import { monitorApi } from '@/api/modules/monitor';
 import { userApi } from '@/api/modules/user';
 import { brandApi } from '@/api/modules/brand';
-import PreCollectionEmpty from '@/components/PreCollectionEmpty.vue';
+import MatrixPanel from './panels/Matrix.vue';
+import CompetitorPanel from './panels/Competitor.vue';
+import CitationPanel from './panels/Citation.vue';
+import SourcePrefPanel from './panels/SourcePref.vue';
+import SourceIntelPanel from './panels/SourceIntel.vue';
+import SnapshotPanel from './panels/Snapshot.vue';
+import ExportPanel from './panels/Export.vue';
 
 const route = useRoute();
 const currentTab = computed(() => route.name as string);
