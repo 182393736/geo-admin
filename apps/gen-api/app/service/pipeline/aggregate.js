@@ -30,14 +30,31 @@ class AggregateService extends Service {
                     score: mentions.filter(m => m.is_target).reduce((s, m) => s + ctx.service.metrics.rankScore(m.position), 0) } },
           { upsert: true });
       }
-      /* ---- 2) 口碑日指标 ---- */
+      /* ---- 2) 品牌级日指标（口碑 + 三率，按平台一条记录） ---- */
       const bPlatforms = (b.platforms && b.platforms.length)
         ? b.platforms
         : (ctx.app.config.collector && ctx.app.config.collector.platforms) || ['doubao', 'deepseek', 'wenxin', 'yuanbao'];
       for (const platform of bPlatforms) {
-        const ops = await ctx.model.Opinion.find({ brand_id: b.brand_id, date: targetDate, platform }).lean();
+        const [ops, pSlots, pMentions] = await Promise.all([
+          ctx.model.Opinion.find({ brand_id: b.brand_id, date: targetDate, platform }).lean(),
+          ctx.model.CollectSlot.find({ brand_id: b.brand_id, date: targetDate, platform, status: { $in: ['ok', 'empty'] } }).lean(),
+          ctx.model.BrandMention.find({ brand_id: b.brand_id, date: targetDate, platform }).lean(),
+        ]);
+        // 目标提及按 query 去重（同 query 多别名/多次出现只取位次最优一条），
+        // 口径与 query 级一致：mention=被提及的 query 数、分母=该平台有效槽位数
+        const targetByQuery = new Map();
+        for (const m of pMentions) {
+          if (!m.is_target) continue;
+          const prev = targetByQuery.get(m.query_id);
+          if (!prev || (m.position && (m.position < (prev.position || 999)))) targetByQuery.set(m.query_id, m);
+        }
         const rep = ctx.service.metrics.reputation(ops);
-        await ctx.model.DailyMetricBrand.updateOne({ brand_id: b.brand_id, platform, date: targetDate }, { $set: rep }, { upsert: true });
+        const rates = ctx.service.metrics.rates(pSlots, [...targetByQuery.values()]);
+        await ctx.model.DailyMetricBrand.updateOne(
+          { brand_id: b.brand_id, platform, date: targetDate },
+          { $set: { ...rep, mention_rate: rates.mention_rate, top3_rate: rates.top3_rate, first_rate: rates.first_rate } },
+          { upsert: true },
+        );
       }
       /* ---- 3) 信源日统计（含自有归因） ---- */
       await ctx.model.CitationEdge.aggregate([
