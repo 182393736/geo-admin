@@ -19,7 +19,7 @@
             <div class="ov2-brand">
               {{ brandName }}
               <span v-if="pendingCollection" class="ov2-live wait" title="首次采集将于次日 00:30 自动进行"><i></i>等待首次采集</span>
-              <span v-else class="ov2-live normal" title="采集槽位 35/35，完整度 100.0%"><i></i>采集正常</span>
+              <span v-else class="ov2-live normal" :title="`采集槽位 ${ovStats?.actual_slots ?? 0}/${ovStats?.expected_slots ?? 0}，完整度 ${ovStats?.completeness_rate ?? 0}%`"><i></i>采集正常</span>
             </div>
             <div class="ov2-meta">
               <span class="ov2-mchip pri">{{ industry || '未识别行业' }}</span>
@@ -34,10 +34,10 @@
           </button>
         </div>
         <div class="ov2-facts2">
-          <div class="ov2-fact"><b>{{ pendingCollection ? '—' : '40' }}</b><span>当日采集查询</span></div>
-          <div class="ov2-fact"><b>{{ pendingCollection ? '—' : '196' }}</b><span>引用源</span></div>
-          <div class="ov2-fact"><b>0</b><span>已发稿件</span></div>
-          <span class="ov2-upd">{{ pendingCollection ? `等待首次采集 · 预计 ${queryStatus?.expected_slots || 0} 槽位（${queryStatus?.enabled_queries || 0} 问题 × 5 引擎）` : '统计日期 2026-08-28 · 更新于 2026-08-29 13:03' }}</span>
+          <div class="ov2-fact"><b>{{ pendingCollection ? '—' : (ovStats?.collected_queries ?? '—') }}</b><span>本期采集查询</span></div>
+          <div class="ov2-fact"><b>{{ pendingCollection ? '—' : (ovStats?.reference_sources ?? '—') }}</b><span>引用源</span></div>
+          <div class="ov2-fact"><b>{{ pendingCollection ? '—' : (ovStats?.published_articles ?? '—') }}</b><span>已发稿件</span></div>
+          <span class="ov2-upd">{{ pendingCollection ? `等待首次采集 · 预计 ${queryStatus?.expected_slots || 0} 槽位（${queryStatus?.enabled_queries || 0} 问题 × 5 引擎）` : `统计日期 ${ovStats?.stat_date || '—'} · 更新于 ${ovStats?.updated_at || '—'}` }}</span>
         </div>
       </div>
       <!-- 右：快捷动作 -->
@@ -89,12 +89,12 @@
         <button class="on">周报</button>
         <button class="on">月报</button>
       </div>
-      <span class="rp-pick-cur">8/17–8/23周报</span>
+      <span class="rp-pick-cur">{{ report?.label || '—' }}</span>
       <span class="rp-meta-sep">·</span>
-      <span class="rp-meta-text">08-17 至 08-23</span>
+      <span class="rp-meta-text">{{ report?.range || '—' }}</span>
       <span class="rp-latest">最新一期</span>
       <span class="rp-meta-sep">·</span>
-      <span class="rp-meta-text">生成于 <b>2026-08-27 20:47</b></span>
+      <span class="rp-meta-text">生成于 <b>{{ reportGeneratedAt || '—' }}</b></span>
       <span class="rp-meta-sep">·</span>
       <span class="rp-meta-text">模板 <b>标准版</b></span>
       <span class="rp-meta-sep">·</span>
@@ -118,23 +118,19 @@
           <div class="rp-m2">
             <div class="rp-m2-cols">
               <div class="rp-m2-endcol">
-                <div class="rp-m2-pill rp-m2-e1"><span class="rp-m2-dot" style="background: rgb(100, 82, 255);"></span><span class="rp-m2-name">DeepSeek · 网页端</span></div>
-                <div class="rp-m2-pill rp-m2-e2"><span class="rp-m2-dot" style="background: rgb(59, 130, 246);"></span><span class="rp-m2-name">豆包 · 网页端</span></div>
-                <div class="rp-m2-pill rp-m2-e3"><span class="rp-m2-dot" style="background: rgb(236, 72, 153);"></span><span class="rp-m2-name">文心一言 · 网页端</span></div>
-                <div class="rp-m2-pill rp-m2-e4"><span class="rp-m2-dot" style="background: rgb(245, 158, 11);"></span><span class="rp-m2-name">通义千问 · 网页端</span></div>
-                <div class="rp-m2-pill rp-m2-e5"><span class="rp-m2-dot" style="background: rgb(6, 182, 212);"></span><span class="rp-m2-name">元宝 · 网页端</span></div>
+                <div class="rp-m2-pill" v-for="e in engines" :key="e.key"><span class="rp-m2-dot" :style="{ background: engineColors[e.key] || 'rgb(100, 82, 255)' }"></span><span class="rp-m2-name">{{ e.name }} · 网页端</span></div>
               </div>
             </div>
             <div class="rp-m2-mid">
-              <div class="rp-m2-hub">佛山</div>
-              <div class="rp-m2-brand">佛山市宏祥家具实业有限公司 · 监控品牌</div>
+              <div class="rp-m2-hub">{{ brandName.slice(0, 2) || '品牌' }}</div>
+              <div class="rp-m2-brand">{{ brandName }} · 监控品牌</div>
               <div class="rp-m2-cap">监控问题 × AI 引擎 × 天</div>
             </div>
             <div class="rp-m2-col right">
-              <div class="rp-m2-stat rp-m2-s1"><div class="rp-m2-sv">7</div><div class="rp-m2-sl">监控排名问题数量</div></div>
-              <div class="rp-m2-stat rp-m2-s2"><div class="rp-m2-sv">1</div><div class="rp-m2-sl">监控口碑问题数量</div></div>
-              <div class="rp-m2-stat rp-m2-s3"><div class="rp-m2-sv">40</div><div class="rp-m2-sl">本期查询量</div></div>
-              <div class="rp-m2-stat rp-m2-s4"><div class="rp-m2-sv">534</div><div class="rp-m2-sl">引用源总量</div></div>
+              <div class="rp-m2-stat rp-m2-s1"><div class="rp-m2-sv">{{ monitorIndustryCount }}</div><div class="rp-m2-sl">监控排名问题数量</div></div>
+              <div class="rp-m2-stat rp-m2-s2"><div class="rp-m2-sv">{{ monitorBrandCount }}</div><div class="rp-m2-sl">监控口碑问题数量</div></div>
+              <div class="rp-m2-stat rp-m2-s3"><div class="rp-m2-sv">{{ collectedQueries }}</div><div class="rp-m2-sl">本期查询量</div></div>
+              <div class="rp-m2-stat rp-m2-s4"><div class="rp-m2-sv">{{ sourceTotal }}</div><div class="rp-m2-sl">引用源总量</div></div>
             </div>
           </div>
           <div class="rp-mon-note">查询量 = 本期实际采集到的「监控问题 × AI 引擎 × 天」去重条数；引用源 = 本期 AI 回答里出现过的来源域名，按域名去重</div>
@@ -153,59 +149,30 @@
         <div class="rp-modcard-b">
           <div class="rep-current">
             <div class="rep-metrics">
-              <div class="rep-metric"><div class="rep-metric-label">品牌提及率</div><div class="rep-metric-value">26.94%<em class="rep-delta flat">—</em></div></div>
-              <div class="rep-metric"><div class="rep-metric-label">Top3 推荐率</div><div class="rep-metric-value">9.39%<em class="rep-delta flat">—</em></div></div>
-              <div class="rep-metric"><div class="rep-metric-label">首位推荐率</div><div class="rep-metric-value">3.27%<em class="rep-delta flat">—</em></div></div>
-              <div class="rep-metric"><div class="rep-metric-label">平均排名</div><div class="rep-metric-value">4.5<em class="rep-delta flat">—</em></div></div>
-              <div class="rep-metric"><div class="rep-metric-label">口碑分</div><div class="rep-metric-value">72<em class="rep-delta flat">—</em></div></div>
-              <div class="rep-metric"><div class="rep-metric-label">引用源数</div><div class="rep-metric-value">534<em class="rep-delta flat">—</em></div></div>
+              <div class="rep-metric"><div class="rep-metric-label">品牌提及率</div><div class="rep-metric-value">{{ fmtPct(metricCard.mention) }}<em :class="['rep-delta', deltaCls(metricCard.mentionD)]">{{ deltaTxt(metricCard.mentionD) }}</em></div></div>
+              <div class="rep-metric"><div class="rep-metric-label">Top3 推荐率</div><div class="rep-metric-value">{{ fmtPct(metricCard.top3) }}<em :class="['rep-delta', deltaCls(metricCard.top3D)]">{{ deltaTxt(metricCard.top3D) }}</em></div></div>
+              <div class="rep-metric"><div class="rep-metric-label">首位推荐率</div><div class="rep-metric-value">{{ fmtPct(metricCard.first) }}<em :class="['rep-delta', deltaCls(metricCard.firstD)]">{{ deltaTxt(metricCard.firstD) }}</em></div></div>
+              <div class="rep-metric"><div class="rep-metric-label">口碑分</div><div class="rep-metric-value">{{ fmtNum(metricCard.rep) }}<em :class="['rep-delta', deltaCls(metricCard.repD)]">{{ deltaTxt(metricCard.repD) }}</em></div></div>
+              <div class="rep-metric"><div class="rep-metric-label">引用源数</div><div class="rep-metric-value">{{ fmtNum(metricCard.sources) }}</div></div>
             </div>
             <div class="rp-emx">
               <div class="rp-emx-t">按 AI 引擎拆解 · 环比上期</div>
               <div class="rp-emx-h">
                 <span>AI 引擎</span>
-                <span>平均位次</span>
+                <span>权重分</span>
                 <span>提及率</span>
                 <span>Top3 推荐率</span>
                 <span>首位推荐率</span>
               </div>
-              <div class="rp-emx-r">
-                <span class="rp-emx-n"><i style="background: rgb(100, 82, 255);"></i>DeepSeek</span>
-                <span><b>#4.7</b><em class="flat">—</em></span>
-                <span><b>28.57%</b><em class="flat">—</em></span>
-                <span><b>8.16%</b><em class="flat">—</em></span>
-                <span><b>0%</b><em class="flat">—</em></span>
-              </div>
-              <div class="rp-emx-r">
-                <span class="rp-emx-n"><i style="background: rgb(59, 130, 246);"></i>豆包</span>
-                <span><b>#3.4</b><em class="flat">—</em></span>
-                <span><b>12.25%</b><em class="flat">—</em></span>
-                <span><b>4.08%</b><em class="flat">—</em></span>
-                <span><b>2.04%</b><em class="flat">—</em></span>
-              </div>
-              <div class="rp-emx-r">
-                <span class="rp-emx-n"><i style="background: rgb(236, 72, 153);"></i>文心一言</span>
-                <span><b>#2.9</b><em class="flat">—</em></span>
-                <span><b>34.7%</b><em class="flat">—</em></span>
-                <span><b>18.37%</b><em class="flat">—</em></span>
-                <span><b>8.17%</b><em class="flat">—</em></span>
-              </div>
-              <div class="rp-emx-r">
-                <span class="rp-emx-n"><i style="background: rgb(245, 158, 11);"></i>通义千问</span>
-                <span><b>#2.3</b><em class="flat">—</em></span>
-                <span><b>22.45%</b><em class="flat">—</em></span>
-                <span><b>12.25%</b><em class="flat">—</em></span>
-                <span><b>4.08%</b><em class="flat">—</em></span>
-              </div>
-              <div class="rp-emx-r">
-                <span class="rp-emx-n"><i style="background: rgb(6, 182, 212);"></i>元宝</span>
-                <span><b>#5.6</b><em class="flat">—</em></span>
-                <span><b>36.74%</b><em class="flat">—</em></span>
-                <span><b>4.08%</b><em class="flat">—</em></span>
-                <span><b>2.04%</b><em class="flat">—</em></span>
+              <div class="rp-emx-r" v-for="e in engines" :key="e.key">
+                <span class="rp-emx-n"><i :style="{ background: engineColors[e.key] || '#6452ff' }"></i>{{ e.name }}</span>
+                <span><b>#{{ fmtNum(e.score) }}</b><em :class="deltaCls(e.score_delta)">{{ deltaTxt(e.score_delta) }}</em></span>
+                <span><b>{{ fmtPct(e.mention_rate) }}</b><em :class="deltaCls(e.mention_rate_delta)">{{ deltaTxt(e.mention_rate_delta) }}</em></span>
+                <span><b>{{ fmtPct(e.top3_rate) }}</b><em :class="deltaCls(e.top3_rate_delta)">{{ deltaTxt(e.top3_rate_delta) }}</em></span>
+                <span><b>{{ fmtPct(e.first_rate) }}</b><em :class="deltaCls(e.first_rate_delta)">{{ deltaTxt(e.first_rate_delta) }}</em></span>
               </div>
             </div>
-            <div class="rp-emx-note">口径同「AI排名透视」：提及率 = 被提及的采样占比（不限位次） · Top3 推荐率 = 进入前三的采样占比 · 首位推荐率 = 排到首位的采样占比；一次采样 = 单个监控问题 × 单个引擎 × 单次监测</div>
+            <div class="rp-emx-note">口径同「AI排名透视」：提及率 = 被提及的采样占比（不限位次） · Top3 推荐率 = 进入前三的采样占比 · 首位推荐率 = 排到首位的采样占比；权重分 = 平均位次权重（位次越靠前越高）；一次采样 = 单个监控问题 × 单个引擎 × 单次监测</div>
           </div>
         </div>
       </section>
@@ -250,9 +217,9 @@
         </div>
         <div class="rp-modcard-b">
           <div class="rp-sc-top">
-            <div class="rp-sc-kpi"><b>534</b><span>命中信源平台数</span></div>
-            <div class="rp-sc-kpi"><b class="flat">—</b><span>本期新增信源平台（全量 0）</span></div>
-            <div class="rp-sc-kpi"><b class="flat">—</b><span>本期流失信源平台（全量 0）</span></div>
+            <div class="rp-sc-kpi"><b>{{ citationPlatforms.length }}</b><span>命中信源平台数</span></div>
+            <div class="rp-sc-kpi"><b class="flat">{{ newSources.length ? '+' + newSources.length : '—' }}</b><span>本期新增信源平台</span></div>
+            <div class="rp-sc-kpi"><b class="flat">{{ lostSources.length ? lostSources.length : '—' }}</b><span>本期流失信源平台</span></div>
           </div>
           <div class="rp-sc">
             <div class="rp-sc-h">
@@ -272,12 +239,18 @@
           </div>
           <div class="rp-sc-mvgrid">
             <div class="rp-sc-mvcard up">
-              <div class="rp-sc-mvhead">↗ 本期新进信源平台<b>0</b></div>
-              <div class="rp-sc-mvchips"><em class="rp-sc-mvnone">本期无变化</em></div>
+              <div class="rp-sc-mvhead">↗ 本期新进信源平台<b>{{ newSources.length }}</b></div>
+              <div class="rp-sc-mvchips">
+                <em v-if="!newSources.length" class="rp-sc-mvnone">本期无变化</em>
+                <template v-else><em v-for="s in newSources.slice(0, 6)" :key="s.canonical_source" class="rp-sc-mvchip">{{ s.canonical_source }} +{{ s.delta_ref }}</em></template>
+              </div>
             </div>
             <div class="rp-sc-mvcard dn">
-              <div class="rp-sc-mvhead">↘ 本期掉出信源平台<b>0</b></div>
-              <div class="rp-sc-mvchips"><em class="rp-sc-mvnone">本期无变化</em></div>
+              <div class="rp-sc-mvhead">↘ 本期掉出信源平台<b>{{ lostSources.length }}</b></div>
+              <div class="rp-sc-mvchips">
+                <em v-if="!lostSources.length" class="rp-sc-mvnone">本期无变化</em>
+                <template v-else><em v-for="s in lostSources.slice(0, 6)" :key="s.canonical_source" class="rp-sc-mvchip">{{ s.canonical_source }} {{ s.delta_ref }}</em></template>
+              </div>
             </div>
           </div>
           <div class="rp-sc-note">「可投放」= 该平台已收录进信源库、可直接下单发稿；未收录的平台可在信源库提交收录申请后投放</div>
@@ -295,14 +268,15 @@
         <div class="rp-modcard-b">
           <div class="rp-wbox solo">
             <div class="rp-chan h">
-              <span>信源</span><span>发稿</span><span>已发布</span><span>被引</span>
+              <span>信源</span><span>本期被引</span><span>每次被引成本</span>
             </div>
-            <div class="rp-chan">
-              <span>品牌网</span><span>1</span><span>1</span><span>0</span>
+            <div class="rp-chan" v-for="c in channelRows" :key="c.name">
+              <span>{{ c.name }}</span><span>{{ c.ref_count }}</span><span>{{ c.cost_per_citation != null ? '✦ ' + c.cost_per_citation : '—' }}</span>
             </div>
+            <div v-if="!channelRows.length" class="rp-chan"><span>暂无已收录信源的投放数据</span><span>—</span><span>—</span></div>
           </div>
           <div class="rp-wcost">
-            本期发稿消耗 <span class="rp-wcost-hl">✦ 850</span> 积分 · 折合每次被引 <span class="rp-wcost-hl">✦ 0</span> 积分；成本越低说明该信源在 AI 回答里越"顶用"
+            每次被引成本 = 信源发稿价 ÷ 本期被引次数；成本越低说明该信源在 AI 回答里越"顶用"。发稿与回流明细见「全部记录」。
           </div>
         </div>
       </section>
@@ -320,12 +294,13 @@
             <div class="rp-pubtb-h">
               <span>稿件</span><span>信源</span><span>状态</span><span>被引</span>
             </div>
-            <div class="rp-pubtb-r">
-              <span class="rp-pt-t">非遗豌杂面兵哥豌豆面怎么样？十二年从成都小店到百家连锁</span>
-              <span>中国品牌网</span>
-              <span class="rp-st ok">已发布</span>
-              <span>—</span>
+            <div class="rp-pubtb-r" v-for="(o, i) in publishRows" :key="i">
+              <span class="rp-pt-t">{{ o.title }}</span>
+              <span>{{ o.media }}</span>
+              <span :class="['rp-st', publishStatusCls(o.status)]">{{ publishStatusTxt(o.status) }}</span>
+              <span>{{ o.cites }}</span>
             </div>
+            <div v-if="!publishRows.length" class="rp-pubtb-r"><span class="rp-pt-t">本期暂无发稿</span><span>—</span><span>—</span><span>—</span></div>
           </div>
         </div>
       </section>
@@ -353,6 +328,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { brandApi } from '@/api/modules/brand';
 import { monitorApi } from '@/api/modules/monitor';
+import { reportApi } from '@/api/modules/report';
 import type { BrandSummary, QueryStatus } from '@/api/types';
 
 const auth = useAuthStore();
@@ -360,6 +336,7 @@ const auth = useAuthStore();
 // ============ 品牌档案 + 采集状态（采集之前：仅品牌卡有数据，报告模块为空态） ============
 const summary = ref<BrandSummary | null>(null);
 const queryStatus = ref<QueryStatus | null>(null);
+const report = ref<any>(null);
 const loadError = ref('');
 
 const brandName = computed(() => summary.value?.brand?.name || '—');
@@ -380,38 +357,96 @@ async function loadBrand() {
   }
 }
 
-onMounted(loadBrand);
+// ============ 周报/月报（采集后：来自 /report/latest 真实装配数据） ============
+const payload = computed(() => report.value?.payload || null);
+const ovStats = computed(() => report.value?.overview_stats || null);
+const reportGeneratedAt = computed(() => {
+  const t = report.value?.generated_at;
+  if (!t) return '';
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+});
 
-const competitors = ref([
-  { brand: '育才控股', rate: '8.16%', top3: '7.35%', first: '6.53%' },
-  { brand: '大丰实业', rate: '7.35%', top3: '5.31%', first: '4.08%' },
-  { brand: '北京新奇耐特舞台设备有限公司', rate: '6.12%', top3: '4.49%', first: '3.67%' },
-  { brand: '郦江科创', rate: '8.16%', top3: '6.94%', first: '1.22%' },
-  { brand: '康迪 KANGDI', rate: '5.31%', top3: '4.49%', first: '2.45%' },
-  { brand: '上海永乐座椅有限公司', rate: '4.08%', top3: '3.67%', first: '2.04%' },
-  { brand: '广东英驰家具实业有限公司', rate: '7.76%', top3: '2.86%', first: '1.22%' },
-  { brand: '河北润华体育器材制造有限公司', rate: '5.31%', top3: '2.86%', first: '2.04%' },
-  { brand: '天坛玛金莎', rate: '5.71%', top3: '3.67%', first: '0.82%' },
-  { brand: '河北骏盛金属制品有限公司', rate: '4.08%', top3: '2.86%', first: '1.63%' },
-]);
+async function loadReport() {
+  try {
+    report.value = await reportApi.latest('weekly');
+  } catch { /* 报告未就绪保持空态 */ }
+}
 
-const citationPlatforms = ref([
-  { platform: '抖音', cited: '430', cover: '8', placeable: '信源库内', bar: 100 },
-  { platform: '百度', cited: '428', cover: '8', placeable: '信源库内', bar: 100 },
-  { platform: '大众网', cited: '190', cover: '7', placeable: '信源库内', bar: 44 },
-  { platform: 'szbw6868.cn.china.cn', cited: '185', cover: '6', placeable: '未收录', bar: 43 },
-  { platform: '百度百科', cited: '132', cover: '8', placeable: '信源库内', bar: 31 },
-  { platform: '中国采购与招标网', cited: '122', cover: '8', placeable: '信源库内', bar: 28 },
-  { platform: '中国政府采购网', cited: '118', cover: '7', placeable: '未收录', bar: 27 },
-  { platform: '八方资源网', cited: '86', cover: '8', placeable: '信源库内', bar: 20 },
-  { platform: '十大品牌网', cited: '85', cover: '8', placeable: '信源库内', bar: 20 },
-  { platform: '1688', cited: '82', cover: '7', placeable: '未收录', bar: 19 },
-  { platform: '哔哩哔哩', cited: '82', cover: '6', placeable: '信源库内', bar: 19 },
-  { platform: '今日头条', cited: '77', cover: '8', placeable: '信源库内', bar: 18 },
-  { platform: '搜狐', cited: '72', cover: '8', placeable: '信源库内', bar: 17 },
-  { platform: '顺企网', cited: '68', cover: '8', placeable: '未收录', bar: 16 },
-  { platform: '手机搜狐网', cited: '68', cover: '7', placeable: '信源库内', bar: 16 },
-]);
+const fmtPct = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? `${+v.toFixed(2)}%` : '—');
+const fmtNum = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v * 100) / 100}` : '—');
+/** 环比对象 { delta, trend } → 文案 / 类名 */
+const deltaTxt = (d: any) => (!d || d.trend === 'flat' || !d.delta) ? '—' : `${d.delta > 0 ? '+' : ''}${d.delta}`;
+const deltaCls = (d: any) => (d && d.trend) || 'flat';
+const engineColors: Record<string, string> = {
+  deepseek: 'rgb(100, 82, 255)',
+  doubao: 'rgb(59, 130, 246)',
+  wenxin: 'rgb(236, 72, 153)',
+  yuanbao: 'rgb(6, 182, 212)',
+  qianwen: 'rgb(245, 158, 11)',
+};
+
+// ---- Panel 1 本期引用概况 ----
+const engines = computed(() => (payload.value?.engines || []).filter((e: any) => e.key !== 'all'));
+const monitorIndustryCount = computed(() => (payload.value?.monitor || []).filter((m: any) => m.query_type === 'industry').length);
+const monitorBrandCount = computed(() => (payload.value?.monitor || []).filter((m: any) => m.query_type === 'brand').length);
+const collectedQueries = computed(() => ovStats.value?.collected_queries ?? 0);
+const sourceTotal = computed(() => ovStats.value?.reference_sources ?? 0);
+
+// ---- Panel 2 核心指标 ----
+const metricByKey = (key: string) => (payload.value?.metrics || []).find((x: any) => x.key === key) || {};
+const metricCard = computed(() => ({
+  mention: metricByKey('mention_rate').value ?? 0,
+  top3: metricByKey('top3_rate').value ?? 0,
+  first: metricByKey('first_rate').value ?? 0,
+  rep: metricByKey('rep_score').value ?? 0,
+  sources: metricByKey('sources').value ?? 0,
+  mentionD: metricByKey('mention_rate'),
+  top3D: metricByKey('top3_rate'),
+  firstD: metricByKey('first_rate'),
+  repD: metricByKey('rep_score'),
+}));
+
+// ---- Panel 4 信源引用趋势 ----
+const sourceChanges = computed(() => payload.value?.sourceChanges || []);
+const newSources = computed(() => sourceChanges.value.filter((s: any) => s.delta_ref > 0));
+const lostSources = computed(() => sourceChanges.value.filter((s: any) => s.delta_ref < 0));
+
+// ---- Panel 5 信源投放分析 ----
+const channelRows = computed(() => (payload.value?.channels || []).map((c: any) => ({
+  name: c.canonical_source, ref_count: c.ref_count || 0, cost_per_citation: c.cost_per_citation,
+})));
+
+// ---- Panel 6 发稿明细 ----
+const publishRows = computed(() => (payload.value?.publish || []).map((o: any) => ({
+  title: o.article_title || '—',
+  media: o.media_name || '—',
+  status: o.status,
+  cites: o.cite_count ?? '—',
+})));
+const publishStatusCls = (s: string) => (s === 'ok' ? 'ok' : s === 'fail' ? 'fail' : 'pending');
+const publishStatusTxt = (s: string) => (s === 'ok' ? '已发布' : s === 'fail' ? '失败' : s === 'submitted' ? '已提交' : '待发布');
+
+onMounted(() => { loadBrand(); loadReport(); });
+
+const competitors = computed(() => (payload.value?.competitors || []).map((c: any) => ({
+  brand: c.name,
+  rate: fmtPct(c.mention_rate),
+  top3: fmtPct(c.top3_rate),
+  first: fmtPct(c.first_rate),
+})));
+
+const maxRef = computed(() => {
+  const s = payload.value?.sources || [];
+  return s.length ? Math.max(...s.map((x: any) => x.ref_count || 0)) : 1;
+});
+const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: any) => ({
+  platform: s.canonical_source,
+  cited: String(s.ref_count || 0),
+  cover: s.query_count || 0,
+  placeable: s.media_key ? '信源库内' : '未收录',
+  bar: maxRef.value ? Math.round((s.ref_count || 0) / maxRef.value * 100) : 0,
+})));
 </script>
 
 <style lang="scss" scoped>
@@ -1067,6 +1102,9 @@ const citationPlatforms = ref([
   line-height: 18px;
 }
 
+.rep-delta.up { color: #0fb5a6; }
+.rep-delta.down { color: #ff4757; }
+
 .rp-emx {
   display: block;
   padding: 16px 0 0;
@@ -1147,6 +1185,18 @@ const citationPlatforms = ref([
     margin: 2px 0 0;
     display: block;
   }
+
+  em.up,
+  em.down {
+    font-size: 11px;
+    font-weight: 700;
+    font-style: normal;
+    margin: 2px 0 0;
+    display: block;
+  }
+
+  em.up { color: #0fb5a6; }
+  em.down { color: #ff4757; }
 }
 
 .rp-emx-note {
@@ -1433,6 +1483,19 @@ const citationPlatforms = ref([
   line-height: 17.25px;
 }
 
+.rp-sc-mvchip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  font-style: normal;
+  color: #414356;
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin: 3px 6px 0 0;
+  line-height: 1.4;
+}
+
 .rp-sc-note {
   font-size: 11px;
   color: #8b8d9d;
@@ -1535,6 +1598,18 @@ const citationPlatforms = ref([
     font-size: 11.5px;
     font-weight: 600;
     color: #0fb5a6;
+  }
+
+  .rp-st.fail {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #ff4757;
+  }
+
+  .rp-st.pending {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #b5800a;
   }
 }
 </style>

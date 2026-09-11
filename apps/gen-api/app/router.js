@@ -37,6 +37,31 @@ module.exports = app => {
   // ============ 发稿渠道库（采集前真实展示：信源库页） ============
   router.post('/publish/media/facets', jwtAuth, controller.publish.mediaFacets);
   router.post('/publish/media/list', jwtAuth, controller.publish.mediaList);
+  router.post('/publish/orders', jwtAuth, controller.publish.orders);
+
+  // ============ 报告（概览页周报/月报 6 模块） ============
+  router.get('/report/cycle', jwtAuth, controller.report.cycle);
+  router.post('/report/list', jwtAuth, controller.report.list);
+  router.post('/report/latest', jwtAuth, controller.report.latest);
+
+  // ============ 排名/口碑/竞品（summary 域） ============
+  router.post('/summary/full_ranking_matrix', jwtAuth, controller.summary.fullRankingMatrix);
+  router.post('/summary/mention_rate_trend', jwtAuth, controller.summary.mentionRateTrend);
+  router.post('/summary/top3_rate_trend', jwtAuth, controller.summary.top3RateTrend);
+  router.post('/summary/first_position_rate_trend', jwtAuth, controller.summary.firstPositionRateTrend);
+  router.post('/summary/ai_ranking_matrix', jwtAuth, controller.summary.aiRankingMatrix);
+  router.post('/summary/reputation_data', jwtAuth, controller.summary.reputationData);
+  router.post('/summary/get_references', jwtAuth, controller.summary.getReferences);
+  router.post('/competitor/insight', jwtAuth, controller.summary.competitorInsight);
+
+  // ============ 信源（引用源统计 / 信源洞察 / 快照） ============
+  router.post('/reference_source/stats', jwtAuth, controller.source.stats);
+  router.post('/source_intelligence/source_trend', jwtAuth, controller.source.sourceTrend);
+  router.post('/source_intelligence/engine_preference', jwtAuth, controller.source.enginePreference);
+  router.post('/source_intelligence/own_trend', jwtAuth, controller.source.ownTrend);
+  router.post('/source_intelligence/perspective', jwtAuth, controller.source.perspective);
+  router.get('/source_intelligence/topics', jwtAuth, controller.source.topics);
+  router.post('/snapshot/export/list', jwtAuth, controller.source.snapshotList);
 
   // ============ 采集 worker 协议（机器对机器，服务级鉴权） ============
   const collectorAuth = middleware.collectorAuth();

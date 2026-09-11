@@ -4,11 +4,14 @@
  */
 const { Service } = require('egg');
 class ReportBuildService extends Service {
-  async run({ period_type, brand_id }) {
+  async run({ period_type, brand_id, endToday = false }) {
     const { ctx } = this;
-    const brands = brand_id ? [{ brand_id }] : await ctx.model.Brand.find({ status: { $in: ['active', 'expired'] } }).lean();
+    const cond = brand_id
+      ? { brand_id, status: { $in: ['active', 'expired'] } }
+      : { status: { $in: ['active', 'expired'] } };
+    const brands = await ctx.model.Brand.find(cond).lean();
     for (const b of brands) {
-      const range = ctx.service.report.range(period_type);           // { start, end, cmpStart, cmpEnd, periodKey, label }
+      const range = ctx.service.report.range(period_type, { endToday });           // { start, end, cmpStart, cmpEnd, periodKey, label }
       const daily = await ctx.model.DailyMetricQuery.find({ brand_id: b.brand_id, date: { $gte: range.start, $lte: range.end } }).lean();
       const repDaily = await ctx.model.DailyMetricBrand.find({ brand_id: b.brand_id, date: { $gte: range.start, $lte: range.end } }).lean();
       const srcAgg = await ctx.service.report.sourceSummary(b.brand_id, range); // sources/sourceChanges/channels

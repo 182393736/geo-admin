@@ -39,6 +39,34 @@ class PublishController extends Controller {
     ctx.body = { code: 200, msg: 'ok', data: { taxonomy } };
   }
 
+  async orders() {
+    const { ctx } = this;
+    const userId = ctx.state.user.id;
+    const b = ctx.request.body || {};
+    const page = Math.max(1, parseInt(b.page, 10) || 1);
+    const size = Math.min(100, Math.max(1, parseInt(b.size, 10) || 20));
+    const brands = await ctx.model.Brand.find({ user_id: userId, status: { $ne: 'disabled' } })
+      .sort({ created_at: 1 }).lean();
+    const brandIds = brands.map(x => x.brand_id);
+    const q = brandIds.length ? { brand_id: { $in: brandIds } } : { brand_id: userId };
+    const [total, rows] = await Promise.all([
+      ctx.model.PublishOrder.countDocuments(q),
+      ctx.model.PublishOrder.find(q).sort({ created_at: -1 }).skip((page - 1) * size).limit(size).lean(),
+    ]);
+    ctx.body = {
+      code: 200, msg: 'ok',
+      data: {
+        list: rows.map(o => ({
+          order_no: o.order_no, article_title: o.article_title || '', media_name: o.media_name || '',
+          status: o.status || 'pending', published_url: o.published_url || null, fail_reason: o.fail_reason || null,
+          list_price: o.list_price != null ? o.list_price : 0, sell_price: o.sell_price != null ? o.sell_price : 0,
+          cite_count: o.cite_count || 0, published_at: o.published_at || null, created_at: o.created_at,
+        })),
+        total, page, size,
+      },
+    };
+  }
+
   async mediaList() {
     const { ctx } = this;
     const b = ctx.request.body || {};

@@ -15,8 +15,9 @@ const PLATFORM_KEYS = Object.keys(PLATFORM_NAMES);
 
 class ReportService extends Service {
   /* ================= 周期 ================= */
-  /** 返回 { start, end, cmpStart, cmpEnd, periodKey, label, rangeLabel }（日期均为 YYYY-MM-DD 字符串） */
-  range(periodType) {
+  /** 返回 { start, end, cmpStart, cmpEnd, periodKey, label, rangeLabel }（日期均为 YYYY-MM-DD 字符串）
+   *  opts.endToday=true：end=今天（测试期实时出报告用）；缺省 end=昨天（正式周报语义） */
+  range(periodType, opts = {}) {
     const dayjs = this.app.dayjs;
     const today = dayjs();
     let start, end, cmpStart, cmpEnd, periodKey, label, rangeLabel;
@@ -29,7 +30,7 @@ class ReportService extends Service {
       cmpStart = start.subtract(1, 'month').startOf('month');
       cmpEnd = start.subtract(1, 'day');
     } else {
-      end = today.subtract(1, 'day');                       // 昨天
+      end = opts.endToday ? today : today.subtract(1, 'day'); // 实时报告含今天；正式周报截至昨天
       start = end.subtract(6, 'day');                       // 滚动 7 天
       periodKey = `W-${end.format('YYYYMMDD')}`;
       label = `${start.format('M/D')}–${end.format('M/D')}周报`;
