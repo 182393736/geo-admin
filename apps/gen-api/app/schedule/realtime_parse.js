@@ -27,12 +27,14 @@ class RealtimeParse extends Subscription {
       const today = ctx.app.dayjs().format('YYYY-MM-DD');
       // 1) 新答案即时解析 + 按受影响品牌聚合今天
       await ctx.service.parse.runBatch({ date: today });
-      // 2) 定期全量清扫（默认 60s）：聚合所有 active 品牌的今天
+      // 2) 定期全量清扫（默认 60s）：聚合所有 active 品牌的今天 + 补跑最近有数据的历史日期
+      //    历史日期仅测试程序展开「最近2/3天」槽位时存在（生产定时只展开当天，此分支为空集）
       const sweepMs = Number(config.sweepIntervalMs) || 60 * 1000;
       const now = Date.now();
       if (!lastSweep || now - lastSweep >= sweepMs) {
         lastSweep = now;
         await ctx.service.parse.runBatch({ date: today, all: true, skipParse: true });
+        await ctx.service.parse.aggregateRecent({ daysBack: 2 });
       }
     } catch (e) {
       ctx.logger.error(`[realtime_parse] 轮询异常: ${e.message}`);

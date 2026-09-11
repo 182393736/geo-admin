@@ -23,7 +23,7 @@ app.get('/api/tasks', wrap(async (req, res) => {
 }));
 
 app.post('/api/tasks', wrap(async (req, res) => {
-  const { account, password, brandInput, screenshot, headed } = req.body || {};
+  const { account, password, brandInput, screenshot, headed, slotDays } = req.body || {};
   if (!account || !password || !brandInput) {
     return res.status(400).json({ code: 400, msg: '账号、密码、品牌输入均必填' });
   }
@@ -33,7 +33,7 @@ app.post('/api/tasks', wrap(async (req, res) => {
   } catch (e) {
     return res.status(e.status || 500).json({ code: e.status || 500, msg: e.message });
   }
-  const t = await createTask({ account, password, brandInput, screenshot, headed });
+  const t = await createTask({ account, password, brandInput, screenshot, headed, slotDays });
   res.json({ code: 200, data: t });
 }));
 

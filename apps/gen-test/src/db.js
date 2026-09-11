@@ -34,7 +34,7 @@ function toApi(doc) {
   return { id: String(_id), ...rest };
 }
 
-async function createTask({ account, password, brandInput, screenshot = true, headed = false }) {
+async function createTask({ account, password, brandInput, screenshot = true, headed = false, slotDays = 1 }) {
   const col = await tasks();
   const now = new Date();
   const doc = {
@@ -43,6 +43,7 @@ async function createTask({ account, password, brandInput, screenshot = true, he
     brand_input: String(brandInput || '').trim(),
     screenshot: !!screenshot,
     headed: !!headed,   // 有头模式：弹出真实浏览器窗口（本地有图形界面时观察交互过程）
+    slot_days: [1, 2, 3].includes(Number(slotDays)) ? Number(slotDays) : 1, // 采集槽位日期范围：1=今天 / 2=最近2天 / 3=最近3天
     status: 'pending', // pending | running | passed | failed
     result: null,      // { pass: boolean, summary: string }
     steps: [],         // [{ seq, name, status, detail, screenshot, ts }]

@@ -88,6 +88,14 @@
           <input type="checkbox" id="f-headed">
           <label for="f-headed" style="margin:0;cursor:pointer">有头模式（弹出浏览器窗口，可观察每一步交互）</label>
         </div>
+        <div class="row" style="align-items:center">
+          <label for="f-days" style="margin:0 8px 0 0;cursor:pointer">槽位日期范围</label>
+          <select id="f-days">
+            <option value="1" selected>仅今天</option>
+            <option value="2">最近 2 天（今天+昨天）</option>
+            <option value="3">最近 3 天（今天+昨天+前天）</option>
+          </select>
+        </div>
         <button class="btn btn-primary" id="f-submit">添加任务</button>
       </div>
 
@@ -154,7 +162,7 @@ async function refreshTasks() {
     const stepTxt = t.steps ? `${okCount}/${t.steps.length}` : '-';
     return `<tr>
       <td><span class="tag ${t.status}">${t.status === 'running' ? '<span class="spinner" style="display:inline-block;vertical-align:-2px"></span> ' : ''}${STATUS_TXT[t.status] || t.status}</span></td>
-      <td>${esc(t.account)}${t.headed ? ' <span title="有头模式">👁</span>' : ''}</td>
+      <td>${esc(t.account)}${t.headed ? ' <span title="有头模式">👁</span>' : ''}${t.slot_days > 1 ? ` <span class="tag" title="槽位日期范围">📅${t.slot_days}天</span>` : ''}</td>
       <td class="truncate" title="${esc(t.brand_input)}">${esc(t.brand_input)}</td>
       <td>${stepTxt}</td>
       <td class="op-cell">
@@ -202,6 +210,7 @@ function renderDetail(t) {
   const r = t.result;
   $('detail-summary').innerHTML = `<b>状态：</b><span class="tag ${t.status}">${STATUS_TXT[t.status] || t.status}</span>`
     + (t.headed ? ' <span class="tag running">👁 有头模式</span>' : '')
+    + (t.slot_days > 1 ? ` <span class="tag">📅 槽位范围：最近 ${t.slot_days} 天</span>` : '')
     + (r ? `<div style="margin-top:6px">${esc(r.summary)}</div>` : '')
     + (t.cleanup && t.cleanup.user_id ? `<div style="margin-top:6px;color:var(--mut)">🧹 清理锚点：账号=${esc(t.cleanup.account)} user_id=${esc(t.cleanup.user_id.slice(0,8))}… 品牌=${esc(t.cleanup.brand_name)}</div>` : '');
   $('detail-steps').innerHTML = (t.steps || []).map(stepHtml).join('') || '<div class="empty">等待执行…</div>';
@@ -244,10 +253,11 @@ $('f-submit').onclick = async () => {
   const brandInput = $('f-brand').value.trim();
   const screenshot = $('f-shot').checked;
   const headed = $('f-headed').checked;
+  const slotDays = Number($('f-days').value || 1);
   if (!account || !password || !brandInput) return alert('账号、密码、品牌输入均必填');
   try {
     const t = await api('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ account, password, brandInput, screenshot, headed }) });
+      body: JSON.stringify({ account, password, brandInput, screenshot, headed, slotDays }) });
     refreshTasks();
     if (confirm('任务已添加，是否立即执行？')) runTask(t.id); else openDetail(t.id);
   } catch (e) { alert('添加失败：' + e.message); }

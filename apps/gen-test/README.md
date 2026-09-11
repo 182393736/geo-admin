@@ -35,6 +35,15 @@ pnpm --filter @geo-admin/gen-test run dev                             # 默认 h
 3. 后台逐页验证采集前真实数据：概览 / 套餐（免费体验版·4 档）/ 名片（品牌名·剩余修改）/ 口碑监控问题（0 行）/ 识别管理 / 排名监控问题（≥3 行）/ 信源库（≥15 家）
 4. 每步写日志 + 截图；执行结束记录 `user_id`（JWT sub）与 `brand_id` 作为删除锚点
 
+### 槽位日期范围（仅测试程序支持）
+
+添加任务时可选择「槽位日期范围」：仅今天 / 最近 2 天 / 最近 3 天（默认今天）。执行到生成采集任务步骤时，按 `days` 调 `POST /user/generate_today`，为每个日期展开采集任务与槽位（幂等）。
+
+- **只作用于测试程序**：生产 00:30 定时任务只展开当天，管理后台无多天入口，`/user/generate_today` 的 `days` 参数也只有本测试程序使用。
+- **联动采集与解析聚合**（多天数据可观察）：
+  - 采集程序（gen-caiji）默认不带日期拉取 → gen-api `POST /collector/slots/pull` 未指定日期时按「最早日期优先」领取待采槽位，顺次采完前天/昨天/今天；
+  - gen-api realtime 轮询每 60s 清扫时，除聚合今天外，会补跑聚合「最近 2 天内已有采集数据」的历史日期，使历史数据进入排名/矩阵/三率页。
+
 ## 删除清理（cleanup.js）
 
 按任务记录的 `user_id`/`brand_id` 锚点，清理 40+ 个业务集合（users、brands、subscriptions、credit_accounts、monitor_queries、onboarding_*、publish/payment 订单等），再删截图目录与任务记录。只删该任务创建的数据，绝不越界。

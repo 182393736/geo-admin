@@ -83,9 +83,10 @@ class CollectorController extends Controller {
       : requested.filter(p => this.cfg.platforms.includes(p));
 
     const end = b.end === 'mobile' ? 'mobile' : 'web';
-    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || ''))
-      ? String(b.date)
-      : ctx.app.dayjs().format('YYYY-MM-DD');
+    // 显式指定 date 则只领当天；未指定则「按最早日期优先」领取任意待采槽位——
+    // 生产 00:30 只展开当天，未指定时行为与「只领当天」等价；测试程序展开多天槽位时，
+    // 采集程序可顺次领完前天/昨天/今天（采集程序默认不带 date，因此无需改采集端）。
+    const hasDate = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || ''));
 
     const none = () => { ctx.body = { code: 200, msg: 'ok', data: { slot: null } }; };
     if (!platforms.length) return none(); // 指定的平台都不在白名单（如 kimi）
@@ -95,21 +96,21 @@ class CollectorController extends Controller {
       status: 'pending',
       platform: { $in: platforms },
       end,
-      date,
       $or: [
         { attempts: { $lt: this.maxAttempts } },
         { attempts: { $exists: false } },
         { attempts: null },
       ],
     };
+    if (hasDate) q.date = String(b.date);
     if (b.query_type === 'industry' || b.query_type === 'brand') q.query_type = b.query_type;
 
-    // 一步原子领取：按 query_id 升序找第一个 pending 槽位并置 running（并发下各 tab 必拿到不同槽位）
+    // 一步原子领取：日期升序（早优先）→ query_id 升序，找第一个 pending 槽位并置 running（并发下各 tab 必拿到不同槽位）
     // attempts 在此不 +1：attempts 语义 = 失败/超时次数，只在 fail 提交与超时回收时递增
     const doc = await M.CollectSlot.findOneAndUpdate(
       q,
       { $set: { status: 'running', started_at: new Date() } },
-      { returnDocument: 'after', sort: { query_id: 1, platform: 1 } },
+      { returnDocument: 'after', sort: { date: 1, query_id: 1, platform: 1 } },
     );
     if (!doc) return none();
 

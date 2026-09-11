@@ -112,14 +112,27 @@ class QueryController extends Controller {
       },
     };
   }
-  /** 手动生成当日采集任务（POST /user/generate_today）：为当前用户所有 active 品牌展开当日槽位（幂等） */
+  /** 手动生成采集任务（POST /user/generate_today，仅测试程序消费）：
+   *  为当前用户所有 active 品牌展开指定日期的槽位（幂等）。
+   *  - body.date（可选）：单日 YYYY-MM-DD
+   *  - body.days（可选，1~3）：最近 N 天（含今天）；仅测试程序用于观察多天数据
+   *  生产 00:30 定时任务只展开当天，不受本接口影响。 */
   async generateToday() {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const body = ctx.request.body || {};
-    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(body.date || ''))
-      ? String(body.date)
-      : ctx.app.dayjs().format('YYYY-MM-DD');
+    const dayjs = ctx.app.dayjs;
+
+    // 目标日期集合：显式 date（单日）> days（最近 N 天）> 仅今天
+    let dates;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(body.date || ''))) {
+      dates = [String(body.date)];
+    } else {
+      const days = Math.max(1, Math.min(3, Number(body.days) || 1));
+      dates = [];
+      for (let i = days - 1; i >= 0; i--) dates.push(dayjs().subtract(i, 'day').format('YYYY-MM-DD'));
+    }
+
     const brands = await ctx.model.Brand.find({ user_id: userId, status: 'active' }).sort({ created_at: 1 }).lean();
     if (!brands.length) {
       ctx.status = 404;
@@ -128,14 +141,16 @@ class QueryController extends Controller {
     }
     const tasks = [];
     for (const b of brands) {
-      const task = await ctx.service.collect.expandDailyTask(b, date, { trigger: 'manual' });
-      tasks.push({
-        task_id: task.task_id, brand_id: b.brand_id, brand_name: b.name, date: task.date,
-        expected_slots: task.expected_slots, actual_slots: task.actual_slots, failed_slots: task.failed_slots,
-        status: task.status,
-      });
+      for (const date of dates) {
+        const task = await ctx.service.collect.expandDailyTask(b, date, { trigger: 'manual' });
+        tasks.push({
+          task_id: task.task_id, brand_id: b.brand_id, brand_name: b.name, date: task.date,
+          expected_slots: task.expected_slots, actual_slots: task.actual_slots, failed_slots: task.failed_slots,
+          status: task.status,
+        });
+      }
     }
-    ctx.body = { code: 200, msg: 'ok', data: { date, tasks } };
+    ctx.body = { code: 200, msg: 'ok', data: { dates, tasks } };
   }
 }
 

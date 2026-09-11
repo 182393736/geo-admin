@@ -83,5 +83,47 @@ class ParseService extends Service {
     }
     return { parsed, aggregated, date: targetDate };
   }
+
+  /**
+   * 聚合「最近 N 天内有采集数据的日期」（测试程序多天槽位场景）。
+   * realtime 轮询默认只聚合今天；测试程序展开「最近2/3天」槽位被采集后，历史日期的指标
+   * 需要补跑聚合才会进 daily_metric_* / leaderboard_dailies，进而出现在排名/矩阵/三率页。
+   * 只聚合 collect_slots 里确有 ok/empty 槽位的 (brand, date)，避免给无数据日期写空指标行。
+   * @param {object} opts
+   * @param {number} opts.daysBack 回溯天数（不含今天，默认 2 → 昨天/前天）
+   * @returns {number} 实际聚合的品牌×日期数
+   */
+  async aggregateRecent({ daysBack = 2 } = {}) {
+    const { ctx } = this;
+    const M = ctx.model;
+    const dayjs = ctx.app.dayjs;
+    const today = dayjs().format('YYYY-MM-DD');
+    const from = dayjs().subtract(daysBack, 'day').format('YYYY-MM-DD');
+    let aggregated = 0;
+    const brandIds = await M.CollectSlot.distinct('brand_id', {
+      date: { $gte: from, $lt: today },
+      status: { $in: ['ok', 'empty'] },
+    });
+    for (const brandId of brandIds) {
+      const dates = await M.CollectSlot.distinct('date', {
+        brand_id: brandId,
+        date: { $gte: from, $lt: today },
+        status: { $in: ['ok', 'empty'] },
+      });
+      for (const date of dates) {
+        try {
+          await ctx.service.pipeline.aggregate.run(brandId, date);
+          aggregated += 1;
+          await ctx.service.pipelineEvent.record({
+            brand_id: brandId, date, stage: 'aggregate',
+            status: 'ok', message: '指标聚合完成（历史日期补跑）', detail: null,
+          });
+        } catch (e) {
+          ctx.logger.error(`[parse] 品牌 ${brandId} 历史日期聚合(${date})失败: ${e.message}`);
+        }
+      }
+    }
+    return aggregated;
+  }
 }
 module.exports = ParseService;
