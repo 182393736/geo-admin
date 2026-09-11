@@ -61,8 +61,9 @@ class DeepseekService extends Service {
       });
       if (!transportLogged) {
         transportLogged = true;
-        const log = this.ctx && this.ctx.logger ? this.ctx.logger.info : console.log;
-        log(`[llm] 传输层=geo-agent fetch 通道 model=${c.model} baseURL=${c.baseURL} proxy=${c.proxy || '(直连)'}`);
+        const appLogger = this.app && this.app.logger;
+        if (appLogger) appLogger.info(`[llm] 传输层=geo-agent fetch 通道 model=${c.model} baseURL=${c.baseURL} proxy=${c.proxy || '(直连)'}`);
+        else console.log(`[llm] 传输层=geo-agent fetch 通道 model=${c.model} baseURL=${c.baseURL} proxy=${c.proxy || '(直连)'}`);
       }
     }
     return this._client;
