@@ -184,23 +184,23 @@ const menuItems: MenuItem[] = [
       {
         items: [
           { path: '/dashboard/ai-index', label: 'AI排名透视', icon: IconBarChart },
-          { path: '/dashboard/ai-index/competitor', label: 'AI竞品透视', icon: IconEye },
-          { path: '/dashboard/ai-index/citation', label: '引用源追溯', icon: IconLink },
+          { path: '/dashboard/competitor-insight', label: 'AI竞品透视', icon: IconEye },
+          { path: '/dashboard/citation-sources', label: '引用源追溯', icon: IconLink },
         ],
       },
       {
         label: '分析',
         items: [
-          { path: '/dashboard/ai-index/source-pref', label: '信源平台偏好', icon: IconCompass },
-          { path: '/dashboard/ai-index/source-intel', label: '引用源洞察', icon: IconBulb },
+          { path: '/dashboard/source-preference', label: '信源平台偏好', icon: IconCompass },
+          { path: '/dashboard/source-intelligence', label: '引用源洞察', icon: IconBulb },
         ],
       },
       {
         label: '管理',
         items: [
-          { path: '/dashboard/ai-index/question-mgmt', label: '监控问题管理', icon: IconQuestionCircle },
-          { path: '/dashboard/ai-index/recognition-mgmt', label: '监控识别管理', icon: IconCheckCircle },
-          { path: '/dashboard/ai-index/snapshot', label: '搜索快照下载', icon: IconCamera },
+          { path: '/dashboard/topic-management', label: '监控问题管理', icon: IconQuestionCircle },
+          { path: '/dashboard/monitor-recognition', label: '监控识别管理', icon: IconCheckCircle },
+          { path: '/dashboard/downloads', label: '搜索快照下载', icon: IconCamera },
         ],
       },
     ],
@@ -283,7 +283,7 @@ const brandGroups: SubGroup[] = [
 const activeGroup = computed(() => {
   const path = route.path;
   if (path.startsWith('/dashboard/brand-card')) return 'brand';
-  if (path.startsWith('/dashboard/ai-index')) return 'ranking';
+  if (path.startsWith('/dashboard/ai-index') || path.startsWith('/dashboard/competitor-insight') || path.startsWith('/dashboard/citation-sources') || path.startsWith('/dashboard/source-preference') || path.startsWith('/dashboard/source-intelligence') || path.startsWith('/dashboard/topic-management') || path.startsWith('/dashboard/monitor-recognition') || path.startsWith('/dashboard/downloads')) return 'ranking';
   if (path.startsWith('/dashboard/sentiment')) return 'sentiment';
   if (path.startsWith('/dashboard/media-library')) return 'optimize';
   if (path.startsWith('/dashboard/overview')) return 'overview';

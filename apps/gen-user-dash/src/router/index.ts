@@ -18,7 +18,7 @@ const routes = [
         component: () => import('@/views/overview/index.vue'),
         meta: { title: '概览' },
       },
-      // 排名 - 9个子页面
+      // 排名 - 8个子页面（对齐真实站 /dashboard/* 路径）
       {
         path: '/dashboard/ai-index',
         name: 'Ranking',
@@ -26,52 +26,46 @@ const routes = [
         meta: { title: 'AI排名透视' },
       },
       {
-        path: '/dashboard/ai-index/competitor',
+        path: '/dashboard/competitor-insight',
         name: 'RankingCompetitor',
         component: () => import('@/views/ranking/index.vue'),
         meta: { title: 'AI竞品透视' },
       },
       {
-        path: '/dashboard/ai-index/citation',
+        path: '/dashboard/citation-sources',
         name: 'RankingCitation',
         component: () => import('@/views/ranking/index.vue'),
         meta: { title: '引用源追溯' },
       },
       {
-        path: '/dashboard/ai-index/source-pref',
+        path: '/dashboard/source-preference',
         name: 'RankingSourcePref',
         component: () => import('@/views/ranking/index.vue'),
         meta: { title: '信源平台偏好' },
       },
       {
-        path: '/dashboard/ai-index/source-intel',
+        path: '/dashboard/source-intelligence',
         name: 'RankingSourceIntel',
         component: () => import('@/views/ranking/index.vue'),
         meta: { title: '引用源洞察' },
       },
       {
-        path: '/dashboard/ai-index/question-mgmt',
+        path: '/dashboard/topic-management',
         name: 'RankingQuestionMgmt',
         component: () => import('@/views/ranking/index.vue'),
         meta: { title: '监控问题管理' },
       },
       {
-        path: '/dashboard/ai-index/recognition-mgmt',
+        path: '/dashboard/monitor-recognition',
         name: 'RankingRecognitionMgmt',
         component: () => import('@/views/ranking/index.vue'),
         meta: { title: '监控识别管理' },
       },
       {
-        path: '/dashboard/ai-index/snapshot',
+        path: '/dashboard/downloads',
         name: 'RankingSnapshot',
         component: () => import('@/views/ranking/index.vue'),
         meta: { title: '搜索快照下载' },
-      },
-      {
-        path: '/dashboard/ai-index/export',
-        name: 'RankingExport',
-        component: () => import('@/views/ranking/index.vue'),
-        meta: { title: '导出品牌透视报告' },
       },
       // 口碑 - 5个子页面
       {

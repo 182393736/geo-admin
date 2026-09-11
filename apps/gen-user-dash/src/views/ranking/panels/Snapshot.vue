@@ -1,125 +1,163 @@
 <template>
-  <div class="p-wrap">
-    <div class="p-hd">
-      <h2>搜索快照下载</h2>
-      <p>按监控问题回放 AI 回答截图快照，支持批量下载</p>
+  <div class="max-w-[1240px] w-full mx-auto px-9 pb-20 pt-7 min-w-0">
+    <div class="flex flex-col gap-8 animate-fade-in max-w-[1600px] mx-auto pb-20">
+
+      <!-- 头部 -->
+      <div class="flex justify-between items-end border-b border-gray-100 pb-6">
+        <div>
+          <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">搜索快照下载</h2>
+          <div class="flex items-center gap-3 mt-2 text-sm text-gray-500">
+            <span>预览 AI 回答，并下载不同模型中的搜索结果快照或回答 Excel</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <button title="最多导出连续 7 天" class="px-5 py-2.5 bg-white text-gray-700 font-bold text-sm rounded-lg border border-gray-200 hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            导出回答 Excel
+          </button>
+          <button class="px-5 py-2.5 bg-white text-indigo-600 font-bold text-sm rounded-lg border border-indigo-200 hover:bg-indigo-50 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            批量导出快照
+          </button>
+        </div>
+      </div>
+
+      <!-- 卡片 -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-h-[400px] flex flex-col">
+        <div class="flex flex-col border-b border-gray-100 bg-white">
+          <div class="w-full px-6 py-4">
+            <div class="flex items-center gap-5 flex-wrap">
+              <div class="flex items-center gap-1.5 px-0 text-xs font-bold text-gray-400 uppercase tracking-wider shrink-0 select-none justify-start">
+                <span>问题:</span>
+              </div>
+              <div class="relative w-[240px]">
+                <button class="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:border-gray-300 transition-colors">
+                  <span class="truncate font-medium text-gray-700">{{ queryLabel }}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+              </div>
+              <span class="text-xs text-gray-400 shrink-0">共 {{ topics.length }} 个问题</span>
+              <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase tracking-wider shrink-0 select-none">
+                  <span>平台:</span>
+                </div>
+                <div class="relative w-[190px]">
+                  <button class="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:border-gray-300 transition-colors">
+                    <span class="truncate font-medium text-gray-700">全部平台</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase tracking-wider shrink-0 select-none">
+                  <span>日期:</span>
+                </div>
+                <input v-model="date" type="date" @change="load" class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:border-indigo-300 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 transition-all shadow-sm outline-none" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex-1 overflow-auto relative min-h-[300px]">
+          <table class="w-full table-fixed text-left">
+            <thead class="bg-gray-50/50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider sticky top-0 bg-white z-10">
+              <tr>
+                <th class="w-[42%] px-6 py-4">文件名称</th>
+                <th class="w-[110px] px-6 py-4">排行值</th>
+                <th class="w-[110px] px-6 py-4">文件大小</th>
+                <th class="w-[140px] px-6 py-4">AI 回答</th>
+                <th class="w-[180px] px-6 py-4 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <tr v-for="s in list" :key="s.id" class="hover:bg-gray-50/50 transition-colors group">
+                <td class="min-w-0 px-6 py-4">
+                  <div class="flex min-w-0 items-center gap-3">
+                    <div class="shrink-0 p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                    </div>
+                    <div class="flex min-w-0 flex-col">
+                      <span class="block truncate text-sm font-bold text-gray-900">{{ fileName(s) }}</span>
+                      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span class="text-sm font-extrabold text-gray-700">{{ platformName(s.platform) }}</span>
+                        <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-extrabold border-blue-200 bg-blue-50 text-blue-700">网页端</span>
+                        <span class="text-sm font-medium text-gray-500">{{ s.exec_date }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">未提及</span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">{{ s.size || '—' }}</td>
+                <td class="px-6 py-4">
+                  <button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    查看回答
+                  </button>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <button class="text-gray-600 hover:text-indigo-600 text-sm font-bold px-3 py-1.5 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      预览
+                    </button>
+                    <button class="text-indigo-600 hover:text-indigo-800 text-sm font-bold px-3 py-1.5 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                      下载
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!list.length">
+                <td colspan="5" class="px-6 py-12 text-center text-sm text-gray-400">暂无快照记录（截图快照上传功能暂未开放）</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
-
-    <PreCollectionEmpty v-if="pending" title="搜索快照下载" />
-
-    <template v-else>
-      <div class="p-toolbar">
-        <div class="p-seg">
-          <span class="p-seg-label">监控问题</span>
-          <select v-model="topicId" class="p-select" @change="load">
-            <option :value="0">全部问题</option>
-            <option v-for="t in topics" :key="t.query_id" :value="t.query_id">{{ t.name }}</option>
-          </select>
-        </div>
-        <div class="p-seg">
-          <span class="p-seg-label">日期</span>
-          <input v-model="date" type="date" class="p-select" @change="load" />
-        </div>
-        <button class="p-btn" :disabled="!list.length" @click="downloadAll">批量下载</button>
-      </div>
-
-      <div class="p-card">
-        <div class="p-card-h">
-          <div>
-            <div class="p-card-t">快照列表</div>
-            <div class="p-card-s">截图快照上传功能暂未开放（采集 worker 截图留待后续），当前列表为空</div>
-          </div>
-        </div>
-        <div class="p-body">
-          <div v-if="!list.length" class="p-empty">暂无快照记录</div>
-          <div v-else class="p-table">
-            <div class="p-tr p-th">
-              <span class="c-i">#</span>
-              <span class="c-n">平台</span>
-              <span class="c-n">执行日期</span>
-              <span class="c-p">操作</span>
-            </div>
-            <div v-for="(s, i) in list" :key="s.id" class="p-tr">
-              <span class="c-i">{{ i + 1 }}</span>
-              <span class="c-n">{{ s.platform }}</span>
-              <span class="c-n">{{ s.exec_date }}</span>
-              <span class="c-p">
-                <a v-if="s.photo_url" :href="s.photo_url" target="_blank" class="p-link">查看</a>
-                <span v-else class="p-none">—</span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { monitorApi } from '@/api/modules/monitor';
-import PreCollectionEmpty from '@/components/PreCollectionEmpty.vue';
 
-const pending = ref(true);
+const PLATFORM_NAME: Record<string, string> = {
+  doubao: '豆包', deepseek: 'DeepSeek', wenxin: '文心一言', qianwen: '通义千问', yuanbao: '元宝',
+};
+const PLATFORM_PREFIX: Record<string, string> = {
+  doubao: 'Doubao', deepseek: 'Deepseek', wenxin: 'Wenxin', qianwen: 'Qwen', yuanbao: 'Yuanbao',
+};
+
 const topics = ref<any[]>([]);
 const list = ref<any[]>([]);
-const topicId = ref(0);
+const queryId = ref(0);
+const queryLabel = ref('全部问题');
 const date = ref('');
+
+const platformName = (p: string) => PLATFORM_NAME[p] || p;
+const fileName = (s: any) => `${PLATFORM_PREFIX[s.platform] || s.platform}_${queryLabel.value.replace(/[，。]/g, '')}_${String(s.id).slice(-8)}.jpg`;
 
 async function load() {
   try {
-    const resp: any = await monitorApi.snapshotList(date.value, topicId.value, 1);
+    const resp: any = await monitorApi.snapshotList(date.value, queryId.value, 1);
     list.value = resp?.list || [];
   } catch { list.value = []; }
 }
 
-function downloadAll() {
-  const blob = new Blob([JSON.stringify(list.value, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `snapshot-${date.value || 'all'}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
 onMounted(async () => {
+  const d = new Date();
+  date.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   try {
-    const st = await monitorApi.queryStatus();
-    pending.value = !!st?.pending;
-    if (!st?.pending) {
-      const t: any = await monitorApi.siTopics();
-      topics.value = Array.isArray(t) ? t : [];
-      const d = new Date();
-      date.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      await load();
+    const t: any = await monitorApi.siTopics();
+    topics.value = Array.isArray(t) ? t : [];
+    if (topics.value.length) {
+      queryLabel.value = topics.value[0].name || '全部问题';
+      queryId.value = topics.value[0].query_id || 0;
     }
-  } catch { pending.value = false; }
+  } catch { topics.value = []; }
+  await load();
 });
 </script>
-
-<style scoped lang="scss">
-.p-wrap { margin: -16px -24px; padding: 28px 36px 96px; background: #f8fafc; min-height: calc(100vh - 32px); display: flex; flex-direction: column; gap: 16px; }
-.p-hd h2 { font-size: 22px; font-weight: 800; color: #0f1115; margin: 0; line-height: 33px; }
-.p-hd p { font-size: 13px; color: #9ca3af; margin: 4px 0 0; }
-.p-toolbar { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 16px; }
-.p-seg { display: flex; align-items: center; gap: 8px; }
-.p-seg-label { font-size: 12px; color: #6b7280; }
-.p-select { border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 10px; font-size: 12.5px; color: #111827; background: #fff; outline: none; min-width: 180px; }
-.p-btn { margin-left: auto; background: #4f46e5; color: #fff; border: none; border-radius: 9px; padding: 8px 16px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
-.p-btn:disabled { background: #c7d2fe; cursor: not-allowed; }
-.p-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
-.p-card-h { padding: 14px 18px; border-bottom: 1px solid #f0f1f5; }
-.p-card-t { font-size: 14.5px; font-weight: 800; color: #0f1115; }
-.p-card-s { font-size: 11.5px; color: #9ca3af; margin-top: 2px; }
-.p-body { padding: 16px 18px 18px; }
-.p-empty { text-align: center; color: #9ca3af; font-size: 13px; padding: 36px 0; }
-.p-table { display: flex; flex-direction: column; }
-.p-tr { display: grid; grid-template-columns: 60px 160px 1fr 120px; gap: 10px; align-items: center; padding: 11px 12px; border-bottom: 1px solid #f0f1f5; }
-.p-tr:last-child { border-bottom: none; }
-.p-th { background: #f5f6fa; border-radius: 8px; padding: 9px 12px; font-size: 11.5px; font-weight: 600; color: #5b606a; border-bottom: none; }
-.c-i { font-size: 13px; font-weight: 700; color: #9ca3af; }
-.c-n { font-size: 13px; color: #111827; }
-.c-p { text-align: center; }
-.p-link { color: #4f46e5; font-size: 12.5px; font-weight: 600; text-decoration: none; }
-.p-none { color: #d1d5db; }
-</style>

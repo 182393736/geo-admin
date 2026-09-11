@@ -5,6 +5,7 @@ import App from './App.vue';
 import router from './router';
 import '@arco-design/web-vue/dist/arco.css';
 import './styles/global.scss';
+import './styles/geo.css'; // 真实站样式（geo.timus.cn index-CVwFUOco.css），Tailwind v4 工具类 + 后台组件样式
 import { ingestConsoleToken } from './utils/site';
 
 // 站点「前往控制台」回传的 token（#token=）在挂载前吸收，写入 localStorage，
