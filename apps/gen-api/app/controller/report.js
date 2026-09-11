@@ -42,8 +42,13 @@ class ReportController extends Controller {
     }
     let rep = await ctx.model.Report.findOne({ brand_id: brand.brand_id, period_type, status: 'ready' })
       .sort({ generated_at: -1 }).lean();
-    if (!rep) {
-      // 测试期：无 ready 报告就实时装配一份（含今天），落库后管理后台报告中心同步可见
+    // 测试期（parse.mode=realtime）数据每 5s 都在变：报告必须随聚合刷新，否则永远停留在首次落库的空/旧快照。
+    // 刷新策略：无 ready 报告，或已过期（超过一个清扫周期，默认 60s）→ 实时重算并落库（幂等 upsert 同 period_key）。
+    const parseCfg = ctx.app.config.parse || {};
+    const realtime = parseCfg.mode === 'realtime';
+    const staleMs = Number(parseCfg.sweepIntervalMs) || 60 * 1000;
+    const stale = realtime && (!rep || !rep.generated_at || Date.now() - new Date(rep.generated_at).getTime() > staleMs);
+    if (!rep || stale) {
       await ctx.service.pipeline.reportBuild.run({ period_type, brand_id: brand.brand_id, endToday: true });
       rep = await ctx.model.Report.findOne({ brand_id: brand.brand_id, period_type, status: 'ready' })
         .sort({ generated_at: -1 }).lean();

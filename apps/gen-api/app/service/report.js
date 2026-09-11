@@ -173,7 +173,7 @@ class ReportService extends Service {
       repPrev = this._avg(cmpRep, 'rep_score');
     }
 
-    const srcTotal = (srcAgg && srcAgg.list || []).reduce((s, x) => s + (x.ref_count || 0), 0);
+    const srcTotal = (srcAgg && srcAgg.list || []).length; // 去重信源数（与 overview_stats.reference_sources、Panel4 命中平台数同口径）
     const d = k => metrics.delta(cur[k], prev[k] || 0);
     return [
       { key: 'mention_rate', label: '平均提及率', value: cur.mention_rate, unit: '%', ...d('mention_rate') },

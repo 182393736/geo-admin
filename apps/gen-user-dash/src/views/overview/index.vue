@@ -153,7 +153,7 @@
               <div class="rep-metric"><div class="rep-metric-label">Top3 推荐率</div><div class="rep-metric-value">{{ fmtPct(metricCard.top3) }}<em :class="['rep-delta', deltaCls(metricCard.top3D)]">{{ deltaTxt(metricCard.top3D) }}</em></div></div>
               <div class="rep-metric"><div class="rep-metric-label">首位推荐率</div><div class="rep-metric-value">{{ fmtPct(metricCard.first) }}<em :class="['rep-delta', deltaCls(metricCard.firstD)]">{{ deltaTxt(metricCard.firstD) }}</em></div></div>
               <div class="rep-metric"><div class="rep-metric-label">口碑分</div><div class="rep-metric-value">{{ fmtNum(metricCard.rep) }}<em :class="['rep-delta', deltaCls(metricCard.repD)]">{{ deltaTxt(metricCard.repD) }}</em></div></div>
-              <div class="rep-metric"><div class="rep-metric-label">引用源数</div><div class="rep-metric-value">{{ fmtNum(metricCard.sources) }}</div></div>
+              <div class="rep-metric"><div class="rep-metric-label">引用源总量</div><div class="rep-metric-value">{{ fmtNum(metricCard.sources) }}</div></div>
             </div>
             <div class="rp-emx">
               <div class="rp-emx-t">按 AI 引擎拆解 · 环比上期</div>
@@ -324,7 +324,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { brandApi } from '@/api/modules/brand';
 import { monitorApi } from '@/api/modules/monitor';
@@ -427,7 +427,14 @@ const publishRows = computed(() => (payload.value?.publish || []).map((o: any) =
 const publishStatusCls = (s: string) => (s === 'ok' ? 'ok' : s === 'fail' ? 'fail' : 'pending');
 const publishStatusTxt = (s: string) => (s === 'ok' ? '已发布' : s === 'fail' ? '失败' : s === 'submitted' ? '已提交' : '待发布');
 
-onMounted(() => { loadBrand(); loadReport(); });
+let reportTimer: number | undefined;
+onMounted(() => {
+  loadBrand();
+  loadReport();
+  // 实时测试期数据每 5s 变化：报告页挂载期间每 30s 静默刷新一次（后端已按 60s 窗口重算）
+  reportTimer = window.setInterval(loadReport, 30000);
+});
+onBeforeUnmount(() => { if (reportTimer) window.clearInterval(reportTimer); });
 
 const competitors = computed(() => (payload.value?.competitors || []).map((c: any) => ({
   brand: c.name,

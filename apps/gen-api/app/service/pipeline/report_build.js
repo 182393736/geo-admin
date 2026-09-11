@@ -41,7 +41,11 @@ class ReportBuildService extends Service {
         { $set: { report_id: ctx.helper.uuid(), status: 'ready', payload, generated_at: new Date(),
                   overview_stats: overviewStats } },
         { upsert: true });
-      await ctx.model.Reminder.create({ user_id: b.user_id, brand_id: b.brand_id, type: 'report_ready', title: `${range.label}已生成` });
+      await ctx.model.Reminder.findOneAndUpdate(
+        { brand_id: b.brand_id, type: 'report_ready', title: `${range.label}已生成` },
+        { $set: { user_id: b.user_id, level: 'info', read: false } },
+        { upsert: true, new: true },
+      ).lean();
       // 流水线时间轴：report 阶段事件（周报/月报；日期锚定到报告区间末日）
       await ctx.service.pipelineEvent.record({
         brand_id: b.brand_id, date: range.end, stage: 'report',
