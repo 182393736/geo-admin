@@ -441,10 +441,17 @@ class AdminController extends Controller {
       M.Opinion.countDocuments(),
       M.CitationEdge.countDocuments(),
     ]);
+    // $avg 对全组缺字段/无数值返回 null（如 daily_metric_brands 尚未写入 mention_rate），兜底为 0
+    const toFixedSafe = (v, d) => (typeof v === 'number' && Number.isFinite(v)) ? +v.toFixed(d) : 0;
     this._ok({
       counts: { entities, canonical_sources: canonical, cited_articles: citedArticles, mentions, opinions, citations: edges },
       polarity: pol,
-      recent_7d: recent.map(r => ({ date: r._id, avg_rep_score: +r.avg_rep.toFixed(1), avg_mention_rate: +r.avg_mention.toFixed(2), brands: r.n })),
+      recent_7d: recent.map(r => ({
+        date: r._id,
+        avg_rep_score: toFixedSafe(r.avg_rep, 1),
+        avg_mention_rate: toFixedSafe(r.avg_mention, 2),
+        brands: r.n || 0,
+      })),
     });
   }
 
