@@ -93,7 +93,7 @@ export interface AdminQueryRow {
 
 // ---- 采集 ----
 export interface AdminCollectTaskRow {
-  task_id: string; brand_id: string; brand_name?: string; date: string; trigger: string;
+  task_id: string; brand_id: string; brand_name?: string; account?: string; date: string; trigger: string;
   expected_slots: number; actual_slots: number; failed_slots: number;
   completeness_rate: number | null; status: string; started_at: string | null; finished_at: string | null;
 }
@@ -103,7 +103,7 @@ export interface AdminSlotRow {
   error: string; attempts: number; finished_at: string | null;
 }
 export interface AdminAnswerRow {
-  answer_id: string; slot_id: string; brand_id: string; brand_name?: string; query_id: number; platform: string;
+  answer_id: string; slot_id: string; brand_id: string; brand_name?: string; account?: string; query_id: number; platform: string;
   date: string; question_sent: string; answer_len: number; cited_urls: number; parsed: boolean; created_at: string;
 }
 /** 原始回答详情（含正文 + 信源清单） */
@@ -123,7 +123,7 @@ export interface AdminAnswerDetail extends Omit<AdminAnswerRow, 'cited_urls'> {
   model_meta?: unknown;
 }
 export interface AdminSnapshotRow {
-  snapshot_id: string; slot_id: string; brand_id: string; brand_name?: string; platform: string;
+  snapshot_id: string; slot_id: string; brand_id: string; brand_name?: string; account?: string; platform: string;
   exec_date: string; photo_url: string; size: number;
 }
 

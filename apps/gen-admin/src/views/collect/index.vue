@@ -173,6 +173,7 @@ function fmtDate(d: any) {
 }
 const taskStatus = ref('');
 const taskCols = [
+  { title: '账户', dataIndex: 'account', width: 130, ellipsis: true, render: ({ record }: any) => record.account || '—' },
   { title: '品牌', dataIndex: 'brand_name', ellipsis: true },
   { title: '日期', dataIndex: 'date', width: 110 },
   { title: '触发', dataIndex: 'trigger', width: 80 },
@@ -190,6 +191,7 @@ const answerLoading = ref(false);
 const parsedFilter = ref('');
 const answerCols = [
   { title: '日期', dataIndex: 'date', width: 110 },
+  { title: '账户', dataIndex: 'account', width: 130, ellipsis: true, render: ({ record }: any) => record.account || '—' },
   { title: '品牌', dataIndex: 'brand_name', width: 160, ellipsis: true },
   { title: '问题', dataIndex: 'question_sent', ellipsis: true },
   { title: '平台', dataIndex: 'platform', width: 90 },
@@ -206,6 +208,7 @@ const snapPage = ref(1);
 const snapLoading = ref(false);
 const snapCols = [
   { title: '日期', dataIndex: 'exec_date', width: 110 },
+  { title: '账户', dataIndex: 'account', width: 130, ellipsis: true, render: ({ record }: any) => record.account || '—' },
   { title: '品牌', dataIndex: 'brand_name', width: 160, ellipsis: true },
   { title: '平台', dataIndex: 'platform', width: 90 },
   { title: '槽位', dataIndex: 'slot_id', ellipsis: true },

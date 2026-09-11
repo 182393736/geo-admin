@@ -39,6 +39,18 @@ class AdminController extends Controller {
 
   _safeNum(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
 
+  /** brands(lean[]) → { [brand_id]: account }：品牌名可能重复，账户名用于区分归属（无账户时回退 name/_id） */
+  async _brandAccountMap(brands) {
+    const { ctx } = this;
+    const userIds = [...new Set(brands.map(b => b.user_id).filter(Boolean))];
+    if (!userIds.length) return {};
+    const users = await ctx.model.User.find({ _id: { $in: userIds } }).lean();
+    const um = {}; for (const u of users) um[u._id] = u.account || u.name || String(u._id);
+    const out = {};
+    for (const b of brands) out[b.brand_id] = um[b.user_id] || '';
+    return out;
+  }
+
   // ---------- 身份 ----------
   async me() {
     const { ctx } = this;
@@ -306,11 +318,12 @@ class AdminController extends Controller {
       M.CollectTask.countDocuments(q),
       M.CollectTask.find(q).sort({ date: -1 }).skip((page - 1) * page_size).limit(page_size).lean(),
     ]);
-    // 品牌名映射
+    // 品牌名映射 + 账户名映射（品牌名可重复，账户名区分归属）
     const bids = [...new Set(rows.map(t => t.brand_id))];
     const brands = await M.Brand.find({ brand_id: { $in: bids } }).lean();
     const bm = {}; for (const b of brands) bm[b.brand_id] = b.name;
-    this._ok({ list: rows.map(t => ({ ...this._fmtCollectTask(t), brand_name: bm[t.brand_id] || t.brand_id })), total, page, page_size });
+    const am = await this._brandAccountMap(brands);
+    this._ok({ list: rows.map(t => ({ ...this._fmtCollectTask(t), brand_name: bm[t.brand_id] || t.brand_id, account: am[t.brand_id] || '' })), total, page, page_size });
   }
 
   async collectSlots() {
@@ -351,10 +364,12 @@ class AdminController extends Controller {
     const bids = [...new Set(rows.map(a => a.brand_id).filter(Boolean))];
     const brands = bids.length ? await M.Brand.find({ brand_id: { $in: bids } }).lean() : [];
     const bm = {}; for (const b of brands) bm[b.brand_id] = b.name;
+    const am = await this._brandAccountMap(brands);
     this._ok({
       list: rows.map(a => ({
         answer_id: a.answer_id, slot_id: a.slot_id, brand_id: a.brand_id,
         brand_name: bm[a.brand_id] || a.brand_id,
+        account: am[a.brand_id] || '',
         query_id: a.query_id,
         platform: a.platform, date: a.date, question_sent: a.question_sent,
         answer_len: (a.answer_text || '').length, cited_urls: (a.cited_urls || []).length,
@@ -406,10 +421,12 @@ class AdminController extends Controller {
     const bids = [...new Set(rows.map(s => s.brand_id).filter(Boolean))];
     const brands = bids.length ? await M.Brand.find({ brand_id: { $in: bids } }).lean() : [];
     const bm = {}; for (const b of brands) bm[b.brand_id] = b.name;
+    const am = await this._brandAccountMap(brands);
     this._ok({
       list: rows.map(s => ({
         snapshot_id: s.snapshot_id, slot_id: s.slot_id, brand_id: s.brand_id,
         brand_name: bm[s.brand_id] || s.brand_id,
+        account: am[s.brand_id] || '',
         platform: s.platform, exec_date: s.exec_date, photo_url: s.photo_url, size: s.size,
       })),
       total, page, page_size,
