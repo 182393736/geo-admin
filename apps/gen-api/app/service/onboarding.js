@@ -174,8 +174,19 @@ class OnboardingService extends Service {
         query_type: 'industry', query_order: ++order, task_id: taskId,
       });
     }
-    // 注：不再落 query_type='brand' 的口碑题。口碑题必然含品牌名（「XX怎么样」），
-    // AI 回答必然提到该品牌，等于自问自答；口碑改由中立问题里 AI 自发提及的品牌拆解得出（流水线B）。
+    // 口碑题（query_type='brand'）：对标真实站（「大艺园林雕塑怎么样，好不好」）。
+    // 与中立题相反，口碑题刻意含品牌名——口碑页统计的正是「AI 被问及本品牌时的情感倾向」，
+    // 由流水线B（reputation_extract）拆解为 Opinion，供口碑主页/全景矩阵消费。
+    const brandName = (parsed.brand_name || input.brand_name || '').trim();
+    for (const q of this.buildBrandQueries(brandName)) {
+      const qid = await this.nextSeq('monitor_query');
+      await M('MonitorQuery').create({
+        query_id: qid, user_id: task.user_id, brand_id: task.brand_id,
+        query: q, question_list: [{ user_friendly: q, platform_query: q }],
+        platform_prompt: q,
+        query_type: 'brand', query_order: ++order, task_id: taskId,
+      });
+    }
 
     // ---- done ----
     await M('Brand').updateOne({ brand_id: task.brand_id }, { $set: { status: 'active' } });
@@ -234,7 +245,7 @@ class OnboardingService extends Service {
         `${head}厂家推荐`, `${head}品牌哪个好`, `靠谱的${head}供应商有哪些`,
         `${head}怎么选`, `${head}公司排名`,
       ],
-      // 不再生成 brand_queries：口碑题必然含品牌名，会让监测变成自问自答
+      // 口碑题不在此生成：由 runAnalysis 阶段3 用 buildBrandQueries(品牌名) 统一落库（LLM/降级共用）
     };
   }
 
@@ -242,6 +253,17 @@ class OnboardingService extends Service {
     if (!text) return '';
     const m = text.match(/[「『"]([^」』"]{2,20})[」』"]/) || text.match(/(?:品牌叫|我是|我们是)([^，。,.]{2,20})/);
     return m ? m[1] : '';
+  }
+
+  /** 生成首批口碑题（query_type='brand'，刻意含品牌名）。品牌名缺失/占位则返回 [] */
+  buildBrandQueries(name) {
+    const n = String(name || '').trim();
+    if (!n || n === '未命名品牌') return [];
+    return [...new Set([
+      `${n}怎么样，好不好`,
+      `${n}口碑怎么样`,
+      `${n}评价怎么样`,
+    ])];
   }
 
   /** 自增序列（counters 集合）——query_id / 订单号的唯一来源 */

@@ -184,13 +184,18 @@ const steps = [
     },
   },
   {
-    name: '口碑·监控问题管理（采集前应 0 行）',
+    name: '口碑·监控问题管理（建档生成 ≥2 个口碑词）',
     async run(page, ctx) {
-      // 口碑与排名共用监控问题管理页，仅 ?type=brand 区分（口碑词）
+      // 口碑与排名共用监控问题管理页，仅 ?type=brand 区分；onboarding 顺带生成首批口碑题
       await page.goto(`${ctx.deps.DASH}/dashboard/topic-management?type=brand`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.qm-card-title', { timeout: 30_000 });
+      // 面板异步加载真实数据（queryList('brand')），轮询等首行渲染后计数
+      await page.waitForFunction(
+        () => document.querySelectorAll('.qm-row').length >= 1,
+        null, { timeout: 90_000 },
+      );
       const rows = await page.locator('.qm-row').count();
-      return { status: rows === 0 ? 'ok' : 'fail', detail: `行数=${rows}（采集前应 0）` };
+      const first = (await page.locator('.qm-question-text').first().innerText()).slice(0, 30);
+      return { status: rows >= 2 ? 'ok' : 'fail', detail: `行数=${rows}，首条=${first}（建档生成口碑词，应 ≥2）` };
     },
   },
   {
