@@ -204,8 +204,8 @@ const steps = [
   {
     name: '排名·监控问题管理（建档生成 ≥2 行）',
     async run(page, ctx) {
-      await page.goto(`${ctx.deps.DASH}/dashboard/ai-index/question-mgmt`, { waitUntil: 'domcontentloaded' });
-      // 该路由含大 chunk（ECharts），dash 冷启动后首次访问 Vite 编译慢 → waitForFunction 轮询，放宽到 90s
+      await page.goto(`${ctx.deps.DASH}/dashboard/topic-management`, { waitUntil: 'domcontentloaded' });
+      // 面板为异步加载真实数据（queryList('industry')），轮询等首行渲染后计数
       await page.waitForFunction(
         () => document.querySelectorAll('.qm-row').length >= 1,
         null, { timeout: 90_000 },

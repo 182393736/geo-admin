@@ -93,13 +93,13 @@
         </div>
         <!-- 行 -->
         <div class="divide-y divide-gray-100 bg-white">
-          <div v-for="q in rankQueries" :key="q.id" class="grid grid-cols-[2fr_6fr_1.6fr_auto_auto_auto] gap-4 px-6 py-4 items-start transition-all group relative hover:bg-gray-50/80 cursor-grab active:cursor-grabbing">
+          <div v-for="q in rankQueries" :key="q.id" class="qm-row grid grid-cols-[2fr_6fr_1.6fr_auto_auto_auto] gap-4 px-6 py-4 items-start transition-all group relative hover:bg-gray-50/80 cursor-grab active:cursor-grabbing">
             <div class="absolute left-0 top-0 bottom-0 w-1 transition-colors bg-transparent group-hover:bg-indigo-300"></div>
             <div>
               <span class="px-2 py-1 rounded text-xs font-medium border inline-block bg-indigo-50 border-indigo-200 text-indigo-700">{{ q.typeLabel }}</span>
             </div>
             <div class="relative">
-              <span class="text-sm font-bold text-gray-900 py-1.5 inline-flex items-center gap-2 flex-wrap">{{ q.content }}</span>
+              <span class="qm-question-text text-sm font-bold text-gray-900 py-1.5 inline-flex items-center gap-2 flex-wrap">{{ q.content }}</span>
             </div>
             <div class="min-w-0 pt-1">
               <select class="block w-full min-w-0 max-w-full truncate text-xs px-2 py-1 rounded-md border border-gray-200 bg-white text-gray-700 hover:border-indigo-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
