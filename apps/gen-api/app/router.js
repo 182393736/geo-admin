@@ -65,6 +65,23 @@ module.exports = app => {
   router.get('/source_intelligence/topics', jwtAuth, controller.source.topics);
   router.post('/snapshot/export/list', jwtAuth, controller.source.snapshotList);
 
+  // ============ 缺失补齐：问题分组 / 稿件 / 诊断（对标 geoapi.timus.cn） ============
+  router.post('/query-group/list', jwtAuth, controller.query.queryGroupList);
+  router.post('/publish/article/drafts', jwtAuth, controller.publish.articleDrafts);
+  router.post('/article/library', jwtAuth, controller.publish.articleLibrary);
+  router.get('/diagnosis/tasks', jwtAuth, controller.diagnosis.list);
+
+  // ============ 品牌·内容域（geoarticle 无壳 raw，带 /api 前缀） ============
+  router.get('/api/brand/intro', jwtAuth, controller.brandArticle.intro);
+  router.get('/api/brand/aliases', jwtAuth, controller.brandArticle.aliases);
+  router.get('/api/brand/competitors', jwtAuth, controller.brandArticle.competitors);
+  router.get('/api/brand/products', jwtAuth, controller.brandArticle.products);
+  router.get('/api/brand/library/text', jwtAuth, controller.brandArticle.libraryText);
+  router.get('/api/brand/library/links', jwtAuth, controller.brandArticle.libraryLinks);
+  router.get('/api/brand/library/docs', jwtAuth, controller.brandArticle.libraryDocs);
+  router.get('/api/brand/wiki/tree', jwtAuth, controller.brandArticle.wikiTree);
+  router.get('/api/articles', jwtAuth, controller.brandArticle.articles);
+
   // ============ 采集 worker 协议（机器对机器，服务级鉴权） ============
   const collectorAuth = middleware.collectorAuth();
   router.post('/collector/slots/pull', collectorAuth, controller.collector.pull);

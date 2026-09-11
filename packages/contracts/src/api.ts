@@ -270,5 +270,41 @@ export interface PublishOrder {
   published_at: string | null; created_at: string;
 }
 
+// ---- 品牌·内容域（geoarticle 无壳 raw，带 /api 前缀） ----
+export interface BrandIntroResp {
+  industry: string[]; website: string; slogan: string; tone: Record<string, any>;
+  description: string; scripts: string;
+}
+export interface BrandAliasesResp { aliases: string[] }
+export interface BrandCompetitorItem { name: string }
+export interface BrandProductItem { name: string; 来源: string }
+export interface BrandWikiTreeResp {
+  brand_present: boolean; company_present: boolean; brand_md: string; company_md: string;
+  competitor: { path: string; markdown: string }[];
+  competitors: { path: string; markdown: string }[];
+}
+export interface ArticlesResp {
+  uid: string; brand_id: string | null; total: number;
+  counters: { starting: number; running: number; awaiting_user: number; completed: number; failed: number; cancelled: number; all: number };
+  pagination: { page: number; page_size: number; total: number };
+  list: Record<string, any>[];
+}
+
+// ---- 稿件 / 诊断（geoapi 壳） ----
+export interface ArticleDraftItem {
+  article_id: string; job_id: string | null; title: string; word_count: number; status: string;
+  quality_report: Record<string, any> | null; style_references: string[];
+  publish_order_nos: string[]; created_at: string; updated_at: string;
+}
+export interface ArticleLibraryItem {
+  id: string; title: string; url: string | null; canonical_url: string | null; source_id: string | null;
+  publish_date: string | null; first_cited_at: string | null; last_cited_at: string | null; is_brand_published: boolean;
+}
+export interface DiagnosisTaskItem {
+  diagnosis_id: string; status: string; target_brand_input: Record<string, any> | null;
+  aliases: string[]; ends: string[]; credit_cost: number | null; order_no: string | null;
+  result: Record<string, any> | null; share_token: string | null; created_at: string; updated_at: string;
+}
+
 // ---- 快照 ----
 export interface SnapshotItem { id: number; platform: string; photo_url: string; exec_date: string; query_id: number }

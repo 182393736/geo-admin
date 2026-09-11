@@ -8,6 +8,14 @@ const Controller = require('egg').Controller;
  * 渠道本体为运维种子数据（app.js 幂等灌注代表性渠道）。
  */
 class PublishController extends Controller {
+  async _resolveBrand(userId, brandId) {
+    const { ctx } = this;
+    const brands = await ctx.model.Brand.find({ user_id: userId, status: { $ne: 'disabled' } })
+      .sort({ created_at: 1 }).lean();
+    if (!brands.length) return null;
+    return brands.find(b => b.brand_id === brandId) || brands[0];
+  }
+
   _fmtChannel(c) {
     return {
       media_key: c.media_key, name: c.name, type: c.type || '',
@@ -97,6 +105,64 @@ class PublishController extends Controller {
         stats_window_days: 30,
         discount_rate: null,
         fav_total: 0,
+      },
+    };
+  }
+  /* ---------- 稿件草稿（对标 POST /publish/article/drafts body { size } → { list, total, page }） ---------- */
+  async articleDrafts() {
+    const { ctx } = this;
+    const userId = ctx.state.user.id;
+    const b = ctx.request.body || {};
+    const size = Math.min(200, Math.max(1, parseInt(b.size, 10) || 50));
+    const rows = await ctx.model.ArticleGenerated.find({ uid: userId })
+      .sort({ updated_at: -1 }).limit(size).lean();
+    ctx.body = {
+      code: 200, msg: 'ok',
+      data: {
+        list: rows.map(a => ({
+          article_id: a.article_id, job_id: a.job_id || null, title: a.title || '',
+          word_count: a.word_count || 0, status: a.status,
+          quality_report: a.quality_report || null,
+          style_references: a.style_references || [],
+          publish_order_nos: a.publish_order_nos || [],
+          created_at: a.created_at, updated_at: a.updated_at,
+        })),
+        total: rows.length, page: 1,
+      },
+    };
+  }
+
+  /* ---------- 稿件库（对标 POST /article/library：被引文章库，filters + 分页） ---------- */
+  async articleLibrary() {
+    const { ctx } = this;
+    const userId = ctx.state.user.id;
+    const b = ctx.request.body || {};
+    const page = Math.max(1, parseInt(b.page, 10) || 1);
+    const size = Math.min(100, Math.max(1, parseInt(b.page_size, 10) || 20));
+
+    const brand = await this._resolveBrand(userId, b.brand_id);
+    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { list: [], total: 0, page, page_size: size } }; return; }
+
+    const q = { brand_id: brand.brand_id };
+    if (b.start_date && b.end_date) q.first_cited_at = { $gte: b.start_date, $lte: b.end_date };
+    const sortBy = b.sort_by === 'first_cited_at' || b.sort_by === 'registered_at'
+      ? { first_cited_at: -1 } : { first_cited_at: -1 };
+    if (b.sort_order === 'asc') { for (const k in sortBy) sortBy[k] = 1; }
+
+    const [total, rows] = await Promise.all([
+      ctx.model.CitedArticle.countDocuments(q),
+      ctx.model.CitedArticle.find(q).sort(sortBy).skip((page - 1) * size).limit(size).lean(),
+    ]);
+    ctx.body = {
+      code: 200, msg: 'ok',
+      data: {
+        list: rows.map(r => ({
+          id: r.article_id, title: r.title || '', url: r.url || null,
+          canonical_url: r.canonical_url || null, source_id: r.source_id || null,
+          publish_date: r.publish_date || null, first_cited_at: r.first_cited_at || null,
+          last_cited_at: r.last_cited_at || null, is_brand_published: !!r.is_brand_published,
+        })),
+        total, page, page_size: size,
       },
     };
   }

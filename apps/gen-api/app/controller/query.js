@@ -53,6 +53,34 @@ class QueryController extends Controller {
     };
   }
 
+  /** 问题分组（对标 POST /query-group/list）：{ groups, ungrouped_count, total, query_map } */
+  async queryGroupList() {
+    const { ctx } = this;
+    const userId = ctx.state.user.id;
+    const b = ctx.request.body || {};
+    const qt = b.query_type === 'brand' ? 'brand' : 'industry';
+    const brand = await this._resolveBrand(userId, b.brand_id);
+    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { groups: [], ungrouped_count: 0, total: 0, query_map: {} } }; return; }
+    const [groups, queries] = await Promise.all([
+      ctx.model.QueryGroup.find({ brand_id: brand.brand_id, query_type: qt }).sort({ sort: 1, created_at: 1 }).lean(),
+      ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_type: qt }).lean(),
+    ]);
+    const total = queries.length;
+    const ungrouped = queries.filter(q => !q.group_id).length;
+    ctx.body = {
+      code: 200, msg: 'ok',
+      data: {
+        groups: groups.map(g => ({
+          group_id: g.group_id, name: g.name, sort: g.sort || 0,
+          query_count: queries.filter(q => q.group_id === g.group_id).length,
+        })),
+        ungrouped_count: ungrouped,
+        total,
+        query_map: {},
+      },
+    };
+  }
+
   /** 采集状态（概览页采集状态卡）：契约对齐线上 { list, last_date }，并附加采集前语义 */
   async status() {
     const { ctx } = this;
