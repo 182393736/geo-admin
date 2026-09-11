@@ -42,6 +42,9 @@ export default defineConfig({
       '/reference_source': { target: 'http://127.0.0.1:7001', changeOrigin: true },
       '/source_intelligence': { target: 'http://127.0.0.1:7001', changeOrigin: true },
       '/snapshot': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/query': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/article': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/diagnosis': { target: 'http://127.0.0.1:7001', changeOrigin: true },
     },
   },
   css: {

@@ -276,11 +276,12 @@ import { monitorApi } from '@/api/modules/monitor';
 import SparkLine from '@/components/SparkLine.vue';
 import { lastNDays, fmtDate } from '@/utils/engines';
 
+// 对标 geoapi.timus.cn：5 家引擎（顺序 doubao/wenxin/deepseek/qwen/yuanbao）
 const platforms = [
   { key: 'doubao', name: '豆包' },
-  { key: 'deepseek', name: 'DeepSeek' },
   { key: 'wenxin', name: '文心一言' },
-  { key: 'qianwen', name: '通义千问' },
+  { key: 'deepseek', name: 'DeepSeek' },
+  { key: 'qwen', name: '通义千问' },
   { key: 'yuanbao', name: '元宝' },
 ];
 
@@ -296,29 +297,28 @@ const topSources = ref<any[]>([]);
 const statsList = ref<any[]>([]);
 const summary = ref<any>({ total_ref_count: 0, platform_breakdown: {} });
 const ownCur = ref<Record<string, number>>({});
+const ownSummary = ref<any>({});
 const perspList = ref<any[]>([]);
+const prefSources = ref<any[]>([]);
 
 const maxRef = computed(() => Math.max(1, ...statsList.value.map((s: any) => s.ref_count || 0)));
 const barW = (v: number) => `${Math.max(0, Math.min(100, (v / maxRef.value) * 100))}%`;
 
-const prefRows = computed(() =>
-  statsList.value.slice(0, 15).map(s => ({
-    canonical_source: s.canonical_source,
-    ref_count: s.ref_count,
-    engines: Object.fromEntries(Object.entries(s.platforms || {}).map(([k, v]: any) => [k, v?.ref_count || 0])),
-  })),
-);
+/* engines 归一：{engine:{cur,cmp,chg}} → {engine: cur} */
+const normEngines = (eng: any) =>
+  Object.fromEntries(Object.entries(eng || {}).map(([k, v]: any) => [k, (v && typeof v === 'object') ? (v.cur ?? 0) : v]));
+
+const prefRows = computed(() => prefSources.value.slice(0, 15));
 
 const perspectiveRows = computed(() =>
-  (perspList.value.length ? perspList.value : statsList.value).map(s => ({
-    canonical_source: s.canonical_source || s.source_id,
-    ref_count: s.ref_count,
-    engines: Object.fromEntries(Object.entries(s.platforms || {}).map(([k, v]: any) => [k, v?.ref_count || 0])),
-  })),
+  (perspList.value.length ? perspList.value : statsList.value.map(s => ({
+    canonical_source: s.canonical_source, ref_count: s.ref_count, engines: normEngines(s.platforms),
+  }))).map(s => ({ ...s, engines: normEngines(s.engines) })),
 );
 
-const ownTotal = computed(() => Object.values(ownCur.value).reduce((s, n) => s + (Number(n) || 0), 0));
+const ownTotal = computed(() => (Object.values(ownCur.value) as number[]).reduce((s, n) => s + (Number(n) || 0), 0));
 const ownRate = computed(() => {
+  if (ownSummary.value && ownSummary.value.rate_now != null) return ownSummary.value.rate_now;
   const totalRef = summary.value.total_ref_count || 0;
   return totalRef ? ((ownTotal.value / totalRef) * 100).toFixed(1) : '0.0';
 });
@@ -346,17 +346,33 @@ onMounted(async () => {
   const f = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   cmpStart.value = f(c); cmpEnd.value = f(ce);
   try {
-    const [trend, stats, own, persp] = await Promise.all([
+    const [trend, stats, own, persp, pref] = await Promise.all([
       monitorApi.siSourceTrend(start, end),
       monitorApi.sourceStats(start, end, 1, 50),
       monitorApi.siOwnTrend(start, end, cmpStart.value, cmpEnd.value),
       monitorApi.siPerspective(start, end, cmpStart.value, cmpEnd.value),
+      monitorApi.siEnginePreference(start, end, cmpStart.value, cmpEnd.value),
     ]);
-    topSources.value = (trend as any)?.list || [];
+    // 对标 source_trend：{dates, sources:[{name,total,series}]}
+    topSources.value = ((trend as any)?.sources || []).map((s: any) => ({
+      canonical_source: s.name, ref_count: s.total, total: s.total, series: s.series || [],
+    }));
     statsList.value = (stats as any)?.list || [];
     summary.value = (stats as any)?.summary || summary.value;
-    ownCur.value = (own as any)?.current || {};
-    perspList.value = (persp as any)?.list || [];
+    // 对标 own_trend：{trend:[{date,own_count,total_count,rate}], summary}
+    ownSummary.value = (own as any)?.summary || {};
+    ownCur.value = Object.fromEntries(((own as any)?.trend || []).map((t: any) => [t.date, t.own_count]));
+    // 对标 perspective：{list:[{name,cur_total,cmp_total,change,change_pct,status,tag,engines,own_rate}]}
+    perspList.value = ((persp as any)?.list || []).map((s: any) => ({
+      canonical_source: s.name, ref_count: s.cur_total,
+      change: s.change, change_pct: s.change_pct, status: s.status, tag: s.tag,
+      engines: normEngines(s.engines),
+    }));
+    // 对标 engine_preference：{sources:[{canonical_source,category,engines,cur_total,cmp_total,chg_total}]}
+    prefSources.value = ((pref as any)?.sources || []).map((s: any) => ({
+      canonical_source: s.canonical_source, ref_count: s.cur_total,
+      engines: normEngines(s.engines),
+    }));
   } catch { /* 空态 */ }
 });
 </script>

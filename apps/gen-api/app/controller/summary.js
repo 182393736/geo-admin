@@ -270,7 +270,7 @@ class SummaryController extends Controller {
       if (previous_rank == null) trend = 'new';
       else if (rank_change > 0) trend = 'up';
       else if (rank_change < 0) trend = 'down';
-      else trend = 'same';
+      else trend = 'stable';
       return {
         name: a.name, is_target: a.is_target,
         current_rank, previous_rank,
@@ -326,11 +326,12 @@ class SummaryController extends Controller {
     };
     if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
 
-    const [mentions, queries, metrics, boards] = await Promise.all([
+    const [mentions, queries, metrics, boards, competitorTotal] = await Promise.all([
       ctx.model.BrandMention.find({ brand_id: brand.brand_id }).lean(),
       ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_type: 'industry' }).lean(),
       ctx.model.DailyMetricQuery.find({ brand_id: brand.brand_id }).lean(),
       ctx.model.LeaderboardDaily.find({ brand_id: brand.brand_id }).lean(),
+      ctx.model.CompetitorRegister.countDocuments({ brand_id: brand.brand_id }),
     ]);
 
     const keywordCount = queries.length;      // 监控问题数（对标 keyword_count=5）
@@ -338,9 +339,14 @@ class SummaryController extends Controller {
     const allDenom = keywordCount * engineCount; // 综合分母（对标 25）
     const engDenom = keywordCount;            // 单引擎分母（对标 5）
 
+    // 对标：按最新有效日期聚合（start_date=end_date=当日）；有效数据日期近 7 日降序
+    const dates = [...new Set(metrics.map(m => m.date))].sort().reverse().slice(0, 7);
+    const latestDate = dates[0] || this.ctx.app.dayjs().format('YYYY-MM-DD');
+
     const tgt = { freq: 0, top3: 0, first: 0, platforms: {} };
     const byEntity = {};
     for (const m of mentions) {
+      if (m.date && m.date !== latestDate) continue;
       const label = ENGINE_LABELS[m.platform] || m.platform;
       if (m.is_target) {
         tgt.freq += 1;
@@ -404,10 +410,17 @@ class SummaryController extends Controller {
           platform_stats: ps,
         };
       });
-
-    // 有效数据日期（降序，最多 7 天）
-    const dates = [...new Set(metrics.map(m => m.date))].sort().reverse().slice(0, 7);
-    const latestDate = dates[0] || this.ctx.app.dayjs().format('YYYY-MM-DD');
+    // 对标：本品牌作为 is_target 行参与同一榜单排序
+    competitor_compare_list.push({
+      name: brand.name, is_target: true,
+      frequency: tgt.freq, top3_frequency: tgt.top3, first_frequency: tgt.first,
+      keyword_count: allDenom,
+      mention_rate: tgtPs.综合.mention_rate,
+      top3_mention_rate: tgtPs.综合.top3_mention_rate,
+      first_mention_rate: tgtPs.综合.first_mention_rate,
+      platform_stats: tgtPs,
+    });
+    competitor_compare_list.sort((x, y) => y.frequency - x.frequency);
 
     // keyword_details：每问题的目标位次 + 当日榜单
     const metricByQuery = {};
@@ -439,8 +452,8 @@ class SummaryController extends Controller {
     ctx.body = {
       code: 200, msg: 'ok',
       data: {
-        brand: brand.name, date: latestDate, start_date: dates[dates.length - 1] || latestDate, end_date: latestDate,
-        keyword_count: keywordCount, competitor_count: competitor_compare_list.length,
+        brand: brand.name, date: latestDate, start_date: latestDate, end_date: latestDate,
+        keyword_count: keywordCount, competitor_count: competitorTotal || competitor_compare_list.length,
         target_mention_summary, valid_data_date_list: dates, keyword_details, competitor_compare_list,
       },
     };

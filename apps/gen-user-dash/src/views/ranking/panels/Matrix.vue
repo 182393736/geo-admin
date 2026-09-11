@@ -290,12 +290,13 @@ import { ref, computed, onMounted } from 'vue';
 import { monitorApi } from '@/api/modules/monitor';
 import SparkLine from '@/components/SparkLine.vue';
 
-const ENGINES_ALL = ['doubao', 'deepseek', 'wenxin', 'qianwen', 'yuanbao'];
+// 对标 geoapi.timus.cn：5 家引擎，顺序 doubao/wenxin/deepseek/qwen/yuanbao
+const ENGINES_ALL = ['doubao', 'wenxin', 'deepseek', 'qwen', 'yuanbao'];
 const engines = [
   { key: 'doubao', name: '豆包' },
-  { key: 'deepseek', name: 'DeepSeek' },
   { key: 'wenxin', name: '文心一言' },
-  { key: 'qianwen', name: '通义千问' },
+  { key: 'deepseek', name: 'DeepSeek' },
+  { key: 'qwen', name: '通义千问' },
   { key: 'yuanbao', name: '元宝' },
 ] as const;
 
@@ -317,12 +318,18 @@ const fmtDate = (s: string) => (s ? s.slice(5) : '');
 
 const leaderboard = computed(() => ranking.value.slice(0, 10));
 
-/* 综合排名：按各引擎位次均值升序（全部未提及则「未上榜」），第1名为最佳 */
+/* 综合排名：优先用后端 rank_value.all；否则按各引擎位次均值升序（全部未提及则「未上榜」） */
 const matrixRows = computed(() => {
   const rows: any[] = Object.values(matrix.value.list || {});
   const scored = rows.map(r => {
-    const vals = ENGINES_ALL.map(k => Number(r.rank_value?.[k])).filter(Number.isFinite);
-    return { ...r, _avg: vals.length ? vals.reduce((s: number, n: number) => s + n, 0) / vals.length : null };
+    const all = r.rank_value?.all;
+    const allN = Number(all);
+    const _avg = Number.isFinite(allN) ? allN : null;
+    const fallbackVals = ENGINES_ALL.map(k => Number(r.rank_value?.[k])).filter(Number.isFinite);
+    return {
+      ...r,
+      _avg: _avg ?? (fallbackVals.length ? fallbackVals.reduce((s: number, n: number) => s + n, 0) / fallbackVals.length : null),
+    };
   });
   const orderable = scored.filter(r => r._avg != null).sort((a, b) => a._avg - b._avg);
   const rankOf = new Map(orderable.map((r, i) => [r.query, i + 1]));

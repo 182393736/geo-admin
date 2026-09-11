@@ -159,9 +159,9 @@
                   :key="g.key"
                   colspan="3"
                   class="text-center py-2 px-2 font-bold text-xs border-b border-gray-100 text-gray-700"
-                  :class="g.key === 'all' ? 'bg-slate-50/80' : (g.lock ? 'cursor-pointer text-gray-600' : '')"
+                  :class="g.key === '综合' ? 'bg-slate-50/80' : (g.lock ? 'cursor-pointer text-gray-600' : '')"
                 >
-                  <span :class="['inline-flex items-center gap-1 px-2 py-0.5 rounded-md', g.key === 'all' ? 'bg-slate-100 text-slate-700' : 'bg-gray-50 text-gray-700']">
+                  <span :class="['inline-flex items-center gap-1 px-2 py-0.5 rounded-md', g.key === '综合' ? 'bg-slate-100 text-slate-700' : 'bg-gray-50 text-gray-700']">
                     {{ g.label }}
                     <svg v-if="g.lock" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500 shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                   </span>
@@ -169,17 +169,17 @@
               </tr>
               <tr class="border-b border-gray-100">
                 <template v-for="g in GROUPS" :key="g.key">
-                  <th class="text-center py-2 px-2 text-gray-400 font-medium text-[10px]" :class="g.key === 'all' ? 'bg-slate-50/60' : ''">
+                  <th class="text-center py-2 px-2 text-gray-400 font-medium text-[10px]" :class="g.key === '综合' ? 'bg-slate-50/60' : ''">
                     <button type="button" title="点击排序" class="inline-flex items-center gap-0.5 transition-colors hover:text-gray-700">提及率
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-300"><path d="m6 9 6 6 6-6"/></svg>
                     </button>
                   </th>
-                  <th class="text-center py-2 px-2 text-gray-400 font-medium text-[10px]" :class="g.key === 'all' ? 'bg-slate-50/60' : ''">
+                  <th class="text-center py-2 px-2 text-gray-400 font-medium text-[10px]" :class="g.key === '综合' ? 'bg-slate-50/60' : ''">
                     <button type="button" title="点击排序" class="inline-flex items-center gap-0.5 transition-colors hover:text-gray-700">Top3 推荐率
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-300"><path d="m6 9 6 6 6-6"/></svg>
                     </button>
                   </th>
-                  <th class="text-center py-2 px-2 text-gray-400 font-medium text-[10px] border-r border-gray-100" :class="g.key === 'all' ? 'bg-slate-50/60' : ''">
+                  <th class="text-center py-2 px-2 text-gray-400 font-medium text-[10px] border-r border-gray-100" :class="g.key === '综合' ? 'bg-slate-50/60' : ''">
                     <button type="button" title="点击排序" class="inline-flex items-center gap-0.5 transition-colors hover:text-gray-700">首位提及率
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-300"><path d="m6 9 6 6 6-6"/></svg>
                     </button>
@@ -214,7 +214,7 @@
                       v-for="(m, mi) in groupMetrics(c, g)"
                       :key="m.key"
                       class="text-center py-3 px-2"
-                      :class="[(g.key === 'all' ? 'bg-slate-50/40 ' : '') + (mi === 2 ? 'border-r border-gray-100' : '')]"
+                      :class="[(g.key === '综合' ? 'bg-slate-50/40 ' : '') + (mi === 2 ? 'border-r border-gray-100' : '')]"
                     >
                       <span
                         class="inline-flex justify-center rounded-md px-2 py-1 text-xs font-bold"
@@ -280,9 +280,9 @@
 import { ref, computed, onMounted } from 'vue';
 import { monitorApi } from '@/api/modules/monitor';
 
+const raw = ref<any>({});
 const list = ref<any[]>([]);
 const queries = ref<any[]>([]);
-const matrix = ref<any>({ list: {} });
 const rangeStart = ref('2026-09-11');
 const rangeEnd = ref('2026-09-11');
 
@@ -308,24 +308,28 @@ const barW = (v: number) => `${Math.max(0, Math.min(100, (v / maxFreq.value) * 1
 
 const kpi = computed(() => {
   const top = list.value[0] || { name: '—', frequency: 0, mention_rate: 0, top3_mention_rate: 0 };
-  return { total: list.value.length, queries: queries.value.length, top };
+  return {
+    total: raw.value.competitor_count ?? list.value.length,
+    queries: raw.value.keyword_count ?? queries.value.length,
+    top,
+  };
 });
 
-/* 分平台排名指标：综合 / 5 引擎 / 3 个 APP(锁) */
+/* 分平台排名指标：综合 / 5 引擎（对标 platform_stats 中文键）/ 3 个 APP(锁) */
 const GROUPS = [
-  { key: 'all', label: '综合', lock: false },
-  { key: 'doubao', label: '豆包', lock: false },
-  { key: 'deepseek', label: 'DeepSeek', lock: false },
-  { key: 'wenxin', label: '文心一言', lock: false },
-  { key: 'qianwen', label: '通义千问', lock: false },
-  { key: 'yuanbao', label: '元宝', lock: false },
+  { key: '综合', label: '综合', lock: false },
+  { key: '豆包', label: '豆包', lock: false },
+  { key: '文心一言', label: '文心一言', lock: false },
+  { key: 'DeepSeek', label: 'DeepSeek', lock: false },
+  { key: '通义千问', label: '通义千问', lock: false },
+  { key: '元宝', label: '元宝', lock: false },
   { key: 'doubao_app', label: '豆包·APP', lock: true },
   { key: 'deepseek_app', label: 'DeepSeek·APP', lock: true },
   { key: 'qianwen_app', label: '通义千问·APP', lock: true },
 ];
 
 function groupMetrics(c: any, g: { key: string; lock: boolean }) {
-  if (g.key === 'all') {
+  if (g.key === '综合') {
     return [
       { key: 'mention', value: c.mention_rate ?? 0, onCls: 'bg-indigo-50 text-indigo-700' },
       { key: 'top3', value: c.top3_mention_rate ?? 0, onCls: 'bg-violet-50 text-violet-700' },
@@ -340,30 +344,28 @@ function groupMetrics(c: any, g: { key: string; lock: boolean }) {
   ];
 }
 
-/* 问题明细：本品牌各引擎位次（真实站引擎顺序：豆包/文心一言/DeepSeek/通义千问/元宝） */
+/* 问题明细：对标 keyword_details（目标位次 + 各引擎位次，中文键） */
 const ENG_ORDER = [
-  { key: 'doubao', label: '豆包' },
-  { key: 'wenxin', label: '文心一言' },
-  { key: 'deepseek', label: 'DeepSeek' },
-  { key: 'qianwen', label: '通义千问' },
-  { key: 'yuanbao', label: '元宝' },
+  { key: '豆包', label: '豆包' },
+  { key: '文心一言', label: '文心一言' },
+  { key: 'DeepSeek', label: 'DeepSeek' },
+  { key: '通义千问', label: '通义千问' },
+  { key: '元宝', label: '元宝' },
 ];
 
 const queryRows = computed(() => {
-  return queries.value.map((q: any) => {
-    const m = matrix.value.list?.[String(q.id)];
-    const rv = m?.rank_value || {};
+  const details = raw.value.keyword_details || [];
+  return details.map((d: any) => {
+    const pr = d.platform_ranks || {};
     const engines = ENG_ORDER.map(e => {
-      const v = rv[e.key];
+      const v = pr[e.key];
       const n = Number(v);
       return { key: e.key, label: e.label, rank: Number.isFinite(n) ? n : null };
     });
-    const ranked = engines.map(e => e.rank).filter((n): n is number => n != null);
-    const brandRank = ranked.length ? Math.min(...ranked) : null;
     return {
-      id: q.id,
-      name: q.query,
-      brandRank,
+      id: d.query_id,
+      name: d.keyword,
+      brandRank: d.target_rank ?? null,
       engines,
       competitorCount: null, // 分问题竞品数接口未提供，占位
     };
@@ -378,19 +380,10 @@ const isOpen = (id: number) => openIds.value.includes(id);
 
 onMounted(async () => {
   try {
-    const [resp, qs]: any[] = await Promise.all([
-      monitorApi.competitorInsight().catch(() => null),
-      monitorApi.queryList('industry').catch(() => null),
-    ]);
-    list.value = resp?.list || [];
-    queries.value = qs?.list || [];
-    const qids = queries.value.map((q: any) => q.id).filter((n: number) => Number.isFinite(n));
-    if (qids.length) {
-      const d = new Date();
-      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const m: any = await monitorApi.fullRankingMatrix(qids, iso).catch(() => null);
-      if (m?.list) matrix.value = m;
-    }
+    const resp: any = await monitorApi.competitorInsight().catch(() => null);
+    raw.value = resp || {};
+    list.value = resp?.competitor_compare_list || [];
+    queries.value = resp?.keyword_details || [];
   } catch { /* 空态 */ }
 });
 </script>

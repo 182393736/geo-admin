@@ -3,16 +3,18 @@ import { get, post } from '../http';
 import type {
   MonitorQuery, QueryGroupResp, QueryStatusResp, RateTrendResp, FullRankingMatrixResp,
   AiRankingMatrixResp, ReputationDataResp, GetReferencesResp, SourceStatsResp, SnapshotItem,
+  CompetitorInsightResp, SourceTrendResp, EnginePreferenceResp, OwnTrendResp, PerspectiveResp,
 } from '../types';
 
+// 对标 geoapi.timus.cn：5 家引擎（含 qwen，顺序 = 对标）
 const TREND_BODY = (start: string, end: string) => ({
   end: 'web', start_date: start, end_date: end,
-  platforms: ['doubao', 'deepseek', 'wenxin', 'yuanbao'],
+  platforms: ['doubao', 'wenxin', 'deepseek', 'qwen', 'yuanbao'],
 });
 
 export const monitorApi = {
   // --- 监控问题 ---
-  queryList: (query_type: 'industry' | 'brand') => get<{ list: MonitorQuery[] }>(`/api/query/list?query_type=${query_type}`),
+  queryList: (query_type: 'industry' | 'brand') => get<{ list: MonitorQuery[] }>(`/query/list?query_type=${query_type}`),
   queryStatus: () => get<QueryStatusResp>('/user/get_query_status'),
   queryGroupList: (query_type: string) => post<QueryGroupResp>('/query-group/list', { query_type }),
 
@@ -31,22 +33,22 @@ export const monitorApi = {
 
   // --- 竞品/引用 ---
   getReferences: () => post<GetReferencesResp>('/summary/get_references', { platform: 'all', platforms: ['all'] }),
-  competitorInsight: () => post('/competitor/insight', { start_date: null, end: 'all' }),
+  competitorInsight: () => post<CompetitorInsightResp>('/competitor/insight', { start_date: null, end: 'all' }),
   sourceStats: (start: string, end: string, page = 1, page_size = 20) =>
     post<SourceStatsResp>('/reference_source/stats',
       { page, page_size, start_date: start, end_date: end, end: 'web', sort_field: 'ref_count', sort_order: 'desc' }),
 
   // --- 信源洞察 4 件套 ---
-  siSourceTrend: (start: string, end: string) => post('/source_intelligence/source_trend', { start_date: start, end_date: end, platform: null, top_n: 10 }),
+  siSourceTrend: (start: string, end: string) => post<SourceTrendResp>('/source_intelligence/source_trend', { start_date: start, end_date: end, platform: null, top_n: 10 }),
   siEnginePreference: (s: string, e: string, cs: string, ce: string) =>
-    post('/source_intelligence/engine_preference', { start_date: s, end_date: e, cmp_start_date: cs, cmp_end_date: ce }),
+    post<EnginePreferenceResp>('/source_intelligence/engine_preference', { start_date: s, end_date: e, cmp_start_date: cs, cmp_end_date: ce }),
   siOwnTrend: (s: string, e: string, cs: string, ce: string) =>
-    post('/source_intelligence/own_trend', { start_date: s, end_date: e, cmp_start_date: cs, cmp_end_date: ce, platform: null }),
+    post<OwnTrendResp>('/source_intelligence/own_trend', { start_date: s, end_date: e, cmp_start_date: cs, cmp_end_date: ce, platform: null }),
   siPerspective: (s: string, e: string, cs: string, ce: string) =>
-    post('/source_intelligence/perspective', { start_date: s, end_date: e, cmp_start_date: cs, cmp_end_date: ce, platform: null, view: 'source' }),
+    post<PerspectiveResp>('/source_intelligence/perspective', { start_date: s, end_date: e, cmp_start_date: cs, cmp_end_date: ce, platform: null, view: 'source' }),
   siTopics: () => get<{ query_id: number; name: string }[]>('/source_intelligence/topics'),
 
   // --- 快照 ---
   snapshotList: (date: string, query_id: number, page = 1) =>
-    post<{ list: SnapshotItem[] }>('/snapshot/export/list', { page, page_size: 10, start_date: date, query_id }),
+    post<{ list: SnapshotItem[] }>('/snapshot/export/list', { page, page_size: 10, start_date: date, query_id, query_type: 'industry' }),
 };

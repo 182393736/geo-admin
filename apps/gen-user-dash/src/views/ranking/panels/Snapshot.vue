@@ -125,10 +125,10 @@ import { ref, onMounted } from 'vue';
 import { monitorApi } from '@/api/modules/monitor';
 
 const PLATFORM_NAME: Record<string, string> = {
-  doubao: '豆包', deepseek: 'DeepSeek', wenxin: '文心一言', qianwen: '通义千问', yuanbao: '元宝',
+  doubao: '豆包', deepseek: 'DeepSeek', wenxin: '文心一言', qwen: '通义千问', yuanbao: '元宝',
 };
 const PLATFORM_PREFIX: Record<string, string> = {
-  doubao: 'Doubao', deepseek: 'Deepseek', wenxin: 'Wenxin', qianwen: 'Qwen', yuanbao: 'Yuanbao',
+  doubao: 'Doubao', deepseek: 'Deepseek', wenxin: 'Wenxin', qwen: 'Qwen', yuanbao: 'Yuanbao',
 };
 
 const topics = ref<any[]>([]);

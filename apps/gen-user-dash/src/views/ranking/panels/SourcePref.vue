@@ -151,7 +151,11 @@
                   <span class="text-gray-900 font-medium">{{ s.canonical_source }}</span>
                   <div v-if="s.domain" class="mt-0.5 text-xs text-gray-400">{{ s.domain }}</div>
                 </td>
-                <td class="px-6 py-3 text-center"><span class="text-xs text-gray-300">--</span></td>
+                <td class="px-6 py-3 text-center">
+                  <span v-if="s.auth_info_level" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold text-amber-600 bg-amber-50">{{ s.auth_info_level }}</span>
+                  <span v-else-if="s.auth_info_des" class="text-xs text-gray-500">{{ s.auth_info_des }}</span>
+                  <span v-else class="text-xs text-gray-300">--</span>
+                </td>
                 <td class="px-6 py-3 text-right font-semibold text-gray-900">{{ s.ref_count }}</td>
                 <td class="px-6 py-3 text-right text-gray-600">{{ s.article_count }}</td>
                 <td class="px-6 py-3">
@@ -184,7 +188,7 @@ const platforms = [
   { key: 'doubao', name: '豆包', color: '#f59e0b' },
   { key: 'deepseek', name: 'DeepSeek', color: '#0ea5e9' },
   { key: 'wenxin', name: '文心一言', color: '#ec4899' },
-  { key: 'qianwen', name: '通义千问', color: '#9333ea' },
+  { key: 'qwen', name: '通义千问', color: '#9333ea' },
   { key: 'yuanbao', name: '元宝', color: '#6366f1' },
 ];
 

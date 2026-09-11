@@ -153,7 +153,9 @@
                   </div>
                 </td>
                 <td class="px-6 py-5 text-center">
-                  <span class="text-xs text-gray-300">--</span>
+                  <span v-if="s.auth_info_level" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold text-amber-600 bg-amber-50">{{ s.auth_info_level }}</span>
+                  <span v-else-if="s.auth_info_des" class="text-xs text-gray-500">{{ s.auth_info_des }}</span>
+                  <span v-else class="text-xs text-gray-300">--</span>
                 </td>
                 <td class="px-6 py-5 text-center">
                   <div class="flex flex-wrap items-center justify-center gap-1.5">
@@ -197,7 +199,7 @@ const PLATFORM_META: Record<string, { name: string; color: string }> = {
   doubao: { name: '豆包', color: '#f59e0b' },
   deepseek: { name: 'DeepSeek', color: '#0ea5e9' },
   wenxin: { name: '文心一言', color: '#ec4899' },
-  qianwen: { name: '通义千问', color: '#9333ea' },
+  qwen: { name: '通义千问', color: '#9333ea' },
   yuanbao: { name: '元宝', color: '#6366f1' },
 };
 
