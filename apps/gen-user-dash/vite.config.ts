@@ -36,6 +36,12 @@ export default defineConfig({
       '/payment': { target: 'http://127.0.0.1:7001', changeOrigin: true },
       '/credit': { target: 'http://127.0.0.1:7001', changeOrigin: true },
       '/publish': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/report': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/summary': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/competitor': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/reference_source': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/source_intelligence': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/snapshot': { target: 'http://127.0.0.1:7001', changeOrigin: true },
     },
   },
   css: {
