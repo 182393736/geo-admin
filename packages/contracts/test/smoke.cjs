@@ -3,9 +3,9 @@
 const assert = require('node:assert');
 const c = require('../dist/index.cjs');
 
-// 枚举
-assert.deepStrictEqual([...c.ENGINE_KEYS], ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao']);
-assert.deepStrictEqual([...c.COLLECT_PLATFORMS], ['doubao', 'deepseek', 'wenxin', 'qwen', 'yuanbao', 'kimi']);
+// 枚举（千问 qwen 暂移除：对标站展示 5 家，我方采集/计分当前 4 家，qwen 待后续接入）
+assert.deepStrictEqual([...c.ENGINE_KEYS], ['doubao', 'deepseek', 'wenxin', 'yuanbao']);
+assert.deepStrictEqual([...c.COLLECT_PLATFORMS], ['doubao', 'deepseek', 'wenxin', 'yuanbao', 'kimi']);
 assert.ok(c.COLLECT_PLATFORMS.includes('kimi') && !c.ENGINE_KEYS.includes('kimi'), '采集平台比监控引擎多 kimi');
 
 // 常量

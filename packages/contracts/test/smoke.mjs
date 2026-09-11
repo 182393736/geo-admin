@@ -5,8 +5,9 @@ import {
   CollectSlotSchema, MonitorQuerySchema, decodeJwtPayload,
 } from '../dist/index.mjs';
 
-assert.strictEqual(ENGINE_KEYS.length, 5);
-assert.strictEqual(COLLECT_PLATFORMS.length, 6);
+// 千问 qwen 暂移除：4 家引擎 / 5 家采集平台（+kimi）
+assert.strictEqual(ENGINE_KEYS.length, 4);
+assert.strictEqual(COLLECT_PLATFORMS.length, 5);
 assert.strictEqual(PLAN_CATALOG.length, 6);
 assert.strictEqual(RANK_WEIGHTS[0], 40);
 
