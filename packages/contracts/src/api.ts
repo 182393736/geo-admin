@@ -80,12 +80,14 @@ export interface QueryStatus {
 export interface MonitorQuery {
   id: number;                     // 数字自增（实测 37935/40150）
   query: string;                  // platform_query 实际发问形态
+  user_id: string; brand_id: string;
   question_list: { user_friendly: string; platform_query: string }[];
   query_type: QueryType; is_golden: boolean; weight: number;
+  golden_query_ranking: Record<string, any> | null;
   query_status: boolean; query_is_execute: boolean; query_order: number;
   query_description?: string;     // AI 生成的热度·场景标签
   platform_prompt?: string;       // 平台差异化改写（默认同 query）
-  task_id?: string; group_id?: string; effective_to: string | null;
+  task_id?: string | null; group_id?: string; effective_to: string | null;
   created_at: string; updated_at: string;
 }
 export interface QueryGroupResp { groups: any[]; ungrouped_count: number; total: number; query_map: Record<string, any> }
@@ -136,24 +138,52 @@ export interface ReputationDataResp {
 // ---- 竞品洞察 ----
 export interface CompanyRankItem {
   name: string; is_target: boolean; current_rank: number; current_score: number;
-  previous_rank: number | null; previous_score: number | null; rank_change: number; trend: 'new' | 'up' | 'down' | 'stable';
+  previous_rank: number | null; previous_score: number | null; rank_change: number;
+  trend: 'new' | 'up' | 'down' | 'same' | 'stable';
 }
 export interface GetReferencesResp {
   query_dict: Record<string, string>;
   company_ranking_data: CompanyRankItem[];
   visibility_trend: { all: { date_day: string; rank_value: string; score: string }[] };
+  valid_data_date_list: string[];
+  user_data_status: boolean;
 }
-export interface CompetitorRow {
-  name: string; is_target: boolean; frequency: number; top3_frequency: number; first_frequency: number;
-  keyword_count: number; mention_rate: number; top3_mention_rate: number; first_mention_rate: number;
-  platform_stats: Record<string, RateBucket & { top3_mention_rate: number; first_mention_rate: number; top3_numerator: number; first_numerator: number }>;
+/** 平台×指标统计块（对标 platform_stats 的键值形状：{ 豆包/文心一言/DeepSeek/通义千问/元宝/综合 }） */
+export interface PlatformStatBucket {
+  mention_rate: number; top3_mention_rate: number; first_mention_rate: number;
+  denominator: number; mention_numerator: number; top3_numerator: number; first_numerator: number;
 }
+export interface CompetitorCompareRow {
+  name: string; is_target: boolean;
+  frequency: number; top3_frequency: number; first_frequency: number; keyword_count: number;
+  mention_rate: number; top3_mention_rate: number; first_mention_rate: number;
+  platform_stats: Record<string, PlatformStatBucket>;
+}
+export interface KeywordDetail {
+  query_id: number; keyword: string; query_type: QueryType; target_rank: number | null;
+  platform_ranks: Record<string, string>;
+  rankings: { name: string; rank: number; score: number; is_target: boolean }[];
+}
+export interface CompetitorInsightResp {
+  brand: string; date: string; start_date: string; end_date: string;
+  keyword_count: number; competitor_count: number;
+  target_mention_summary: {
+    mention_rate: number; top3_mention_rate: number; first_mention_rate: number;
+    denominator: number; mention_numerator: number; top3_numerator: number; first_numerator: number;
+    platform_stats: Record<string, PlatformStatBucket>;
+  };
+  valid_data_date_list: string[];
+  keyword_details: KeywordDetail[];
+  competitor_compare_list: CompetitorCompareRow[];
+}
+export interface CompetitorRow extends CompetitorCompareRow {}
 
 // ---- 信源 ----
 export interface SourceStatItem {
-  canonical_source: string; category: string; domain: string | null;
+  canonical_source: string; category: string | null; domain: string | null;
+  auth_info_des: string | null; auth_info_level: string | null;   // 对标「媒体权威度」字段
   ref_count: number; article_count: number; query_count: number; own_article_count: number;
-  first_cited_at: string; platforms: Record<string, { ref_count: number; article_count: number }>;
+  first_cited_at: string | null; platforms: Record<string, { ref_count: number; article_count: number }>;
   media_key: string | null; sell_price: number | null; list_price: number | null; cost_per_citation: number | null;
 }
 export interface SourceStatsResp {
@@ -161,6 +191,30 @@ export interface SourceStatsResp {
   summary: { total_ref_count: number; total_article_count: number; total_sources: number; own_source_count: number; top5_share: number; platform_breakdown: Record<string, number> };
   page: number; page_size: number; total: number;
 }
+
+// ---- 信源洞察（对标 geoapi.timus.cn /source_intelligence 4 件套） ----
+export interface SourceTrendResp {
+  dates: string[];
+  sources: { name: string; total: number; series: number[] }[];
+}
+export interface EnginePrefSource {
+  canonical_source: string; category: string | null;
+  engines: Record<string, { cur: number; cmp: number; chg: number }>;
+  cur_total: number; cmp_total: number; chg_total: number;
+}
+export interface EnginePreferenceResp { sources: EnginePrefSource[] }
+export interface OwnTrendResp {
+  trend: { date: string; own_count: number; total_count: number; rate: number }[];
+  summary: { cited: number; cited_chg: number; rate_now: number; rate_chg: number; own_articles: number; own_articles_chg: number };
+}
+export interface PerspectiveSource {
+  name: string; category: string | null;
+  cur_total: number; cmp_total: number; change: number; change_pct: number;
+  status: string; tag: string;
+  engines: Record<string, { cur: number; cmp: number }>;
+  own_rate: number;
+}
+export interface PerspectiveResp { list: PerspectiveSource[]; total: number; page: number; page_size: number }
 
 // ---- 报告 ----
 export interface ReportTemplate { id: number; name: string; modules: { key: string; sort: number; enabled: boolean }[] }
@@ -176,11 +230,17 @@ export interface ReportLatestResp {
   payload: Record<string, any> | null;      // 首份未生成时为 null！
   overview_stats: OverviewStats;
 }
+export interface ReportCycleResp {
+  weekly_generate_dow: number; monthly_generate_dom: number;
+  weekly_enabled: boolean; monthly_enabled: boolean; cycle_locked: boolean;
+}
 
 // ---- 套餐/钱包 ----
 export interface CreditAccount {
   balance: number; frozen: number; available: number;
-  gold_balance: number; silver_balance: number; publish_available: number;
+  gold_balance: number; silver_balance: number;
+  gold_available: number; silver_available: number;   // 对标字段
+  publish_available: number;
   total_recharge: number; total_consume: number; total_expired: number;
 }
 export interface Subscription {

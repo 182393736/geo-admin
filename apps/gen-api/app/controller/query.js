@@ -33,12 +33,21 @@ class QueryController extends Controller {
       code: 200, msg: 'ok',
       data: {
         list: rows.map(m => ({
-          id: m.query_id, brand_id: m.brand_id, query: m.query,
-          query_type: m.query_type, query_status: !!m.query_status,
-          query_is_execute: !!m.query_is_execute, weight: m.weight != null ? m.weight : 1,
-          query_description: m.query_description || '', platform_prompt: m.platform_prompt || m.query,
-          query_order: m.query_order || 0, group_id: m.group_id || null,
-          created_at: m.created_at,
+          id: m.query_id, query: m.query,
+          user_id: m.user_id || brand.user_id, brand_id: m.brand_id,
+          created_at: m.created_at, updated_at: m.updated_at,
+          question_list: (m.question_list && m.question_list.length)
+            ? m.question_list
+            : [{ user_friendly: m.query, platform_query: m.platform_prompt || m.query }],
+          task_id: m.task_id || null,
+          weight: m.weight != null ? m.weight : 1,
+          is_golden: !!m.is_golden,
+          query_type: m.query_type,
+          golden_query_ranking: m.golden_query_ranking != null ? m.golden_query_ranking : null,
+          query_status: !!m.query_status,
+          query_is_execute: !!m.query_is_execute,
+          effective_to: m.effective_to || null,
+          query_order: m.query_order || 0,
         })),
       },
     };

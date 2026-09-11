@@ -2,13 +2,21 @@
 const Controller = require('egg').Controller;
 
 /**
- * 用户侧信源查询（对齐 contracts/api.ts）
- *  - POST /reference_source/stats            信源被引统计列表
- *  - POST /source_intelligence/source_trend / engine_preference / own_trend / perspective / topics
+ * 用户侧信源查询（对齐 geoapi.timus.cn 契约）
+ *  - POST /reference_source/stats            信源被引统计列表（含权威度字段）
+ *  - POST /source_intelligence/source_trend / engine_preference / own_trend / perspective
+ *  - GET  /source_intelligence/topics
  *  - POST /snapshot/export/list              快照（暂空）
  * 数据源：source_daily_stats / canonical_sources / media_channels / citation_edges
+ *
+ * 对标响应形状（2026-09-11 抓包 geoapi.timus.cn）：
+ *  - source_trend        data: { dates: [], sources: [{ name, total, series: [] }] }
+ *  - engine_preference   data: { sources: [{ canonical_source, category, engines:{<engine>:{cur,cmp,chg}}, cur_total, cmp_total, chg_total }] }
+ *  - own_trend           data: { trend: [{ date, own_count, total_count, rate }], summary: { cited, cited_chg, rate_now, rate_chg, own_articles, own_articles_chg } }
+ *  - perspective         data: { list: [{ name, category, cur_total, cmp_total, change, change_pct, status, tag, engines:{<engine>:{cur,cmp}}, own_rate }], total, page, page_size }
+ *  - topics              data: [{ query_id, name }]
  */
-const PLATFORMS = ['doubao', 'deepseek', 'wenxin', 'yuanbao'];
+const ENGINE_ORDER = ['doubao', 'wenxin', 'deepseek', 'qwen', 'yuanbao'];
 
 class SourceController extends Controller {
   async _resolveBrand(userId, brandId) {
@@ -19,6 +27,38 @@ class SourceController extends Controller {
     return brands.find(b => b.brand_id === brandId) || brands[0];
   }
   _n(v, d = 2) { const n = Number(v); return Number.isFinite(n) ? +n.toFixed(d) : 0; }
+  _engine(p) { return p === 'qianwen' ? 'qwen' : p; }
+
+  /** 拉取 [start,end] 的 source_daily_stats 并按 (source_id → engine → {cur}) 聚合 */
+  async _aggRange(brandId, start, end) {
+    const q = { brand_id: brandId };
+    if (start && end) q.date = { $gte: start, $lte: end };
+    const rows = await this.ctx.model.SourceDailyStat.find(q).lean();
+    const bySource = {}; // source_id -> { total, engines:{engine: ref}, own }
+    for (const r of rows) {
+      const s = (bySource[r.source_id] ||= { total: 0, engines: {}, own: 0 });
+      s.total += r.ref_count || 0;
+      s.own += r.own_article_count || 0;
+      const e = this._engine(r.platform || '');
+      if (e) s.engines[e] = (s.engines[e] || 0) + (r.ref_count || 0);
+    }
+    return bySource;
+  }
+
+  /** 生成 start..end 的连续日期数组（含端点，最多 60 天） */
+  _dateRange(start, end) {
+    const day = this.ctx.app.dayjs;
+    let s = day(String(start || '').slice(0, 10));
+    let e = day(String(end || '').slice(0, 10));
+    if (!s.isValid()) s = day().subtract(6, 'day');
+    if (!e.isValid() || e.isBefore(s)) e = day();
+    const out = [];
+    for (let d = s; d.isBefore(e.add(1, 'day')); d = d.add(1, 'day')) {
+      out.push(d.format('YYYY-MM-DD'));
+      if (out.length > 60) break;
+    }
+    return out;
+  }
 
   /* ---------- 信源统计 ---------- */
   async stats() {
@@ -53,13 +93,15 @@ class SourceController extends Controller {
       a.platforms[r.platform].ref_count += r.ref_count || 0;
       a.platforms[r.platform].article_count += r.article_count || 0;
     }
-    const list = Object.entries(agg).map(([sid, v]) => {
+    let list = Object.entries(agg).map(([sid, v]) => {
       const meta = srcMap[sid] || {};
       const ch = chMap[meta.media_key];
       return {
         canonical_source: meta.canonical_source || sid,
-        category: meta.category || '未分类',
+        category: meta.category || null,
         domain: (meta.domains && meta.domains[0]) || null,
+        auth_info_des: meta.auth_info_des || null,
+        auth_info_level: meta.auth_info_level || null,
         ref_count: v.ref_count, article_count: v.article_count, query_count: v.query_count, own_article_count: v.own_article_count,
         first_cited_at: meta.first_cited_at || null,
         platforms: v.platforms,
@@ -69,6 +111,9 @@ class SourceController extends Controller {
         cost_per_citation: ch && ch.sell_price && v.ref_count ? this._n(ch.sell_price / v.ref_count) : null,
       };
     }).sort((a, z) => z.ref_count - a.ref_count);
+    if (b.category && b.category !== '') {
+      list = list.filter(x => x.category === b.category);
+    }
     const total = list.length;
     const paged = list.slice((page - 1) * size, page * size);
     const totalRef = list.reduce((s, x) => s + x.ref_count, 0);
@@ -83,94 +128,198 @@ class SourceController extends Controller {
           total_sources: total,
           own_source_count: list.filter(x => x.own_article_count > 0).length,
           top5_share: totalRef ? this._n(top5 / totalRef * 100) : 0,
-          platform_breakdown: PLATFORMS.reduce((m, p) => { m[p] = list.reduce((s, x) => s + ((x.platforms[p] || {}).ref_count || 0), 0); return m; }, {}),
+          platform_breakdown: ENGINE_ORDER.reduce((m, p) => { m[p] = list.reduce((s, x) => s + ((x.platforms[p] || {}).ref_count || 0), 0); return m; }, {}),
         },
         page, page_size: size, total,
       },
     };
   }
 
-  /* ---------- 信源洞察 4 件套 ---------- */
+  /* ---------- 信源洞察 4 件套（对标响应形状） ---------- */
+
+  /** data: { dates: [], sources: [{ name, total, series: [] }] } */
   async sourceTrend() {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
     const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { list: [], trend: [] } }; return; }
-    const q = { brand_id: brand.brand_id };
-    if (b.start_date && b.end_date) q.date = { $gte: String(b.start_date).slice(0, 10), $lte: String(b.end_date).slice(0, 10) };
-    const rows = await ctx.model.SourceDailyStat.find(q).lean();
+    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { dates: [], sources: [] } }; return; }
     const topN = Number(b.top_n) || 10;
-    const srcRef = {};
-    for (const r of rows) srcRef[r.source_id] = (srcRef[r.source_id] || 0) + (r.ref_count || 0);
-    const topIds = Object.entries(srcRef).sort((a, z) => z[1] - a[1]).slice(0, topN).map(([id]) => id);
+    const start = String(b.start_date || '').slice(0, 10);
+    const end = String(b.end_date || '').slice(0, 10);
+    const dates = this._dateRange(start, end);
+
+    const q = { brand_id: brand.brand_id };
+    if (start && end) q.date = { $gte: start, $lte: end };
+    const rows = await ctx.model.SourceDailyStat.find(q).lean();
+
+    const bySourceDate = {}; // source_id -> { date -> ref_count }
+    const totalBySource = {};
+    for (const r of rows) {
+      totalBySource[r.source_id] = (totalBySource[r.source_id] || 0) + (r.ref_count || 0);
+      const d = (bySourceDate[r.source_id] ||= {});
+      d[r.date] = (d[r.date] || 0) + (r.ref_count || 0);
+    }
+    const topIds = Object.entries(totalBySource).sort((a, z) => z[1] - a[1]).slice(0, topN).map(([id]) => id);
     const sources = await ctx.model.CanonicalSource.find({ source_id: { $in: topIds } }).lean();
     const nameMap = {}; for (const s of sources) nameMap[s.source_id] = s.canonical_source;
+
     ctx.body = {
       code: 200, msg: 'ok',
-      data: { list: topIds.map(id => ({ source_id: id, canonical_source: nameMap[id] || id, ref_count: srcRef[id] })), trend: [] },
+      data: {
+        dates,
+        sources: topIds.map(id => ({
+          name: nameMap[id] || id,
+          total: totalBySource[id] || 0,
+          series: dates.map(d => (bySourceDate[id] || {})[d] || 0),
+        })),
+      },
     };
   }
 
+  /** data: { sources: [{ canonical_source, category, engines:{<engine>:{cur,cmp,chg}}, cur_total, cmp_total, chg_total }] } */
   async enginePreference() {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
     const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { current: {}, compare: {} } }; return; }
-    const aggRange = (start, end) => {
-      const q = { brand_id: brand.brand_id };
-      if (start && end) q.date = { $gte: start, $lte: end };
-      return ctx.model.SourceDailyStat.aggregate([
-        { $match: q }, { $group: { _id: '$platform', n: { $sum: '$ref_count' } } },
-      ]);
-    };
-    const [cur, cmp] = await Promise.all([
-      aggRange(String(b.start_date || '').slice(0, 10), String(b.end_date || '').slice(0, 10)),
-      aggRange(String(b.cmp_start_date || '').slice(0, 10), String(b.cmp_end_date || '').slice(0, 10)),
-    ]);
-    const toMap = rows => { const m = {}; for (const r of rows) m[r._id] = r.n; return m; };
-    ctx.body = { code: 200, msg: 'ok', data: { current: toMap(cur), compare: toMap(cmp) } };
+    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { sources: [] } }; return; }
+    const cur = await this._aggRange(brand.brand_id, String(b.start_date || '').slice(0, 10), String(b.end_date || '').slice(0, 10));
+    const cmp = await this._aggRange(brand.brand_id, String(b.cmp_start_date || '').slice(0, 10), String(b.cmp_end_date || '').slice(0, 10));
+
+    const allIds = new Set([...Object.keys(cur), ...Object.keys(cmp)]);
+    const sources = await ctx.model.CanonicalSource.find({ source_id: { $in: [...allIds] } }).lean();
+    const metaMap = {}; for (const s of sources) metaMap[s.source_id] = s;
+
+    const list = [...allIds]
+      .map(id => {
+        const c = cur[id] || { total: 0, engines: {} };
+        const p = cmp[id] || { total: 0, engines: {} };
+        const engines = {};
+        for (const e of ENGINE_ORDER) {
+          const cv = c.engines[e] || 0;
+          const pv = p.engines[e] || 0;
+          if (cv || pv) engines[e] = { cur: cv, cmp: pv, chg: cv - pv };
+        }
+        return {
+          canonical_source: (metaMap[id] || {}).canonical_source || id,
+          category: (metaMap[id] || {}).category || null,
+          engines,
+          cur_total: c.total, cmp_total: p.total, chg_total: c.total - p.total,
+        };
+      })
+      .sort((a, z) => z.cur_total - a.cur_total);
+    ctx.body = { code: 200, msg: 'ok', data: { sources: list } };
   }
 
+  /** data: { trend: [{ date, own_count, total_count, rate }], summary: { cited, cited_chg, rate_now, rate_chg, own_articles, own_articles_chg } } */
   async ownTrend() {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
     const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { current: {}, compare: {} } }; return; }
-    const aggRange = (start, end) => {
+    const empty = { trend: [], summary: { cited: 0, cited_chg: 0, rate_now: 0, rate_chg: 0, own_articles: 0, own_articles_chg: 0 } };
+    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+
+    const start = String(b.start_date || '').slice(0, 10);
+    const end = String(b.end_date || '').slice(0, 10);
+    const dates = this._dateRange(start, end);
+
+    const daily = async (s, e) => {
       const q = { brand_id: brand.brand_id };
-      if (start && end) q.date = { $gte: start, $lte: end };
-      return ctx.model.SourceDailyStat.aggregate([
-        { $match: q }, { $group: { _id: '$date', n: { $sum: '$own_article_count' } } },
-      ]);
+      if (s && e) q.date = { $gte: s, $lte: e };
+      const rows = await ctx.model.SourceDailyStat.find(q).lean();
+      const byDate = {};
+      for (const r of rows) {
+        const d = (byDate[r.date] ||= { own: 0, total: 0 });
+        d.own += r.own_article_count || 0;
+        d.total += r.ref_count || 0;
+      }
+      return byDate;
     };
-    const [cur, cmp] = await Promise.all([
-      aggRange(String(b.start_date || '').slice(0, 10), String(b.end_date || '').slice(0, 10)),
-      aggRange(String(b.cmp_start_date || '').slice(0, 10), String(b.cmp_end_date || '').slice(0, 10)),
-    ]);
-    const toMap = rows => { const m = {}; for (const r of rows) m[r._id] = r.n; return m; };
-    ctx.body = { code: 200, msg: 'ok', data: { current: toMap(cur), compare: toMap(cmp) } };
+    const curMap = await daily(start, end);
+    const cmpMap = await daily(String(b.cmp_start_date || '').slice(0, 10), String(b.cmp_end_date || '').slice(0, 10));
+
+    const trend = dates.map(date => {
+      const d = curMap[date] || { own: 0, total: 0 };
+      return { date, own_count: d.own, total_count: d.total, rate: this._n(d.total ? d.own / d.total * 100 : 0) };
+    });
+    const sum = m => Object.values(m).reduce((s, d) => s + d.own, 0);
+    const totalOf = m => Object.values(m).reduce((s, d) => s + d.total, 0);
+    const cited = sum(curMap);
+    const citedCmp = sum(cmpMap);
+    const totalCur = totalOf(curMap);
+    const totalCmp = totalOf(cmpMap);
+    const rateNow = this._n(totalCur ? cited / totalCur * 100 : 0);
+    const rateCmp = this._n(totalCmp ? citedCmp / totalCmp * 100 : 0);
+
+    ctx.body = {
+      code: 200, msg: 'ok',
+      data: {
+        trend,
+        summary: {
+          cited, cited_chg: cited - citedCmp,
+          rate_now: rateNow, rate_chg: this._n(rateNow - rateCmp),
+          own_articles: cited, own_articles_chg: cited - citedCmp,
+        },
+      },
+    };
   }
 
+  /** data: { list: [{ name, category, cur_total, cmp_total, change, change_pct, status, tag, engines:{<engine>:{cur,cmp}}, own_rate }], total, page, page_size } */
   async perspective() {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
     const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { list: [] } }; return; }
-    const q = { brand_id: brand.brand_id };
-    if (b.start_date && b.end_date) q.date = { $gte: String(b.start_date).slice(0, 10), $lte: String(b.end_date).slice(0, 10) };
-    const rows = await ctx.model.SourceDailyStat.find(q).lean();
-    const agg = {};
-    for (const r of rows) agg[r.source_id] = (agg[r.source_id] || 0) + (r.ref_count || 0);
-    const ids = Object.keys(agg);
-    const sources = await ctx.model.CanonicalSource.find({ source_id: { $in: ids } }).lean();
-    const nameMap = {}; for (const s of sources) nameMap[s.source_id] = s.canonical_source;
+    const empty = { list: [], total: 0, page: 1, page_size: 20 };
+    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+
+    const page = Math.max(1, parseInt(b.page, 10) || 1);
+    const size = Math.min(100, Math.max(1, parseInt(b.page_size, 10) || 20));
+    const cur = await this._aggRange(brand.brand_id, String(b.start_date || '').slice(0, 10), String(b.end_date || '').slice(0, 10));
+    const cmp = await this._aggRange(brand.brand_id, String(b.cmp_start_date || '').slice(0, 10), String(b.cmp_end_date || '').slice(0, 10));
+
+    const allIds = new Set([...Object.keys(cur), ...Object.keys(cmp)]);
+    const sources = await ctx.model.CanonicalSource.find({ source_id: { $in: [...allIds] } }).lean();
+    const metaMap = {}; for (const s of sources) metaMap[s.source_id] = s;
+
+    let list = [...allIds].map(id => {
+      const c = cur[id] || { total: 0, engines: {}, own: 0 };
+      const p = cmp[id] || { total: 0, engines: {}, own: 0 };
+      const change = c.total - p.total;
+      const change_pct = this._n(p.total ? change / p.total * 100 : (c.total ? 100 : 0), 1);
+      let status = '未提及';
+      if (c.total > 0 && p.total > 0) status = '持续被引';
+      else if (c.total > 0 && p.total === 0) status = '新增被引';
+      else if (c.total === 0 && p.total > 0) status = '停止被引';
+      const tag = change > 0 ? '我方占优' : (change < 0 ? '竞品占优' : '持平');
+      const engines = {};
+      for (const e of ENGINE_ORDER) {
+        const cv = c.engines[e] || 0;
+        const pv = p.engines[e] || 0;
+        if (cv || pv) engines[e] = { cur: cv, cmp: pv };
+      }
+      const name = (metaMap[id] || {}).canonical_source || id;
+      return {
+        name,
+        category: (metaMap[id] || {}).category || null,
+        cur_total: c.total, cmp_total: p.total, change, change_pct,
+        status, tag, engines,
+        own_rate: this._n(c.total ? c.own / c.total * 100 : 0),
+      };
+    });
+
+    if (b.search) list = list.filter(x => x.name.includes(b.search));
+    if (b.status && b.status !== '') list = list.filter(x => x.status === b.status);
+
+    const sortBy = { total: 'cur_total', change: 'change', change_pct: 'change_pct' }[b.sort_by] || 'cur_total';
+    list.sort((a, z) => (b.sort_order === 'asc' ? a[sortBy] - z[sortBy] : z[sortBy] - a[sortBy]));
+
+    const total = list.length;
     ctx.body = {
       code: 200, msg: 'ok',
-      data: { list: Object.entries(agg).map(([id, n]) => ({ source_id: id, canonical_source: nameMap[id] || id, ref_count: n })).sort((a, z) => z.ref_count - a.ref_count) },
+      data: { list: list.slice((page - 1) * size, page * size), total, page, page_size: size },
     };
   }
 
@@ -186,6 +335,9 @@ class SourceController extends Controller {
   /* ---------- 快照（暂空） ---------- */
   async snapshotList() {
     const { ctx } = this;
+    const b = ctx.request.body || {};
+    // 对标请求：{ page, page_size, start_date, query_id, query_type }
+    void b.query_type;
     ctx.body = { code: 200, msg: 'ok', data: { list: [], total: 0, page: 1, page_size: 10 } };
   }
 }

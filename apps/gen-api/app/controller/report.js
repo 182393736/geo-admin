@@ -96,7 +96,10 @@ class ReportController extends Controller {
       data: {
         list: rows.map(r => ({
           period_key: r.period_key, label: (r.payload && r.payload.label) || r.period_key,
-          range: (r.payload && r.payload.range) || '', status: r.status, generated_at: r.generated_at,
+          range: (r.payload && r.payload.range) || '',
+          period_start: (r.payload && (r.payload.period_start || r.payload.start_date)) || null,
+          period_end: (r.payload && (r.payload.period_end || r.payload.end_date)) || null,
+          status: r.status, generated_at: r.generated_at,
         })),
       },
     };
@@ -104,10 +107,16 @@ class ReportController extends Controller {
 
   async cycle() {
     const { ctx } = this;
-    const { start, end, periodKey, label } = ctx.service.report.range('weekly', { endToday: true });
+    // 对标 geoapi.timus.cn /report/cycle：5 个平铺字段
     ctx.body = {
       code: 200, msg: 'ok',
-      data: { weekly: { period_key: periodKey, label, start_date: start, end_date: end }, monthly: null },
+      data: {
+        weekly_generate_dow: 7,
+        monthly_generate_dom: 0,
+        weekly_enabled: true,
+        monthly_enabled: true,
+        cycle_locked: false,
+      },
     };
   }
 }

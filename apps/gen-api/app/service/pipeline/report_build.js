@@ -29,6 +29,7 @@ class ReportBuildService extends Service {
       ]);
       const payload = {
         id: range.periodKey, label: range.label, range: range.rangeLabel,
+        start_date: range.start, end_date: range.end,
         trend, engines, metrics, monitor,
         sources: srcAgg.list, sourceChanges: srcAgg.changes, allSourceNames: srcAgg.allNames, knownSourceNames: srcAgg.knownNames,
         competitors, writing,

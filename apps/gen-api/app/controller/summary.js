@@ -8,7 +8,11 @@ const Controller = require('egg').Controller;
  *  - POST /competitor/insight
  * 数据源：daily_metric_queries / daily_metric_brands / leaderboard_dailies / brand_mentions / opinions
  */
-const PLATFORMS = ['doubao', 'deepseek', 'wenxin', 'yuanbao'];
+// 对标 geoapi.timus.cn：5 家引擎（含 qwen），矩阵 platforms 顺序 = 对标
+const PLATFORMS = ['doubao', 'wenxin', 'deepseek', 'qwen', 'yuanbao'];
+// 竞品透视：引擎中文标签（对标 platform_stats/platform_ranks 的键）
+const ENGINE_LABELS = { doubao: '豆包', wenxin: '文心一言', deepseek: 'DeepSeek', qwen: '通义千问', qianwen: '通义千问', yuanbao: '元宝' };
+const ENGINE_ORDER = ['doubao', 'wenxin', 'deepseek', 'qwen', 'yuanbao'];
 
 class SummaryController extends Controller {
   async _resolveBrand(userId, brandId) {
@@ -51,9 +55,12 @@ class SummaryController extends Controller {
     const list = {};
     for (const qid of qids) {
       const rows = byQuery[qid] || [];
-      const rankValue = {};
+      // 对标 rank_value：all 在前，5 引擎在后；all = 各引擎最好名次
+      const rankValue = { all: '未提及' };
+      for (const p of PLATFORMS) rankValue[p] = '未提及';
       for (const r of rows) rankValue[r.platform] = r.rank_value || '未提及';
-      for (const p of PLATFORMS) if (!rankValue[p]) rankValue[p] = '未提及';
+      const numeric = PLATFORMS.map(p => Number(rankValue[p])).filter(Number.isFinite);
+      rankValue.all = numeric.length ? String(Math.min(...numeric)) : '未提及';
       // 榜一竞品：当日榜单第一名非目标实体
       const lb = boardMap[qid];
       let competitor = '—';
@@ -67,13 +74,15 @@ class SummaryController extends Controller {
         rank_value: rankValue,
         competitor,
         mention_rate: avg('mention_rate'),
-        top3_mention_rate: avg('top3_rate'),
         first_mention_rate: avg('first_rate'),
+        top3_mention_rate: avg('top3_rate'),
       };
     }
+    const validDates = await ctx.model.DailyMetricQuery.distinct('date', { brand_id: brand.brand_id });
+    validDates.sort().reverse();
     ctx.body = {
       code: 200, msg: 'ok',
-      data: { platforms: PLATFORMS, list, group_rows: [], valid_data_date_list: date ? [date] : [] },
+      data: { platforms: PLATFORMS, list, group_rows: [], valid_data_date_list: validDates.slice(0, 7) },
     };
   }
 
@@ -107,11 +116,18 @@ class SummaryController extends Controller {
     });
     const totalD = trend.reduce((s, t) => s + t.denominator, 0);
     const totalN = trend.reduce((s, t) => s + t.numerator, 0);
+    // 对标 summary：all + 各引擎分项
+    const summary = { all: { denominator: totalD, numerator: totalN, rate: totalD ? this._n(totalN / totalD * 100) : 0 } };
+    for (const p of PLATFORMS) {
+      const d = trend.reduce((s, t) => s + (t.platforms[p] ? t.platforms[p].denominator : 0), 0);
+      const num = trend.reduce((s, t) => s + (t.platforms[p] ? t.platforms[p].numerator : 0), 0);
+      summary[p] = { denominator: d, numerator: num, rate: d ? this._n(num / d * 100) : 0 };
+    }
     ctx.body = {
       code: 200, msg: 'ok',
       data: {
         start_date: start, end_date: end,
-        summary: { all: { denominator: totalD, numerator: totalN, rate: totalD ? this._n(totalN / totalD * 100) : 0 } },
+        summary,
         trend,
       },
     };
@@ -208,40 +224,86 @@ class SummaryController extends Controller {
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
     const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { query_dict: {}, company_ranking_data: [], visibility_trend: { all: [] } } }; return; }
-    const latestBoard = await ctx.model.LeaderboardDaily.findOne({ brand_id: brand.brand_id })
-      .sort({ date: -1 }).lean();
-    const boards = latestBoard
-      ? await ctx.model.LeaderboardDaily.find({ brand_id: brand.brand_id, date: latestBoard.date }).lean()
-      : [];
-    // 按实体聚合位次权重分
-    const acc = {};
-    for (const lb of boards) {
-      for (const e of lb.entries || []) {
-        const a = (acc[e.entity_id] ||= { name: e.name, is_target: !!e.is_target, score: 0, queries: 0, best_rank: null });
-        a.score += e.score || 0;
-        a.queries += 1;
-        if (a.best_rank == null || e.rank < a.best_rank) a.best_rank = e.rank;
-      }
+    const empty = { query_dict: {}, company_ranking_data: [], visibility_trend: { all: [] }, valid_data_date_list: [], user_data_status: false };
+    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+
+    // 有效数据日期（对标：valid_data_date_list 近 7 日降序）
+    const metricDates = await ctx.model.DailyMetricQuery.distinct('date', { brand_id: brand.brand_id });
+    const validList = metricDates.sort().reverse().slice(0, 7);
+    const curDate = b.date || validList[0] || this.ctx.app.dayjs().format('YYYY-MM-DD');
+    const prevDate = validList[1] || null;
+
+    // 仅取指定 query（可选，对标默认不带）
+    const qFilter = { brand_id: brand.brand_id, date: curDate };
+    if (b.query_id != null && b.query_id !== '') {
+      const qid = Number(b.query_id) || String(b.query_id);
+      qFilter.query_id = qid;
     }
-    const ranking = Object.values(acc)
-      .sort((x, y) => y.score - x.score)
-      .map((a, i) => ({
-        name: a.name, is_target: a.is_target, current_rank: i + 1,
-        current_score: this._n(a.score), previous_rank: null, previous_score: null,
-        rank_change: 0, trend: 'new',
-      }));
+    const boards = await ctx.model.LeaderboardDaily.find(qFilter).lean();
+
+    const agg = boardsArr => {
+      const acc = {};
+      for (const lb of boardsArr) {
+        for (const e of lb.entries || []) {
+          const a = (acc[e.entity_id] ||= { name: e.name, is_target: !!e.is_target, score: 0, best_rank: null });
+          a.score += e.score || 0;
+          if (a.best_rank == null || e.rank < a.best_rank) a.best_rank = e.rank;
+        }
+      }
+      return Object.values(acc).sort((x, y) => y.score - x.score);
+    };
+    const curAgg = agg(boards);
+    const prevBoards = prevDate && (!b.query_id || b.query_id === '')
+      ? await ctx.model.LeaderboardDaily.find({ brand_id: brand.brand_id, date: prevDate }).lean()
+      : [];
+    const prevAgg = agg(prevBoards);
+    const prevRankMap = {};
+    prevAgg.forEach((a, i) => { prevRankMap[a.name] = { rank: i + 1, score: a.score }; });
+
+    const company_ranking_data = curAgg.map((a, i) => {
+      const p = prevRankMap[a.name];
+      const current_rank = i + 1;
+      const previous_rank = p ? p.rank : null;
+      const previous_score = p ? this._n(p.score) : null;
+      const rank_change = previous_rank == null ? 0 : previous_rank - current_rank;
+      let trend = 'new';
+      if (previous_rank == null) trend = 'new';
+      else if (rank_change > 0) trend = 'up';
+      else if (rank_change < 0) trend = 'down';
+      else trend = 'same';
+      return {
+        name: a.name, is_target: a.is_target,
+        current_rank, previous_rank,
+        current_score: this._n(a.score), previous_score,
+        rank_change, trend,
+      };
+    });
+
     const qids = [...new Set(boards.map(lb => lb.query_id))];
     const mqs = await ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_id: { $in: qids } }).lean();
     const queryDict = {}; for (const mq of mqs) queryDict[mq.query_id] = mq.query;
-    // 目标品牌位次趋势（各榜单 is_target 条目的 rank）
-    const visAll = boards.map(lb => {
-      const t = (lb.entries || []).find(e => e.is_target);
-      return { date_day: lb.date, rank_value: t ? String(t.rank) : '未提及', score: t ? String(t.score) : '0' };
-    });
+
+    // 目标品牌位次/得分趋势（覆盖 valid_data_date_list 每一天）
+    const visAll = [];
+    for (const date of validList) {
+      const dayBoards = await ctx.model.LeaderboardDaily.find({ brand_id: brand.brand_id, date }).lean();
+      let bestRank = null; let scoreSum = 0; let scoreCnt = 0;
+      for (const lb of dayBoards) {
+        const t = (lb.entries || []).find(e => e.is_target);
+        if (!t) continue;
+        if (bestRank == null || t.rank < bestRank) bestRank = t.rank;
+        scoreSum += Number(t.score) || 0; scoreCnt += 1;
+      }
+      visAll.push({
+        date_day: date,
+        rank_value: bestRank == null ? '未上榜' : String(bestRank),
+        score: (scoreCnt ? scoreSum / scoreCnt : 0).toFixed(1),
+      });
+    }
+
     ctx.body = {
       code: 200, msg: 'ok',
-      data: { query_dict: queryDict, company_ranking_data: ranking, visibility_trend: { all: visAll } },
+      data: { query_dict: queryDict, company_ranking_data, visibility_trend: { all: visAll }, valid_data_date_list: validList, user_data_status: true },
     };
   }
 
@@ -251,31 +313,137 @@ class SummaryController extends Controller {
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
     const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { list: [] } }; return; }
-    const rows = await ctx.model.BrandMention.find({ brand_id: brand.brand_id }).lean();
-    const byEntity = {};
-    for (const m of rows) {
-      if (m.is_target) continue; // 只看竞品
-      const a = (byEntity[m.entity_id] ||= { name: m.entity_name || m.entity_id, platforms: new Set(), queries: new Set(), top3: 0, first: 0, total: 0 });
-      a.total += 1;
-      a.platforms.add(m.platform);
-      a.queries.add(m.query_id);
-      if (m.position <= 3) a.top3 += 1;
-      if (m.position === 1) a.first += 1;
-    }
-    const slots = await ctx.model.CollectSlot.countDocuments({ brand_id: brand.brand_id, status: { $in: ['ok', 'empty'] } });
-    const list = Object.values(byEntity)
-      .map(a => ({
-        name: a.name, is_target: false,
-        frequency: a.total, top3_frequency: a.top3, first_frequency: a.first,
-        keyword_count: a.queries.size,
-        mention_rate: this._n(slots ? a.total / slots * 100 : 0),
-        top3_mention_rate: this._n(slots ? a.top3 / slots * 100 : 0),
-        first_mention_rate: this._n(slots ? a.first / slots * 100 : 0),
+    // 对标 geoapi.timus.cn /competitor/insight 响应结构
+    const empty = {
+      brand: '', date: '', start_date: '', end_date: '',
+      keyword_count: 0, competitor_count: 0,
+      target_mention_summary: {
+        mention_rate: 0, top3_mention_rate: 0, first_mention_rate: 0,
+        denominator: 0, mention_numerator: 0, top3_numerator: 0, first_numerator: 0,
         platform_stats: {},
-      }))
-      .sort((x, y) => y.frequency - x.frequency);
-    ctx.body = { code: 200, msg: 'ok', data: { list } };
+      },
+      valid_data_date_list: [], keyword_details: [], competitor_compare_list: [],
+    };
+    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+
+    const [mentions, queries, metrics, boards] = await Promise.all([
+      ctx.model.BrandMention.find({ brand_id: brand.brand_id }).lean(),
+      ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_type: 'industry' }).lean(),
+      ctx.model.DailyMetricQuery.find({ brand_id: brand.brand_id }).lean(),
+      ctx.model.LeaderboardDaily.find({ brand_id: brand.brand_id }).lean(),
+    ]);
+
+    const keywordCount = queries.length;      // 监控问题数（对标 keyword_count=5）
+    const engineCount = ENGINE_ORDER.length;  // 5
+    const allDenom = keywordCount * engineCount; // 综合分母（对标 25）
+    const engDenom = keywordCount;            // 单引擎分母（对标 5）
+
+    const tgt = { freq: 0, top3: 0, first: 0, platforms: {} };
+    const byEntity = {};
+    for (const m of mentions) {
+      const label = ENGINE_LABELS[m.platform] || m.platform;
+      if (m.is_target) {
+        tgt.freq += 1;
+        if (m.position <= 3) tgt.top3 += 1;
+        if (m.position === 1) tgt.first += 1;
+        const tp = (tgt.platforms[label] ||= { total: 0, top3: 0, first: 0 });
+        tp.total += 1;
+        if (m.position <= 3) tp.top3 += 1;
+        if (m.position === 1) tp.first += 1;
+      } else {
+        const a = (byEntity[m.entity_id] ||= { name: m.entity_name || m.entity_id, freq: 0, top3: 0, first: 0, platforms: {} });
+        a.freq += 1;
+        if (m.position <= 3) a.top3 += 1;
+        if (m.position === 1) a.first += 1;
+        const ap = (a.platforms[label] ||= { total: 0, top3: 0, first: 0 });
+        ap.total += 1;
+        if (m.position <= 3) ap.top3 += 1;
+        if (m.position === 1) ap.first += 1;
+      }
+    }
+
+    const psOf = p => ({
+      mention_rate: this._n(engDenom ? p.total / engDenom * 100 : 0),
+      top3_mention_rate: this._n(engDenom ? p.top3 / engDenom * 100 : 0),
+      first_mention_rate: this._n(engDenom ? p.first / engDenom * 100 : 0),
+      mention_numerator: p.total, top3_numerator: p.top3, first_numerator: p.first,
+      denominator: engDenom,
+    });
+    const psAllOf = p => ({
+      mention_rate: this._n(allDenom ? p.freq / allDenom * 100 : 0),
+      top3_mention_rate: this._n(allDenom ? p.top3 / allDenom * 100 : 0),
+      first_mention_rate: this._n(allDenom ? p.first / allDenom * 100 : 0),
+      mention_numerator: p.freq, top3_numerator: p.top3, first_numerator: p.first,
+      denominator: allDenom,
+    });
+
+    const tgtPs = {};
+    for (const e of ENGINE_ORDER) tgtPs[ENGINE_LABELS[e]] = psOf(tgt.platforms[ENGINE_LABELS[e]] || { total: 0, top3: 0, first: 0 });
+    tgtPs.综合 = psAllOf(tgt);
+    const target_mention_summary = {
+      mention_rate: tgtPs.综合.mention_rate,
+      top3_mention_rate: tgtPs.综合.top3_mention_rate,
+      first_mention_rate: tgtPs.综合.first_mention_rate,
+      denominator: allDenom, mention_numerator: tgt.freq, top3_numerator: tgt.top3, first_numerator: tgt.first,
+      platform_stats: tgtPs,
+    };
+
+    const competitor_compare_list = Object.values(byEntity)
+      .sort((x, y) => y.freq - x.freq)
+      .map(a => {
+        const ps = {};
+        for (const e of ENGINE_ORDER) ps[ENGINE_LABELS[e]] = psOf(a.platforms[ENGINE_LABELS[e]] || { total: 0, top3: 0, first: 0 });
+        ps.综合 = psAllOf(a);
+        return {
+          name: a.name, is_target: false,
+          frequency: a.freq, top3_frequency: a.top3, first_frequency: a.first,
+          keyword_count: allDenom,
+          mention_rate: this._n(allDenom ? a.freq / allDenom * 100 : 0),
+          top3_mention_rate: this._n(allDenom ? a.top3 / allDenom * 100 : 0),
+          first_mention_rate: this._n(allDenom ? a.first / allDenom * 100 : 0),
+          platform_stats: ps,
+        };
+      });
+
+    // 有效数据日期（降序，最多 7 天）
+    const dates = [...new Set(metrics.map(m => m.date))].sort().reverse().slice(0, 7);
+    const latestDate = dates[0] || this.ctx.app.dayjs().format('YYYY-MM-DD');
+
+    // keyword_details：每问题的目标位次 + 当日榜单
+    const metricByQuery = {};
+    for (const m of metrics) (metricByQuery[m.query_id] ||= []).push(m);
+    const boardLatest = {};
+    for (const lb of boards) {
+      if (!boardLatest[lb.query_id] || lb.date > boardLatest[lb.query_id].date) boardLatest[lb.query_id] = lb;
+    }
+    const keyword_details = queries.map(q => {
+      const rows = (metricByQuery[q.query_id] || []).filter(r => r.date === latestDate);
+      const platform_ranks = {};
+      let best = null;
+      for (const e of ENGINE_ORDER) {
+        const r = rows.find(x => x.platform === e);
+        const rv = r ? r.rank_value : null;
+        const n = Number(rv);
+        platform_ranks[ENGINE_LABELS[e]] = Number.isFinite(n) ? String(n) : '未上榜';
+        if (Number.isFinite(n) && (best == null || n < best)) best = n;
+      }
+      const lb = boardLatest[q.query_id];
+      const rankings = (lb && Array.isArray(lb.entries) ? lb.entries : []).slice(0, 10)
+        .map(en => ({ name: en.name, rank: en.rank, score: en.score, is_target: !!en.is_target }));
+      return {
+        query_id: q.query_id, keyword: q.query, query_type: q.query_type || 'industry',
+        target_rank: best, platform_ranks, rankings,
+      };
+    });
+
+    ctx.body = {
+      code: 200, msg: 'ok',
+      data: {
+        brand: brand.name, date: latestDate, start_date: dates[dates.length - 1] || latestDate, end_date: latestDate,
+        keyword_count: keywordCount, competitor_count: competitor_compare_list.length,
+        target_mention_summary, valid_data_date_list: dates, keyword_details, competitor_compare_list,
+      },
+    };
   }
 }
 

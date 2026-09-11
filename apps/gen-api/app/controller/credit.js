@@ -33,6 +33,8 @@ class CreditController extends Controller {
         available: Math.max(0, available),
         gold_balance: gold,
         silver_balance: silver,
+        gold_available: gold,        // 对标字段：可用金币（暂无分币种冻结，等同余额）
+        silver_available: silver,    // 对标字段：可用银币
         publish_available: acc.publish_available != null ? acc.publish_available : Math.max(0, available),
         total_recharge: acc.total_recharge || 0,
         total_consume: acc.total_consume || 0,

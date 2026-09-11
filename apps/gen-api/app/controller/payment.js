@@ -22,6 +22,7 @@ class PaymentController extends Controller {
       billing_cycle: p.billing_cycle, duration_days: p.duration_days || 0,
       original_price: p.original_price != null ? p.original_price : 0,
       price: p.price != null ? p.price : 0,
+      credit_price: p.credit_price != null ? p.credit_price : (p.price != null ? p.price : 0),
       query_limit: p.query_limit || 0, features: p.features || null,
       sort: p.sort || 0, on_sale: p.on_sale !== false,
     };

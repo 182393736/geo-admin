@@ -24,6 +24,8 @@ module.exports = app => {
   router.get('/api/brand/summary', jwtAuth, controller.brand.summary);
 
   // ============ 监控问题 / 采集状态（概览页采集状态卡 · 排名/口碑问题列表） ============
+  // 对标 geoapi.timus.cn：/query/list（无 /api 前缀）；保留 /api/query/list 兼容旧前端
+  router.get('/query/list', jwtAuth, controller.query.list);
   router.get('/api/query/list', jwtAuth, controller.query.list);
   router.get('/user/get_query_status', jwtAuth, controller.query.status);
   router.post('/user/generate_today', jwtAuth, controller.query.generateToday);
