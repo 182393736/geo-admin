@@ -31,7 +31,7 @@
 
 ## LLM-01 品牌画像生成（Onboarding · crawl 段）
 
-- **触发**：`POST /user/brands/analyze` 后异步任务第一段
+- **触发**：`POST /user/brands/analyze` 后异步任务第一段（该接口已废弃 → 现走 `/agent/onboarding/{stream,confirm}`）
 - **输入**：官网 HTML 正文（截断 8000 字）+ 品牌名 + 用户填的业务描述 + 搜索引擎摘要片段
 - **temperature**: 0.3 · **max_tokens**: 1500
 

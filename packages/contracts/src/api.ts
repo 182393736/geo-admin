@@ -4,7 +4,7 @@
  * 原为 apps/gen-user-dash/src/api/types.ts（已改为对本包的重导出）。
  * 端点清单见 apps/gen-api/app/router.js；样本见 docs/透镜GEO-接口分析报告.md。
  */
-import type { EngineKey, OnboardingStage, QueryType } from './enums';
+import type { EngineKey, QueryType } from './enums';
 
 // ---- 鉴权/账号 ----
 export interface LoginResp {
@@ -31,23 +31,6 @@ export interface UserInfo {
 export interface MenuItem {
   menu_code: string; category: string; label: string; path: string;
   icon: string; sort_order: number; visible: boolean;
-}
-
-// ---- 首次品牌分析（onboarding） ----
-export interface AnalyzeBrandReq {
-  brand_name?: string;      // 品牌名称
-  website?: string;         // 官网 / 介绍链接
-  business_desc?: string;   // 品牌补充介绍
-}
-export interface AnalyzeBrandResp { task_id: string; brand_id: string; reused?: boolean }
-export interface OnboardingStatus {
-  task_id: string; brand_id: string;
-  stage: OnboardingStage;   // crawl→keyword→query→done / fail
-  done: boolean; error: string | null;
-  crawler_started_at: string | null; crawler_completed_at: string | null;
-  keyword_gen_started_at: string | null; keyword_gen_completed_at: string | null;
-  generated: { aliases: number; industry_queries: number; brand_queries: number };
-  brand: { brand_id: string; name: string; industry: string; status: string } | null;
 }
 
 // ---- 品牌档案聚合（GET /api/brand/summary：建档结果页 / 概览页品牌卡） ----

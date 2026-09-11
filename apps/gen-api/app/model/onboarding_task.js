@@ -1,8 +1,8 @@
 /**
  * 注册引导任务状态机（onboarding_tasks）
- *【填充时机】S1 填写品牌信息时创建，随各阶段推进更新
- *【写入来源】POST analyze 异步任务；前端轮询 /user/info
- *【被谁消费】Onboarding 页进度；/user/info 的 crawler_started_at 等字段实际由此映射
+ *【填充时机】首登建档各阶段推进时更新
+ *【写入来源】首登建档（/agent/onboarding/{stream,confirm}，geo-agent persist.js 按 taskId 更新）
+ *【被谁消费】/user/login 的 first_login 等字段投影（service.onboarding.latestForUser）；后台 onboarding 任务视图
  */
 'use strict';
 

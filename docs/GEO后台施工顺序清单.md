@@ -39,7 +39,7 @@
 | 19 | 建表 | `brand_products`、`mined_topics` | #17 的配套，一次生成多份产出 |
 | 20 | 基建 | LLM 服务封装 🔗LLM-00 `service/llm.js`（结构化输出+schema校验+重试） | W1/W3/W7 三处都要用；先封装好 |
 | 21 | 任务 | onboarding 异步任务 🔗LLM-01/02/03/04：crawl→keyword→query 三段，写 `onboarding_tasks` 各阶段时间戳 | 前端轮询 /user/info 渲染进度条的依据 |
-| 22 | 接口 | `POST /user/brands/analyze`（收表单→建 brand→启任务→返 task_id） | Onboarding 起始接口 |
+| 22 | 接口 | `POST /user/brands/analyze`（收表单→建 brand→启任务→返 task_id） | ~~Onboarding 起始接口~~ 已废弃 → 现走 `/agent/onboarding/{stream,confirm}` |
 | 23 | 建表 | `monitor_queries`（**数字自增 query_id**，双形态 question_list） | 实测线上就是数字 ID（37935/40150）；双形态直接模仿线上契约 |
 | 24 | 接口 | `GET /query/list?query_type=industry|brand` | 排名页/口碑页/管理页共同数据源 |
 | 25 | 接口 | `POST /query/add`（**前置校验 subscription.query_limit**） | 额度卡点；线上就是这样（8/8） |

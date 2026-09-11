@@ -10,9 +10,10 @@ module.exports = app => {
   router.get('/user/info', jwtAuth, controller.auth.info);
   router.post('/api/auth/logout', jwtAuth, controller.auth.logout);
 
-  // ============ 首次品牌分析（onboarding 状态机） ============
-  router.post('/user/brands/analyze', jwtAuth, controller.onboarding.analyze);
-  router.get('/user/onboarding/status', jwtAuth, controller.onboarding.status);
+  // ============ 品牌列表 ============
+  // 注：旧 POST /user/brands/analyze、GET /user/onboarding/status 已废弃移除（见提交
+  //     《chore(gen-api): 移除废弃的 /user/brands/analyze 首登建档路径》，git 历史可恢复）；
+  //     首登建档现走 /agent/onboarding/{run,stream,confirm}（geo-agent 落库）。
   router.get('/user/brands', jwtAuth, controller.onboarding.brands);
 
   // ============ 首登分析 Agent（geo-agent：完整字段集 + 流式实况） ============

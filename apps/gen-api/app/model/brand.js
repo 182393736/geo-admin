@@ -1,7 +1,7 @@
 /**
  * 品牌主档（brands）
  *【填充时机】S1 Onboarding 第一步创建；切换品牌读它
- *【写入来源】onboarding 表单 / POST /user/brands/analyze
+ *【写入来源】首登建档（/agent/onboarding/{stream,confirm}，geo-agent 落库）；切换品牌读它
  *【被谁消费】GET /user/brands、GET /user/info（左上当牌、品牌卡）
  */
 'use strict';
