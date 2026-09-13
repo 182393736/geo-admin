@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <h2 class="page-title">采集监控</h2>
-    <p class="page-desc">每日采集任务 → 槽位 → 原始回答 → 截图，逐层下钻（只读）</p>
+    <p class="page-desc">每日采集任务 → 槽位 → 原始回答 → 截图；失败槽位可手动重置为 pending 供采集端重采（只读监控 + 重置）</p>
 
     <a-tabs v-model:active-key="tab">
       <!-- 任务 -->
@@ -14,6 +14,7 @@
             <a-option value="created">created</a-option>
             <a-option value="running">running</a-option>
             <a-option value="ok">ok</a-option>
+            <a-option value="partial">partial</a-option>
             <a-option value="fail">fail</a-option>
           </a-select>
           <a-button type="primary" @click="loadTasks(1)">查询</a-button>
@@ -84,19 +85,39 @@
     </a-tabs>
 
     <!-- 槽位抽屉 -->
-    <a-drawer :visible="slotDrawer" :width="860" :title="`槽位明细 · ${slotTask?.brand_name || ''} · ${slotTask?.date || ''}`" @cancel="slotDrawer = false" :footer="false">
+    <a-drawer :visible="slotDrawer" :width="920" :title="`槽位明细 · ${slotTask?.brand_name || ''} · ${slotTask?.date || ''}`" @cancel="slotDrawer = false" :footer="false">
       <a-spin :loading="slotLoading">
         <template v-if="slotTask">
           <div class="kv-row mb">
             <span>任务 ID</span><span class="muted">{{ slotTask.task_id }}</span>
             <span>应采 / 已采 / 失败</span><span class="muted">{{ slotTask.expected_slots }} / {{ slotTask.actual_slots }} / {{ slotTask.failed_slots }}</span>
+            <span>状态</span><a-tag :color="statusColor(slotTask.status)" size="small">{{ slotTask.status }}</a-tag>
           </div>
-          <div class="mb">
+          <div class="mb toolbar-inline">
             <span v-for="(n, s) in slotSummary" :key="s" class="chip" :style="{ background: slotColor(s) }">{{ s }} {{ n }}</span>
+            <a-button
+              v-if="(slotSummary.fail || 0) > 0"
+              type="outline"
+              status="warning"
+              size="mini"
+              :loading="resettingAll"
+              @click="resetAllFailed"
+            >重置全部失败（{{ slotSummary.fail }}）</a-button>
           </div>
           <a-table :data="slots" :columns="slotCols" :pagination="false" size="small" row-key="slot_id">
             <template #status="{ record }">
               <a-tag :color="statusColor(record.status)" size="small">{{ record.status }}</a-tag>
+            </template>
+            <template #op="{ record }">
+              <a-button
+                v-if="record.status === 'fail'"
+                type="text"
+                size="mini"
+                status="warning"
+                :loading="resettingSlotId === record.slot_id"
+                @click="resetOneSlot(record)"
+              >重置</a-button>
+              <span v-else class="muted">—</span>
             </template>
           </a-table>
         </template>
@@ -153,6 +174,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { Message, Modal } from '@arco-design/web-vue';
 import { adminApi } from '@/api/admin';
 import type { AdminCollectTaskRow, AdminSlotRow, AdminAnswerRow, AdminAnswerDetail, AdminSnapshotRow } from '@geo-admin/contracts';
 
@@ -229,10 +251,18 @@ const slotCols = [
   { title: '状态', slotName: 'status', width: 90 },
   { title: '尝试', dataIndex: 'attempts', width: 60 },
   { title: '错误', dataIndex: 'error', ellipsis: true, width: 140 },
+  { title: '操作', slotName: 'op', width: 80, fixed: 'right' as const },
 ];
 
+const resettingSlotId = ref('');
+const resettingAll = ref(false);
+
 function statusColor(s: string) {
-  return s === 'ok' ? 'green' : s === 'running' || s === 'created' ? 'arcoblue' : s === 'empty' ? 'orange' : 'red';
+  return s === 'ok' ? 'green'
+    : s === 'partial' ? 'orangered'
+    : s === 'running' || s === 'created' ? 'arcoblue'
+    : s === 'empty' ? 'orange'
+    : 'red';
 }
 function slotColor(s: string) {
   return s === 'ok' ? '#dcfce7' : s === 'fail' ? '#fee2e2' : s === 'empty' ? '#ffedd5' : '#e0e7ff';
@@ -274,12 +304,75 @@ async function loadSnaps(p = 1) {
 async function openSlots(t: AdminCollectTaskRow) {
   slotTask.value = t;
   slotDrawer.value = true;
+  await refreshSlots(t.task_id);
+}
+
+async function refreshSlots(taskId: string) {
   slotLoading.value = true;
   try {
-    const d = await adminApi.collectSlots(t.task_id);
+    const d = await adminApi.collectSlots(taskId);
     slotSummary.value = d.summary;
     slots.value = d.list;
+    if (d.task) {
+      slotTask.value = { ...(slotTask.value || {} as AdminCollectTaskRow), ...d.task, brand_name: slotTask.value?.brand_name, account: slotTask.value?.account };
+      // 同步外层任务列表里的计数/状态
+      const i = tasks.value.findIndex(x => x.task_id === taskId);
+      if (i >= 0) {
+        tasks.value[i] = {
+          ...tasks.value[i],
+          ...d.task,
+          brand_name: tasks.value[i].brand_name,
+          account: tasks.value[i].account,
+        };
+      }
+    }
   } finally { slotLoading.value = false; }
+}
+
+async function resetOneSlot(row: AdminSlotRow) {
+  Modal.warning({
+    title: '重置失败槽位',
+    content: `将 ${row.platform} / 问题 ${row.query_id} 重置为 pending，attempts 清零，采集端可重新领取。`,
+    hideCancel: false,
+    okText: '确认重置',
+    onOk: async () => {
+      resettingSlotId.value = row.slot_id;
+      try {
+        const r = await adminApi.collectSlotReset(row.slot_id);
+        Message.success(`已重置为 ${r.slot.status}`);
+        if (slotTask.value?.task_id) await refreshSlots(slotTask.value.task_id);
+      } catch (e: any) {
+        Message.error(e?.message || '重置失败');
+        throw e;
+      } finally {
+        resettingSlotId.value = '';
+      }
+    },
+  });
+}
+
+async function resetAllFailed() {
+  const n = slotSummary.value.fail || 0;
+  if (!slotTask.value || n <= 0) return;
+  Modal.warning({
+    title: '重置全部失败槽位',
+    content: `将本任务下 ${n} 个 fail 槽位全部重置为 pending，采集端可重新领取。`,
+    hideCancel: false,
+    okText: '确认重置',
+    onOk: async () => {
+      resettingAll.value = true;
+      try {
+        const r = await adminApi.collectTaskResetFailed(slotTask.value!.task_id);
+        Message.success(`已重置 ${r.reset_count} 个槽位`);
+        await refreshSlots(slotTask.value!.task_id);
+      } catch (e: any) {
+        Message.error(e?.message || '重置失败');
+        throw e;
+      } finally {
+        resettingAll.value = false;
+      }
+    },
+  });
 }
 
 const answerDrawer = ref(false);
@@ -308,6 +401,7 @@ onMounted(() => loadTasks(1));
 .kv-row .grow { flex: 1; min-width: 0; word-break: break-all; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
 .mb { margin-bottom: 12px; }
+.toolbar-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .sec { margin: 18px 0 8px; font-size: 14px; color: #1f2430; }
 .chip {
   display: inline-block; border-radius: 4px; padding: 2px 10px; margin-right: 8px;

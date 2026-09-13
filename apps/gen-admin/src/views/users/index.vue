@@ -63,6 +63,22 @@
           </div>
           <p v-else class="muted">无钱包</p>
 
+          <h4 class="sec">Token 消耗</h4>
+          <div class="kv" v-if="detail.token_summary">
+            <span class="k">总 Tokens</span><span class="v">{{ detail.token_summary.tokens }}（调用 {{ detail.token_summary.calls }} 次 / 失败 {{ detail.token_summary.errors }}）</span>
+            <span class="k">Prompt / Completion</span><span class="v">{{ detail.token_summary.prompt_tokens }} / {{ detail.token_summary.completion_tokens }}</span>
+          </div>
+          <a-table
+            v-if="detail.token_summary?.by_call_site?.length"
+            :data="detail.token_summary.by_call_site"
+            :columns="tokenCols"
+            :pagination="false"
+            size="small"
+            row-key="call_site"
+            class="mb"
+          />
+          <p v-else class="muted">暂无 LLM 调用记录</p>
+
           <h4 class="sec">最近订单</h4>
           <a-table v-if="detail.orders.length" :data="detail.orders" :columns="orderCols" :pagination="false" size="small" row-key="order_no" />
           <p v-else class="muted">无订单</p>
@@ -122,6 +138,13 @@ const clickCols = [
   { title: '页面', dataIndex: 'source' },
   { title: '操作', dataIndex: 'operation', width: 80 },
   { title: '时间', dataIndex: 'created_at', width: 160 },
+];
+const tokenCols = [
+  { title: '操作', dataIndex: 'label', ellipsis: true },
+  { title: 'call_site', dataIndex: 'call_site', width: 140 },
+  { title: '次数', dataIndex: 'calls', width: 70 },
+  { title: 'Tokens', dataIndex: 'tokens', width: 90 },
+  { title: '失败', dataIndex: 'errors', width: 70 },
 ];
 
 const drawer = ref(false);

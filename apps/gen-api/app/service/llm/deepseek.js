@@ -3,16 +3,12 @@
  * LLM 统一客户端（gen-api 侧所有 LLM 调用唯一入口）
  * ------------------------------------------------------------------
  * 协议：OpenAI 兼容 POST {baseURL}/chat/completions，默认跟随 config.llm 当前供应商
- *       （siliconflow / agnes / deepseek / mistral，LLM_PROVIDER 切换），向后兼容旧 config.deepseek。
- * 传输层：复用 @geo-admin/geo-agent 的 createSiliconFlowClient —— 全局 fetch + undici ProxyAgent
- *         显式代理，与「首登分析」完全同一条通道。开发环境走 LLM_PROXY（如 http://localhost:1087），
- *         生产不设置即直连。⚠️ 不再用 ctx.curl：urllib v4 已移除 proxy 选项，dispatcher 透传不可靠，
- *         曾导致直连 api.mistral.ai 超时。
- * 约定：所有结构化抽取强制 JSON Mode（response_format: json_object）；
- *       供应商不认该参数（400）时自动去掉重试一次；解析失败再按 JSON 修复重试一次。
+ * 传输层：复用 @geo-admin/geo-agent 的 createSiliconFlowClient
+ * 约定：所有结构化抽取强制 JSON Mode；调用结束写入 llm_call_logs（不阻塞失败主流程）
  */
 const { Service } = require('egg');
 const { createSiliconFlowClient } = require('@geo-admin/geo-agent');
+const crypto = require('crypto');
 
 /** 品牌名规范化兜底：去空白、去常见公司/法律/电商后缀（LLM 未给 norm_name 时使用） */
 const BRAND_SUFFIXES = [
@@ -25,6 +21,14 @@ function normalizeBrandName(name) {
     if (s.endsWith(suf)) { s = s.slice(0, -suf.length); break; }
   }
   return s;
+}
+
+function normalizeUsage(usage) {
+  if (!usage || typeof usage !== 'object') return { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+  const prompt = Number(usage.prompt_tokens) || 0;
+  const completion = Number(usage.completion_tokens) || 0;
+  const total = Number(usage.total_tokens) || (prompt + completion);
+  return { prompt_tokens: prompt, completion_tokens: completion, total_tokens: total };
 }
 
 // 传输层参数只打印一次（schedule 每 tick 新建实例，避免刷屏）
@@ -42,12 +46,11 @@ class DeepseekService extends Service {
       baseURL: (llm.baseURL || (this.config.deepseek || {}).baseURL || 'https://api.deepseek.com').replace(/\/+$/, ''),
       model: llm.model || (this.config.deepseek || {}).model || 'deepseek-chat',
       chatTemplateKwargs: llm.chatTemplateKwargs || null,
-      // 显式 HTTP(S) 代理：本地开发走本机代理访问海外供应商（如 Mistral）；生产不设置即直连
       proxy: String(llm.proxy || process.env.LLM_PROXY || '').trim() || '',
     };
   }
 
-  /** geo-agent 客户端（与首登分析同源：fetch + undici ProxyAgent；多 key 轮询 + 网络重试） */
+  /** geo-agent 客户端（与首登分析同源） */
   get client() {
     if (!this._client) {
       const c = this.cfg;
@@ -69,27 +72,107 @@ class DeepseekService extends Service {
     return this._client;
   }
 
-  /** 原始对话：messages → { content, usage } */
-  async chat(messages, opts = {}) {
-    if (!this.cfg.apiKeys.length) throw new Error('LLM 未配置 API Key（请设置 LLM_PROVIDER 对应供应商的 *_API_KEY / *_API_KEYS）');
-    const { content, usage } = await this.client.chat(messages, opts);
-    return { content, usage };
+  /** 异步写调用日志（失败只打日志，不抛） */
+  async _logCall({
+    call_site = 'UNKNOWN',
+    user_id = '',
+    brand_id = '',
+    ref_id = '',
+    prompt_version = 'v1',
+    usage = null,
+    latency_ms = 0,
+    success = true,
+    retry = 0,
+    error = '',
+    input_hash = '',
+  } = {}) {
+    try {
+      await this.ctx.model.LlmCallLog.create({
+        call_site: String(call_site || 'UNKNOWN').slice(0, 64),
+        user_id: String(user_id || ''),
+        brand_id: String(brand_id || ''),
+        ref_id: String(ref_id || '').slice(0, 120),
+        prompt_version: String(prompt_version || 'v1').slice(0, 32),
+        model: this.cfg.model,
+        input_hash: input_hash || undefined,
+        usage: normalizeUsage(usage),
+        latency_ms: Number(latency_ms) || 0,
+        success: !!success,
+        retry: Number(retry) || 0,
+        error: error ? String(error).slice(0, 500) : undefined,
+      });
+    } catch (e) {
+      this.ctx.logger.warn(`[llm] 写 llm_call_logs 失败: ${e.message}`);
+    }
   }
 
-  /** 结构化调用：schema 仅用于提示词注入，返回 { data, usage }（JSON 模式 + 解析失败补救） */
-  async chatJson({ system, user, schemaHint, ...opts }) {
+  _stripMeta(opts = {}) {
+    const { meta, ...rest } = opts || {};
+    return { meta: meta || {}, clientOpts: rest };
+  }
+
+  /** 原始对话：messages → { content, usage }；opts.meta 用于记账 */
+  async chat(messages, opts = {}) {
     if (!this.cfg.apiKeys.length) throw new Error('LLM 未配置 API Key（请设置 LLM_PROVIDER 对应供应商的 *_API_KEY / *_API_KEYS）');
-    const { data, usage } = await this.client.chatJson({ system, user, schemaHint, ...opts });
-    return { data, usage };
+    const { meta, clientOpts } = this._stripMeta(opts);
+    const started = Date.now();
+    let usage = null;
+    let success = true;
+    let errMsg = '';
+    try {
+      const r = await this.client.chat(messages, clientOpts);
+      usage = r.usage;
+      return r;
+    } catch (e) {
+      success = false;
+      errMsg = e && e.message ? e.message : String(e);
+      throw e;
+    } finally {
+      await this._logCall({
+        ...meta,
+        usage,
+        latency_ms: Date.now() - started,
+        success,
+        error: errMsg,
+        input_hash: crypto.createHash('sha1').update(JSON.stringify(messages || []).slice(0, 4000)).digest('hex').slice(0, 16),
+      });
+    }
+  }
+
+  /** 结构化调用：返回 { data, usage }；opts.meta 用于记账 */
+  async chatJson({ system, user, schemaHint, meta, ...opts }) {
+    if (!this.cfg.apiKeys.length) throw new Error('LLM 未配置 API Key（请设置 LLM_PROVIDER 对应供应商的 *_API_KEY / *_API_KEYS）');
+    const started = Date.now();
+    let usage = null;
+    let success = true;
+    let errMsg = '';
+    try {
+      const r = await this.client.chatJson({ system, user, schemaHint, ...opts });
+      usage = r.usage;
+      return r;
+    } catch (e) {
+      success = false;
+      errMsg = e && e.message ? e.message : String(e);
+      throw e;
+    } finally {
+      await this._logCall({
+        ...(meta || {}),
+        usage,
+        latency_ms: Date.now() - started,
+        success,
+        error: errMsg,
+        input_hash: crypto.createHash('sha1').update(String(user || '').slice(0, 4000)).digest('hex').slice(0, 16),
+      });
+    }
   }
 
   safeParse(s) { try { return JSON.parse(s); } catch { return null; } }
 
   /**
    * 流水线A：排名抽取 —— 从 AI 回答原文抽取有序品牌/厂家名录
-   * 返回 [{ name, norm_name, position, snippet }]
+   * meta: { brand_id, user_id, ref_id }
    */
-  async extractRankedList(answerText) {
+  async extractRankedList(answerText, meta = {}) {
     const schemaHint = `{
   "list": [
     { "name": "回答中出现的品牌/厂家原始名称", "norm_name": "规范化简称（去掉 有限公司/集团/股份/实业 等后缀与地名，如 '佛山市宏祥家具实业有限公司'→'宏祥家具'）", "position": 1, "snippet": "名称附近原文短句(<=40字)" }
@@ -100,6 +183,7 @@ class DeepseekService extends Service {
       user: `回答原文：\n${String(answerText || '').slice(0, 8000)}`,
       schemaHint,
       timeoutMs: 60000,
+      meta: { call_site: 'LLM-07', prompt_version: 'v1', ...meta },
     });
     const list = Array.isArray(data && data.list) ? data.list : [];
     return list
@@ -120,9 +204,9 @@ class DeepseekService extends Service {
 
   /**
    * 流水线B：口碑抽取 —— 从 AI 回答原文抽取市场/用户评价观点
-   * 返回 [{ quote, label, polarity, target }]
+   * meta: { brand_id, user_id, ref_id }
    */
-  async extractOpinions(answerText) {
+  async extractOpinions(answerText, meta = {}) {
     const schemaHint = `{
   "opinions": [
     { "quote": "观点原文短句(<=30字，必须逐字来自原文，不得改写)", "label": "观点主题词(<=10字，如 交期/价格/质量/售后/款式)", "polarity": "positive|neutral|negative", "target": "该观点针对的品牌/厂家名(无则空字符串)" }
@@ -133,6 +217,7 @@ class DeepseekService extends Service {
       user: `回答原文：\n${String(answerText || '').slice(0, 8000)}`,
       schemaHint,
       timeoutMs: 60000,
+      meta: { call_site: 'LLM-09', prompt_version: 'v1', ...meta },
     });
     const opinions = Array.isArray(data && data.opinions) ? data.opinions : [];
     return opinions

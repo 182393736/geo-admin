@@ -64,7 +64,7 @@ export type SlotStatus = (typeof SLOT_STATUSES)[number];
 export const TASK_TRIGGERS = ['schedule', 'manual'] as const;
 export type TaskTrigger = (typeof TASK_TRIGGERS)[number];
 
-export const TASK_STATUSES = ['created', 'running', 'ok', 'fail'] as const;
+export const TASK_STATUSES = ['created', 'running', 'ok', 'partial', 'fail'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 // ==================== 套餐 / 订阅 / 计费 ====================

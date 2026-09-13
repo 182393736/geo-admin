@@ -1,7 +1,7 @@
 # 品牌采集完成后：可分析入库的数据 → 用户后台页面 / Panel 映射
 
 > 分析范围：以 `apps/gen-api`（Egg 后端）的真实数据流为准，页面以 `apps/gen-user-dash`（用户后台）的真实代码为准。
-> 当前状态：**采集（gen-caiji）已就绪，解析与聚合流水线已实现但依赖采集数据**；用户后台大部分数据面板目前仍是「等待首次采集」占位（`PreCollectionEmpty`），等采集跑通后接入。
+> 当前状态：**采集（gen-caiji）已就绪；解析 A/B/C + aggregate + report 装配已实现**（默认 `PARSE_MODE=realtime`）。用户后台部分数据面板仍是「等待首次采集」占位（`PreCollectionEmpty`），真实查询接入仍是后续工作。
 
 ---
 
@@ -13,30 +13,25 @@
    ▼
 raw_answer（parsed=false）─────────────────────────── 采集提交落库
    │
-   │  凌晨 04:00 daily_parse 按 query_type 分流
-   ├── industry 题 ──► 流水线A rankExtract
+   │  解析：realtime_parse（默认）或 04:00 daily_parse（PARSE_MODE=daily）
+   ├── industry 题 ──► 流水线A rankExtract（LLM extractRankedList）
    │                      ├─► brand_entities（品牌实体，upsert）
    │                      └─► brand_mentions（榜单位次，is_target 命中自家别名）
    │
-   ├── brand 题   ──► 流水线B reputationExtract
+   ├── 口碑路径 ──► 流水线B reputationExtract（LLM extractOpinions）
    │                      ├─► opinion_topics（话题归并）
    │                      └─► opinions（观点/情感/针对实体）
    │
-   └── 所有题     ──► 流水线C citationExtract
+   └── 所有题     ──► 流水线C citationExtract（规则 + DOMAIN_SOURCE_MAP）
                           ├─► canonical_sources（信源站点）
                           ├─► cited_articles（被引文章，is_brand_published）
                           └─► citation_edges（引用边，is_own 自有归因）
    │
    ▼  S5 aggregate（同批）
-   ├─► daily_metric_queries   （问题级日指标：提及率/前三率/首位率/位次/权重分）
-   ├─► daily_metric_brands    （口碑日指标）
-   ├─► source_daily_stats     （信源日被引统计 + 自有归因）
-   ├─► leaderboard_dailies    （榜单快照 entries）
-   ├─► publish_orders.cite_count 回写（本品牌发稿被引次数）
-   └─► media_channels 刷新（渠道库 30 天被引 / cost_per_citation）
-   │
-   ▼  S6 report_build（周/月）
-   └─► reports（payload 18 键 + overview_stats）→ 概览页周报/月报 6 模块
+   ├─► daily_metric_queries / daily_metric_brands / source_daily_stats
+   ├─► leaderboard_dailies / publish_orders.cite_count / media_channels
+   ▼  S6 report_build（周报周日 05:00；service/report.js）
+   └─► reports（payload + overview_stats）→ 概览页周报/月报 6 模块
 ```
 
 > `snapshot`（搜索快照）与 `evidence_item`（证据库）模型已建，截图上传本轮暂不做、证据库待接。
@@ -134,13 +129,13 @@ raw_answer（parsed=false）─────────────────�
 
 ## 四、现状差距（哪些还没接通）
 
-1. **采集 → 解析链路已实现**：`collector.submit` 落 `raw_answer` → `daily_parse` 三流水线 + `aggregate` 全都有真实实现，只等采集数据进来。
-2. **用户后台多数数据面板仍为「等待首次采集」占位**：`ranking` 各 Tab、`sentiment` 各 Tab 目前都是 `PreCollectionEmpty`，真实数据接入是后续工作；`overview` 报告 6 模块已有完整 UI 但部分数据仍是 mock（`competitors`、`citationPlatforms` 为硬编码 ref）。
-3. **`snapshot`（搜索快照/截图）与 `evidence_item`（证据库）**：模型已建，截图上传按计划暂不做。
-4. **`/summary/*`、`/source_intelligence/*`、`/snapshot/export/list` 等查询接口**：前端 `monitor.ts` 已声明契约，但 gen-api 的 router 尚未挂载实现（现由线上 geoapi 承接）；这部分是「数据已能入库、查询接口待补」的环节。
+1. **采集 → 解析 → 聚合 → 报告装配**：后端链路已通（含任务 `partial`、失败槽 Admin 重置、`llm_call_logs`）。默认实时解析；量大可切 `PARSE_MODE=daily`。
+2. **用户后台多数数据面板仍为「等待首次采集」占位**：`ranking` / `sentiment` 各 Tab 多为 `PreCollectionEmpty`；`overview` 部分模块仍有 mock ref。
+3. **`snapshot` / `evidence_item`**：模型已建，截图上传按计划暂不做。
+4. **`/summary/*`、`/source_intelligence/*`、`/snapshot/export/list` 等**：前端契约已有，gen-api 未必全挂载（线上 geoapi 可能承接）——「能入库、用户侧查询待补」。
 
 ---
 
 ## 五、一句话结论
 
-一次品牌采集完成后，**回答原文**（raw_answer）会经三条流水线拆成 **榜单位次（brand_mentions）→ 口碑观点（opinions）→ 引用信源（citation_edges）** 三类事实，再聚合成 **日指标（daily_metric_*）、榜单快照（leaderboard_daily）、信源统计（source_daily_stat）**，最终装配成 **周报/月报（reports）**；它们分别落到用户后台的 **概览页 6 模块、AI排名透视 9 Tab、AI口碑分析 5 Tab、信源库 4 Tab**。其中「排名/口碑/引用源/快照」面板目前还是采集前占位，采集跑通后按上面映射逐项接入即可。
+一次品牌采集完成后，**raw_answer** 经三流水线拆成 **榜单位次 / 口碑观点 / 引用信源**，再聚合成日指标与报告；映射见上文。后端解析与报告已就绪；用户后台面板接入与部分查询接口仍是主要差距。

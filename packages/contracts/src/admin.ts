@@ -58,6 +58,22 @@ export interface AdminUserRow {
   is_superuser: boolean; roles: string[]; brand_count: number;
   created_at: string; updated_at: string;
 }
+export interface AdminTokenSummary {
+  calls: number;
+  errors: number;
+  tokens: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  by_call_site: {
+    call_site: string;
+    label: string;
+    calls: number;
+    errors: number;
+    tokens: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+  }[];
+}
 export interface AdminUserDetail {
   user: AdminUserRow;
   brands: { brand_id: string; name: string; industry: string; status: string; query_count: number; rename_remaining: number; created_at: string }[];
@@ -65,6 +81,7 @@ export interface AdminUserDetail {
   subscriptions: AdminSubscriptionRow[];
   orders: AdminOrderRow[];
   recent_clicks: { source: string; operation: string; ip: string; created_at: string }[];
+  token_summary?: AdminTokenSummary;
 }
 
 // ---- 品牌 ----
@@ -85,6 +102,7 @@ export interface AdminBrandDetail {
   credit: AdminCreditAccountRow | null;
   collect_tasks: AdminCollectTaskRow[];
   target_entities: { entity_id: string; canonical_name: string; industry: string }[];
+  token_summary?: AdminTokenSummary;
 }
 export interface AdminQueryRow {
   query_id: number; query: string; query_type: string;
@@ -139,12 +157,20 @@ export interface AdminParseOverview {
 
 // ---- LLM ----
 export interface AdminLlmLogRow {
-  call_site: string; brand_id: string; ref_id: string; prompt_version: string; model: string;
-  usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null;
-  latency_ms: number; success: boolean; retry: number; error: string; created_at: string;
+  call_site: string;
+  call_site_label?: string;
+  user_id?: string;
+  account?: string;
+  brand_id: string;
+  brand_name?: string;
+  ref_id: string;
+  prompt_version: string;
+  model: string;
+  usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null;
+  latency_ms: number; success: boolean; retry: number; error?: string; created_at: string;
 }
 export interface AdminLlmAgg {
-  call_site: string; calls: number; errors: number; tokens: number; avg_latency_ms: number;
+  call_site: string; label?: string; calls: number; errors: number; tokens: number; avg_latency_ms: number;
 }
 
 // ---- 计费 ----

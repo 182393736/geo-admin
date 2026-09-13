@@ -17,7 +17,7 @@ module.exports = app => {
     actual_slots: { type: Number, default: 0 },
     failed_slots: { type: Number, default: 0 },
     completeness_rate: Number,  // actual/expected，报告 overview 用
-    status: { type: String, enum: ['created', 'running', 'ok', 'fail'], default: 'created' },
+    status: { type: String, enum: ['created', 'running', 'ok', 'partial', 'fail'], default: 'created' },
     started_at: Date,
     finished_at: Date,
   }, { collection: 'collect_tasks', versionKey: false, timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });

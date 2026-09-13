@@ -3,32 +3,75 @@
  * AgentRunner：@geo-admin/geo-agent 的 Egg 薄适配层
  * 职责：注入 LLM 供应商配置（config.llm 统一入口，OpenAI 兼容，可切 siliconflow/agnes/deepseek）、
  *       搜索 Provider/mongoose models/nextSeq，其余编排全在库里。
+ * 另：首登各步 usage 写入 llm_call_logs（geo-agent 自带客户端，不经 deepseek 服务）。
  */
 const { Service } = require('egg');
 const { createSiliconFlowClient, createSearchProvider, createWebSearch, runOnboarding, persistResult, sanitizePreview } = require('@geo-admin/geo-agent');
 
+const ONBOARD_SITE_MAP = {
+  web_research: 'ONBOARD_WEB',
+  profile: 'LLM-01',
+  queries: 'LLM-04',
+  library: 'ONBOARD_LIBRARY',
+};
+
+function normalizeUsage(usage) {
+  if (!usage || typeof usage !== 'object') return { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+  const prompt = Number(usage.prompt_tokens) || 0;
+  const completion = Number(usage.completion_tokens) || 0;
+  const total = Number(usage.total_tokens) || (prompt + completion);
+  return { prompt_tokens: prompt, completion_tokens: completion, total_tokens: total };
+}
+
 class AgentRunnerService extends Service {
   buildDeps() {
     const { app } = this;
-    // config.llm：当前供应商的 apiKey/baseURL/model/chatTemplateKwargs；向后兼容 config.siliconflow
     const cfg = app.config.llm || app.config.siliconflow || {};
     const llm = createSiliconFlowClient({
       apiKey: cfg.apiKey, apiKeys: cfg.apiKeys, baseURL: cfg.baseURL, model: cfg.model,
       chatTemplateKwargs: cfg.chatTemplateKwargs,
-      proxy: cfg.proxy || undefined, // 本地开发走代理（dev:all 注入），生产直连
+      proxy: cfg.proxy || undefined,
     });
-    // 联网取证：优先用 config.tavily.apiKey（env > dev-keys 内置测试密钥），为空则自动降级不联网
-    // 热度验证 Provider 暂缺（SerpAPI/Bing 已停用，自建搜索后接入）→ 诚实保持 llm_estimate
     const tavilyKey = (app.config.tavily || {}).apiKey || '';
     return { llm, searchProvider: createSearchProvider({}), webSearch: createWebSearch({ tavilyKey }) };
   }
 
-  /** 只跑分析不落库：返回完整 result（预览/调试用） */
+  /** 将 geo-agent result.usage 写入 llm_call_logs */
+  async _logOnboardingUsage(userId, brandId, taskId, usageList) {
+    const { ctx } = this;
+    const cfg = ctx.app.config.llm || ctx.app.config.siliconflow || {};
+    const model = cfg.model || '';
+    for (const row of usageList || []) {
+      try {
+        await ctx.model.LlmCallLog.create({
+          call_site: ONBOARD_SITE_MAP[row.step] || `ONBOARD_${String(row.step || 'STEP').toUpperCase()}`,
+          user_id: String(userId || ''),
+          brand_id: String(brandId || ''),
+          ref_id: String(taskId || ''),
+          prompt_version: 'v1',
+          model,
+          usage: normalizeUsage(row.usage),
+          latency_ms: 0,
+          success: true,
+          retry: 0,
+        });
+      } catch (e) {
+        ctx.logger.warn(`[agent] 写首登 usage 失败 step=${row.step}: ${e.message}`);
+      }
+    }
+  }
+
   async analyze(input, onEvent) {
     return runOnboarding(this.buildDeps(), input, onEvent);
   }
 
-  /** 跑分析并落库；selectedQueries 传入时按用户勾选保存 */
+  /** 预览分析（不落库）并记账到该用户（brand 稍后在 confirm 时回填） */
+  async analyzeAndLog(userId, input, onEvent) {
+    const result = await runOnboarding(this.buildDeps(), input, onEvent);
+    await this._logOnboardingUsage(userId, '', '', result && result.usage);
+    return result;
+  }
+
   async runAndPersist(userId, input, { brandId, taskId, selectedQueries, confirmLimit } = {}, onEvent) {
     const { ctx } = this;
     const result = await runOnboarding(this.buildDeps(), input, onEvent);
@@ -37,12 +80,17 @@ class AgentRunnerService extends Service {
       nextSeq: name => ctx.service.onboarding.nextSeq(name),
       selectedQueries, confirmLimit,
     });
+    await this._logOnboardingUsage(
+      userId,
+      (saved && saved.brand_id) || brandId,
+      (saved && saved.task_id) || taskId,
+      result && result.usage,
+    );
     return { result, saved };
   }
 
   /**
-   * 两段式第二步：用户对前端回传的 preview 勾选后确认落库
-   * preview 是不可信输入 → sanitizePreview 全量重建后再持久化
+   * 两段式第二步：确认落库。预览阶段已写过 usage（无 brand），此处回填 brand_id/ref_id。
    */
   async persistPreview(userId, preview, { brandId, taskId, selectedQueries, confirmLimit } = {}) {
     const { ctx } = this;
@@ -55,6 +103,20 @@ class AgentRunnerService extends Service {
       nextSeq: name => ctx.service.onboarding.nextSeq(name),
       selectedQueries, confirmLimit,
     });
+    const bid = (saved && saved.brand_id) || brandId || '';
+    const tid = (saved && saved.task_id) || taskId || '';
+    if (bid) {
+      const since = new Date(Date.now() - 30 * 60 * 1000);
+      await ctx.model.LlmCallLog.updateMany(
+        {
+          user_id: String(userId || ''),
+          brand_id: '',
+          created_at: { $gte: since },
+          call_site: { $in: Object.values(ONBOARD_SITE_MAP) },
+        },
+        { $set: { brand_id: String(bid), ref_id: String(tid) } },
+      ).catch(() => {});
+    }
     return { result, saved };
   }
 }

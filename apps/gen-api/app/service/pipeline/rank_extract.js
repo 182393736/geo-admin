@@ -10,7 +10,11 @@ class RankExtractService extends Service {
   async run(answer) {
     const { ctx } = this;
     const { slot_id, brand_id, query_id, platform, end, date, answer_text } = answer;
-    const ranked = await ctx.service.llm.deepseek.extractRankedList(answer_text); // [{name, norm_name, position, snippet}]
+    const ranked = await ctx.service.llm.deepseek.extractRankedList(answer_text, {
+      brand_id,
+      user_id: ((await ctx.model.Brand.findOne({ brand_id }, { user_id: 1 }).lean()) || {}).user_id || '',
+      ref_id: answer.answer_id || slot_id,
+    }); // [{name, norm_name, position, snippet}]
     const aliases = new Set((await ctx.model.BrandAlias.find({ brand_id, enabled: true }).lean())
       .map(x => x.alias.toLowerCase()).concat([(await ctx.model.Brand.findOne({ brand_id }).lean()).name.toLowerCase()]));
     for (const item of ranked) {

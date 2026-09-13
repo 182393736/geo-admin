@@ -15,7 +15,7 @@ export const COLLECTOR_PLATFORMS = ['doubao', 'deepseek', 'wenxin', 'yuanbao'] a
 export type CollectorPlatform = (typeof COLLECTOR_PLATFORMS)[number];
 
 /** 每个槽位最多失败/超时次数（attempts 只计 fail 提交与运行超时；达上限 → 终态 fail） */
-export const COLLECTOR_MAX_ATTEMPTS = 2;
+export const COLLECTOR_MAX_ATTEMPTS = 1;
 
 /** 拉取单个待采集槽位请求（单条拉取：一次只领 1 个） */
 export interface PullSlotRequest {

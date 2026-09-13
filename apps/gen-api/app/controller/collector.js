@@ -14,7 +14,7 @@ const Controller = require('egg').Controller;
  * 阶段约束（后续逐步放开）：
  *   - 平台恒 4 家（doubao/deepseek/wenxin/yuanbao，千问暂移除）；end 恒 web
  *   - 截图存证 / 中立账号池：占位 null，后续补
- *   - 失败重试：每槽最多尝试 maxAttempts（默认 2）次后终态 fail
+ *   - 失败重试：每槽最多尝试 maxAttempts（默认 1）次后终态 fail
  */
 class CollectorController extends Controller {
   get cfg() {
@@ -62,7 +62,7 @@ class CollectorController extends Controller {
       },
       { $set: { status: 'pending', error: '运行超时回收', started_at: null }, $inc: { attempts: 1 } },
     );
-    for (const t of taskIds) await this._syncTask(t).catch(() => {});
+    for (const t of taskIds) await ctx.service.collect.syncTask(t).catch(() => {});
   }
 
   /** 拉取单个待采集槽位：单条 + 一步原子领取（findOneAndUpdate 带 sort，无竞争窗口）。
@@ -114,9 +114,9 @@ class CollectorController extends Controller {
     );
     if (!doc) return none();
 
-    // 所属任务进入 running（幂等）
+    // 所属任务进入 running（含 partial/fail 重置后仍有 pending 的场景）
     await M.CollectTask.updateOne(
-      { task_id: doc.task_id, status: { $nin: ['ok', 'fail'] } },
+      { task_id: doc.task_id, status: { $nin: ['ok'] } },
       { $set: { status: 'running', started_at: new Date() } },
     ).catch(() => {});
 
@@ -254,7 +254,7 @@ class CollectorController extends Controller {
     await M.CollectSlot.updateOne({ slot_id: slotId }, { $set: slotUpdate });
 
     // 汇总所属任务进度
-    await this._syncTask(slot.task_id);
+    await ctx.service.collect.syncTask(slot.task_id);
 
     ctx.body = {
       code: 200, msg: 'ok',
@@ -278,45 +278,6 @@ class CollectorController extends Controller {
       if (!domain) { try { domain = new URL(out.url).hostname.toLowerCase().replace(/^www\./, ''); } catch (e) { /* 无法解析则留空 */ } }
       if (domain) out.domain = domain;
       return out;
-    });
-  }
-
-  /** 重算任务进度：actual=ok+empty，failed=fail，完成度/状态随槽位回写联动 */
-  async _syncTask(taskId) {
-    const { ctx } = this;
-    const M = ctx.model;
-    const task = await M.CollectTask.findOne({ task_id: taskId }).lean();
-    if (!task) return;
-    const rows = await M.CollectSlot.aggregate([
-      { $match: { task_id: taskId } },
-      { $group: { _id: '$status', n: { $sum: 1 } } },
-    ]);
-    const by = {};
-    for (const r of rows) by[r._id] = r.n;
-    const ok = by.ok || 0;
-    const empty = by.empty || 0;
-    const fail = by.fail || 0;
-    const actual = ok + empty;
-    const expected = task.expected_slots || 0;
-    const settled = actual + fail;
-    const update = {
-      actual_slots: actual,
-      failed_slots: fail,
-      completeness_rate: expected ? +(actual / expected * 100).toFixed(2) : 0,
-      status: settled >= expected ? 'ok' : (settled > 0 ? 'running' : 'created'),
-    };
-    if (!task.started_at) update.started_at = new Date();
-    if (settled >= expected) update.finished_at = new Date();
-    await M.CollectTask.updateOne({ task_id: taskId }, { $set: update }).catch(() => {});
-
-    // 流水线时间轴：collect 阶段事件（进度 + 失败原因）
-    const finalStatus = settled >= expected ? (fail > 0 ? 'partial' : 'ok') : (settled > 0 ? 'running' : 'pending');
-    await ctx.service.pipelineEvent.record({
-      brand_id: task.brand_id, date: task.date, stage: 'collect',
-      status: finalStatus,
-      message: `应采 ${expected} / 已采 ${actual}（ok ${ok} / empty ${empty}）/ 失败 ${fail}`,
-      error: fail > 0 ? `${fail} 个槽位采集失败` : null,
-      detail: { expected, actual, failed: fail, ok, empty, ...by },
     });
   }
 }

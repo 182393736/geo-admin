@@ -26,7 +26,7 @@ class AgentController extends Controller {
     };
     try {
       if (b.save === false) {
-        const result = await ctx.service.agentRunner.analyze(input);
+        const result = await ctx.service.agentRunner.analyzeAndLog(userId, input);
         ctx.body = { code: 200, msg: 'success', data: { result, saved: null } };
       } else {
         const out = await ctx.service.agentRunner.runAndPersist(userId, input, {
@@ -63,7 +63,7 @@ class AgentController extends Controller {
     };
     try {
       const out = b.save === false
-        ? { result: await ctx.service.agentRunner.analyze(input, ev => send(ev.type === 'trace' ? 'trace' : ev.type, ev)), saved: null }
+        ? { result: await ctx.service.agentRunner.analyzeAndLog(userId, input, ev => send(ev.type === 'trace' ? 'trace' : ev.type, ev)), saved: null }
         : await ctx.service.agentRunner.runAndPersist(userId, input, {
           brandId: b.brand_id, selectedQueries: b.selected_queries, confirmLimit: b.confirm_limit,
         }, ev => send(ev.type === 'trace' ? 'trace' : ev.type, ev));

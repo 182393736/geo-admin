@@ -1,6 +1,6 @@
 /**
  * 流水线事件（品牌×天×阶段 的最新状态 / 错误 / 计数）（pipeline_events）
- *【填充时机】各阶段完成/失败时 upsert：expand(collect.js) / collect(collector._syncTask)
+ *【填充时机】各阶段完成/失败时 upsert：expand(collect.js) / collect(collect.syncTask)
  *             parse+aggregate(service/parse.js) / report(report_build)
  *【被谁消费】管理后台「流水线时间轴」GET /admin/pipeline/timeline、/admin/pipeline/days
  * 唯一键 (brand_id, date, stage)：每个品牌每天每个阶段只保留一条最新记录（时间轴上的一个节点）

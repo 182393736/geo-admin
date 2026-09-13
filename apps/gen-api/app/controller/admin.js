@@ -1,6 +1,16 @@
 'use strict';
 const Controller = require('egg').Controller;
 
+/** LLM 调用点中文标签（管理端展示） */
+const CALL_SITE_LABELS = {
+  'LLM-01': '首登·品牌画像',
+  'LLM-04': '首登·监控问题',
+  'LLM-07': '解析·排名抽取',
+  'LLM-09': '解析·口碑抽取',
+  ONBOARD_WEB: '首登·联网取证',
+  ONBOARD_LIBRARY: '首登·情报文稿',
+};
+
 /**
  * 管理员总后台（gen-admin）—— 只读监控 API（后续再开放增删改）
  * ------------------------------------------------------------------
@@ -204,12 +214,13 @@ class AdminController extends Controller {
     const id = ctx.params.id;
     const user = await M.User.findById(id).lean();
     if (!user) { ctx.status = 404; ctx.body = { code: 404, msg: '用户不存在' }; return; }
-    const [brands, credit, orders, clicks, subscriptions] = await Promise.all([
+    const [brands, credit, orders, clicks, subscriptions, token_summary] = await Promise.all([
       M.Brand.find({ user_id: id }).sort({ created_at: -1 }).lean(),
       M.CreditAccount.findOne({ user_id: id }).lean(),
       M.PaymentOrder.find({ user_id: id }).sort({ created_at: -1 }).limit(20).lean(),
       M.UserClickEvent.find({ user_id: id }).sort({ created_at: -1 }).limit(20).lean(),
       M.Subscription.find({ user_id: id }).sort({ created_at: -1 }).limit(20).lean(),
+      this._tokenSummary({ user_id: String(id) }),
     ]);
     const brandIds = brands.map(b => b.brand_id);
     const queryCounts = await M.MonitorQuery.aggregate([
@@ -228,6 +239,7 @@ class AdminController extends Controller {
       subscriptions: subscriptions.map(s => this._fmtSubscription(s)),
       orders: orders.map(o => this._fmtOrder(o)),
       recent_clicks: clicks.map(c => ({ source: c.source, operation: c.operation, ip: c.ip, created_at: c.created_at })),
+      token_summary,
     });
   }
 
@@ -265,7 +277,7 @@ class AdminController extends Controller {
     const brand = await M.Brand.findOne({ brand_id: id }).lean();
     if (!brand) { ctx.status = 404; ctx.body = { code: 404, msg: '品牌不存在' }; return; }
     const user = await M.User.findById(brand.user_id).lean();
-    const [profile, aliases, products, competitors, queries, subscription, credit, tasks, entities] = await Promise.all([
+    const [profile, aliases, products, competitors, queries, subscription, credit, tasks, entities, token_summary] = await Promise.all([
       M.BrandProfile.findOne({ brand_id: id }).lean(),
       M.BrandAlias.find({ brand_id: id }).lean(),
       M.BrandProduct.find({ brand_id: id }).lean(),
@@ -275,6 +287,7 @@ class AdminController extends Controller {
       M.CreditAccount.findOne({ user_id: brand.user_id }).lean(),
       M.CollectTask.find({ brand_id: id }).sort({ date: -1 }).limit(10).lean(),
       M.BrandEntity.find({ scope: 'target' }).limit(50).lean(),
+      this._tokenSummary({ brand_id: id }),
     ]);
     this._ok({
       brand: this._fmtBrand(brand, user ? user.account : ''),
@@ -292,6 +305,7 @@ class AdminController extends Controller {
       credit: credit || null,
       collect_tasks: tasks.map(t => this._fmtCollectTask(t)),
       target_entities: entities.map(e => ({ entity_id: e.entity_id, canonical_name: e.canonical_name, industry: e.industry })),
+      token_summary,
     });
   }
 
@@ -345,6 +359,39 @@ class AdminController extends Controller {
         error: s.error, attempts: s.attempts, finished_at: s.finished_at,
       })),
     });
+  }
+
+  /** 重置单个终态 fail 槽位 → pending，供采集端重新领取 */
+  async collectSlotReset() {
+    const { ctx } = this;
+    try {
+      const r = await ctx.service.collect.resetFailedSlot(ctx.params.slotId);
+      this._ok({
+        slot: {
+          slot_id: r.slot.slot_id, status: r.slot.status, attempts: r.slot.attempts,
+          error: r.slot.error || null, task_id: r.slot.task_id,
+        },
+        task: r.task ? this._fmtCollectTask(r.task) : null,
+      });
+    } catch (e) {
+      ctx.status = e.status || 500;
+      ctx.body = { code: ctx.status, msg: e.message || '重置失败' };
+    }
+  }
+
+  /** 重置某采集任务下全部 fail 槽位 */
+  async collectTaskResetFailed() {
+    const { ctx } = this;
+    try {
+      const r = await ctx.service.collect.resetFailedSlotsByTask(ctx.params.id);
+      this._ok({
+        reset_count: r.reset_count,
+        task: r.task ? this._fmtCollectTask(r.task) : null,
+      });
+    } catch (e) {
+      ctx.status = e.status || 500;
+      ctx.body = { code: ctx.status, msg: e.message || '重置失败' };
+    }
   }
 
   async collectAnswers() {
@@ -585,6 +632,40 @@ class AdminController extends Controller {
   }
 
   // ---------- LLM ----------
+  /** 汇总某维度的 token 消耗 */
+  async _tokenSummary(match = {}) {
+    const { ctx } = this;
+    const rows = await ctx.model.LlmCallLog.aggregate([
+      { $match: match },
+      { $group: {
+        _id: '$call_site',
+        calls: { $sum: 1 },
+        errors: { $sum: { $cond: ['$success', 0, 1] } },
+        tokens: { $sum: { $ifNull: ['$usage.total_tokens', 0] } },
+        prompt_tokens: { $sum: { $ifNull: ['$usage.prompt_tokens', 0] } },
+        completion_tokens: { $sum: { $ifNull: ['$usage.completion_tokens', 0] } },
+      } },
+      { $sort: { tokens: -1 } },
+    ]);
+    const by_call_site = rows.map(r => ({
+      call_site: r._id || 'UNKNOWN',
+      label: CALL_SITE_LABELS[r._id] || r._id || 'UNKNOWN',
+      calls: r.calls,
+      errors: r.errors,
+      tokens: this._safeNum(r.tokens),
+      prompt_tokens: this._safeNum(r.prompt_tokens),
+      completion_tokens: this._safeNum(r.completion_tokens),
+    }));
+    return {
+      calls: by_call_site.reduce((s, x) => s + x.calls, 0),
+      errors: by_call_site.reduce((s, x) => s + x.errors, 0),
+      tokens: by_call_site.reduce((s, x) => s + x.tokens, 0),
+      prompt_tokens: by_call_site.reduce((s, x) => s + x.prompt_tokens, 0),
+      completion_tokens: by_call_site.reduce((s, x) => s + x.completion_tokens, 0),
+      by_call_site,
+    };
+  }
+
   async llmLogs() {
     const { ctx } = this;
     const M = ctx.model;
@@ -593,6 +674,8 @@ class AdminController extends Controller {
     const q = {};
     if (from || to) { q.created_at = {}; if (from) q.created_at.$gte = ctx.app.dayjs(from).startOf('day').toDate(); if (to) q.created_at.$lte = ctx.app.dayjs(to).endOf('day').toDate(); }
     if (ctx.query.call_site) q.call_site = ctx.query.call_site;
+    if (ctx.query.brand_id) q.brand_id = ctx.query.brand_id;
+    if (ctx.query.user_id) q.user_id = ctx.query.user_id;
     const success = this._bool(ctx.query.success);
     if (success !== undefined) q.success = success;
     const [total, rows, agg] = await Promise.all([
@@ -604,20 +687,36 @@ class AdminController extends Controller {
           _id: '$call_site',
           calls: { $sum: 1 },
           errors: { $sum: { $cond: ['$success', 0, 1] } },
-          tokens: { $sum: '$usage.total_tokens' },
+          tokens: { $sum: { $ifNull: ['$usage.total_tokens', 0] } },
           avg_latency: { $avg: '$latency_ms' },
         } },
-        { $sort: { calls: -1 } },
+        { $sort: { tokens: -1 } },
       ]),
     ]);
+    const userIds = [...new Set(rows.map(l => l.user_id).filter(Boolean))];
+    const brandIds = [...new Set(rows.map(l => l.brand_id).filter(Boolean))];
+    const [users, brands] = await Promise.all([
+      userIds.length ? M.User.find({ _id: { $in: userIds } }).lean() : [],
+      brandIds.length ? M.Brand.find({ brand_id: { $in: brandIds } }).lean() : [],
+    ]);
+    const um = {}; for (const u of users) um[String(u._id)] = u.account || '';
+    const bm = {}; for (const b of brands) bm[b.brand_id] = b.name;
     this._ok({
       list: rows.map(l => ({
-        call_site: l.call_site, brand_id: l.brand_id, ref_id: l.ref_id, prompt_version: l.prompt_version,
+        call_site: l.call_site,
+        call_site_label: CALL_SITE_LABELS[l.call_site] || l.call_site,
+        user_id: l.user_id || '',
+        account: um[String(l.user_id)] || '',
+        brand_id: l.brand_id || '',
+        brand_name: bm[l.brand_id] || '',
+        ref_id: l.ref_id, prompt_version: l.prompt_version,
         model: l.model, usage: l.usage, latency_ms: l.latency_ms, success: !!l.success,
         retry: l.retry, error: l.error, created_at: l.created_at,
       })),
       agg: agg.map(a => ({
-        call_site: a._id, calls: a.calls, errors: a.errors,
+        call_site: a._id,
+        label: CALL_SITE_LABELS[a._id] || a._id,
+        calls: a.calls, errors: a.errors,
         tokens: this._safeNum(a.tokens), avg_latency_ms: Math.round(a.avg_latency || 0),
       })),
       total, page, page_size,

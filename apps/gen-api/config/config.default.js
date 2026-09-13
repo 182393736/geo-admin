@@ -90,7 +90,7 @@ module.exports = () => {
   collector: {
     apiKey: resolveKey('COLLECTOR_API_KEY'),
     platforms: ['doubao', 'deepseek', 'wenxin', 'yuanbao'], // 当前生效 4 家（不含 kimi；千问暂移除）
-    maxAttempts: Number(process.env.COLLECT_MAX_ATTEMPTS || 2),     // 每槽最多失败/超时 2 次后终态 fail
+    maxAttempts: Number(process.env.COLLECT_MAX_ATTEMPTS || 1),     // 每槽最多失败/超时 1 次后终态 fail（不再自动回退 pending）
     runningTtlMs: Number(process.env.COLLECT_RUNNING_TTL_MS || 15 * 60 * 1000), // running 超时回收阈值（默认 15 分钟）
   },
   // 解析+聚合调度：realtime=5s 轮询（测试期尽快出结果）；daily=凌晨 04:00（量大后回切）

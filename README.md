@@ -140,7 +140,7 @@ API 契约层类型已收口到 `packages/contracts`（`apps/gen-user-dash/src/a
 ## 后端关键文档
 
 - 建表与数据流向：`docs/数据库设计文档.md`（配合 `apps/gen-api/app/model/*.js`）
-- 每日流水线：`apps/gen-api/app/schedule/*.js`（00:30 展槽 → 04:00 解析聚合 → 05:00 报告）
+- 每日流水线：`apps/gen-api/app/schedule/*.js`（00:30 展槽 → 默认 realtime 解析聚合 / 或 `PARSE_MODE=daily` 的 04:00 批 → 周日 05:00 周报）；盘点见 `docs/post-collection-automation.md`
 - 所有 LLM 调用（DeepSeek）的提示词与输出结构：`docs/LLM调用点设计与提示词.md`
 
 ## 管理员总后台（gen-admin）
@@ -154,8 +154,8 @@ pnpm dev:admin     # http://localhost:5180，本地管理员账号 123456/123456
 - **鉴权**：复用 `/user/login` 登录，后端 `/admin/**` 全部走 `jwtAuth + adminAuth`（非管理员 403）。
 - **页面**：运营驾驶舱 / 用户 / 品牌 / 采集监控 / 解析监控 / LLM 调用 / 计费中心 / 内容与发稿 /
   报告中心 / 首登漏斗 / 行为埋点 / 诊断任务 / Agent 会话 / 站内消息 / 系统观测（共 15 页）。
-- **接口**：`apps/gen-api/app/controller/admin.js`（25 个只读聚合端点，契约类型在 `packages/contracts/src/admin.ts`）。
+- **接口**：`apps/gen-api/app/controller/admin.js`（聚合查询 + 采集失败槽重置等；契约在 `packages/contracts/src/admin.ts`）。
 - **演示数据**（可选，让每个监控页有内容）：
   `MONGO_URL=mongodb://127.0.0.1:42439/geo_dev node apps/gen-api/scripts/seed-admin-demo.js`
 - **冒烟脚本**（登录 → 14 页路由渲染 → 退出）：`node scripts/smoke-admin.cjs`
-- 增删改（封号 / 改套餐 / 退款 / 渠道管理）暂未实现，后续按需放开。
+- 部分运营写操作（封号 / 改套餐 / 退款 / 渠道管理）暂未实现，后续按需放开。
