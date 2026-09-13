@@ -78,6 +78,23 @@ class CitationExtractService extends Service {
     }
   }
 
+  /**
+   * 取可注册域名（处理 .com.cn / .co.uk 等多段公共后缀）
+   * e.g. news.people.com.cn → people.com.cn；foo.bar.com → bar.com
+   */
+  registrableDomain(hostname) {
+    const parts = String(hostname || '').toLowerCase().split('.').filter(Boolean);
+    if (parts.length <= 2) return parts.join('.');
+    const MULTI = new Set([
+      'com.cn', 'net.cn', 'org.cn', 'gov.cn', 'edu.cn', 'ac.cn',
+      'com.hk', 'com.tw', 'com.au', 'co.uk', 'org.uk', 'ac.uk',
+      'co.jp', 'ne.jp', 'or.jp', 'com.br', 'com.sg',
+    ]);
+    const last2 = parts.slice(-2).join('.');
+    if (MULTI.has(last2) && parts.length >= 3) return parts.slice(-3).join('.');
+    return last2;
+  }
+
   /** 域名 → 站点主名/类目：精确域名命中 → 注册域命中 → 兜底用注册域名 */
   normalizeSource(canonicalUrl) {
     let domain = '';
@@ -87,13 +104,12 @@ class CitationExtractService extends Service {
       const m = DOMAIN_SOURCE_MAP[domain];
       return { name: m.name, category: m.category, domains: [domain] };
     }
-    const parts = domain.split('.');
-    const root = parts.length > 2 ? parts.slice(-2).join('.') : domain;
-    if (DOMAIN_SOURCE_MAP[root]) {
+    const root = this.registrableDomain(domain);
+    if (root && DOMAIN_SOURCE_MAP[root]) {
       const m = DOMAIN_SOURCE_MAP[root];
       return { name: m.name, category: m.category, domains: [domain] };
     }
-    return { name: root, category: '未分类', domains: [domain] };
+    return { name: root || domain, category: '未分类', domains: [domain] };
   }
 
   async run(answer) {

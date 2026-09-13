@@ -255,20 +255,32 @@ class ReportService extends Service {
 
     const list = Object.entries(cur).map(([sourceId, v]) => {
       const meta = srcMap[sourceId] || {};
+      const name = meta.canonical_source || sourceId;
+      const ch = chByName[name];
       return {
         source_id: sourceId,
-        canonical_source: meta.canonical_source || sourceId,
+        canonical_source: name,
         category: meta.category || '未分类',
         ref_count: v.ref_count, article_count: v.article_count, query_count: v.query_count, own_article_count: v.own_article_count,
         platforms: v.platforms,
-        media_key: meta.media_key || null,
+        media_key: meta.media_key || (ch && ch.media_key) || null,
       };
     }).sort((a, b) => b.ref_count - a.ref_count);
 
     const changes = list.map(x => ({
       canonical_source: x.canonical_source, ref_count: x.ref_count,
       delta_ref: x.ref_count - ((cmp[x.source_id] || {}).ref_count || 0),
-    })).sort((a, b) => b.delta_ref - a.delta_ref);
+    }));
+    for (const [sourceId, v] of Object.entries(cmp)) {
+      if (cur[sourceId]) continue;
+      const meta = srcMap[sourceId] || {};
+      changes.push({
+        canonical_source: meta.canonical_source || sourceId,
+        ref_count: 0,
+        delta_ref: -(v.ref_count || 0),
+      });
+    }
+    changes.sort((a, b) => b.delta_ref - a.delta_ref);
 
     const known = list.filter(x => chByName[x.canonical_source]);
     const channelRows = known.map(x => {

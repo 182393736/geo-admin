@@ -1,10 +1,10 @@
 <template>
-  <div class="ar-page">
+  <div class="ar-page geo-page">
     <!-- 头部 -->
-    <div class="ar-header">
+    <div class="ar-header geo-page-header">
       <div class="ar-title-block">
-        <h2 class="ar-title">稿件库</h2>
-        <p class="ar-desc">所有由 AI 辅助生成的稿件 · 数据实时同步</p>
+        <h2 class="ar-title geo-page-title">稿件库</h2>
+        <p class="ar-desc geo-page-desc">所有由 AI 辅助生成的稿件 · 数据实时同步</p>
       </div>
       <div class="ar-header-actions">
         <button class="ar-btn ar-btn--ghost" type="button">
@@ -25,6 +25,8 @@
         </button>
       </div>
     </div>
+
+    <div class="geo-page-stack">
 
     <!-- 搜索栏 -->
     <div class="ar-search-wrap">
@@ -54,6 +56,7 @@
       <div class="ar-empty-title">还没有稿件</div>
       <div class="ar-empty-hint">点右上角「新建稿件」让 AI 帮你写第一篇</div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -74,14 +77,7 @@
    =================================================== */
 
 .ar-page {
-  margin: -16px auto -16px;
-  padding: 24px 32px 60px;
   background: #f8fafc;
-  min-height: calc(100vh - 32px);
-  max-width: 1240px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
   font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   color: #0f1115;
   font-size: 16px;
@@ -99,27 +95,12 @@
 .ar-title-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
   flex: 1;
   min-width: 0;
 }
 
-.ar-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  color: #0f1115;
-  line-height: 30px;
-  letter-spacing: -0.3px;
-}
-
-.ar-desc {
-  margin: 4px 0 0;
-  font-size: 12.5px;
-  font-weight: 400;
-  color: #5b606a;
-  line-height: 18.75px;
-}
+/* .ar-title / .ar-desc：由 global.scss 统一 */
 
 .ar-header-actions {
   display: flex;

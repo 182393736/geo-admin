@@ -1,10 +1,10 @@
 <template>
-  <div class="tk-page">
+  <div class="tk-page geo-page">
     <!-- 头部 -->
-    <div class="tk-header">
+    <div class="tk-header geo-page-header">
       <div class="tk-title-block">
-        <h2 class="tk-title">稿件追踪</h2>
-        <p class="tk-desc">已上线文章统一台账（手动登记 + 发稿自动同步），持续追踪每一篇在 AI 回答中的被引表现；创作中稿件请见「稿件库」</p>
+        <h2 class="tk-title geo-page-title">稿件追踪</h2>
+        <p class="tk-desc geo-page-desc">已上线文章统一台账（手动登记 + 发稿自动同步），持续追踪每一篇在 AI 回答中的被引表现；创作中稿件请见「稿件库」</p>
       </div>
       <div class="tk-header-actions">
         <button class="tk-btn tk-btn--ghost" type="button">
@@ -25,6 +25,8 @@
         </button>
       </div>
     </div>
+
+    <div class="geo-page-stack">
 
     <!-- 日期筛选行（独立） -->
     <div class="tk-date-row">
@@ -228,6 +230,7 @@
         </table>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -250,14 +253,7 @@
    =================================================== */
 
 .tk-page {
-  margin: -16px auto -16px;
-  padding: 28px 36px 80px;
   background: #f8fafc;
-  min-height: calc(100vh - 32px);
-  max-width: 1240px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
   font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   color: #1e293b;
   font-size: 16px;
@@ -275,27 +271,12 @@
 .tk-title-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
   flex: 1;
   min-width: 0;
 }
 
-.tk-title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 800;
-  color: #1e293b;
-  line-height: 32px;
-  letter-spacing: -0.5px;
-}
-
-.tk-desc {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 400;
-  color: #64748b;
-  line-height: 18px;
-}
+/* .tk-title / .tk-desc：由 global.scss 统一 */
 
 .tk-header-actions {
   display: flex;

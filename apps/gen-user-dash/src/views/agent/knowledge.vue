@@ -1,12 +1,14 @@
 <template>
-  <div class="kb-page">
+  <div class="kb-page geo-page">
     <!-- 头部 -->
-    <div class="kb-header">
-      <div class="kb-title-block">
-        <h2 class="kb-title">Agent 知识库</h2>
-        <p class="kb-desc">写稿和挖掘过程中经你确认的资料，Agent 之后都按这份来</p>
+    <div class="kb-header geo-page-header">
+      <div class="kb-title-block geo-page-header__text">
+        <h2 class="kb-title geo-page-title">Agent 知识库</h2>
+        <p class="kb-desc geo-page-desc">写稿和挖掘过程中经你确认的资料，Agent 之后都按这份来</p>
       </div>
     </div>
+
+    <div class="geo-page-stack">
 
     <!-- Tab 切换 -->
     <div class="kb-tabs">
@@ -21,6 +23,7 @@
         <span class="kb-empty-text">还没有内容。写稿过程中确认过的事实会记到这里，也可以点「修改」自己写。</span>
         <button class="kb-edit-btn" type="button">修改</button>
       </div>
+    </div>
     </div>
   </div>
 </template>
@@ -42,14 +45,7 @@
    =================================================== */
 
 .kb-page {
-  margin: -16px auto -16px;
-  padding: 28px 36px 80px;
   background: #f8fafc;
-  min-height: calc(100vh - 32px);
-  max-width: 1240px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
   font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   color: #0f1115;
   font-size: 16px;
@@ -58,32 +54,19 @@
 /* ====== 头部 ====== */
 .kb-header {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
 }
 
 .kb-title-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
 }
 
-.kb-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-  color: #0f1115;
-  line-height: 30px;
-  letter-spacing: -0.3px;
-}
-
-.kb-desc {
-  margin: 4px 0 0;
-  font-size: 13px;
-  font-weight: 400;
-  color: #5b606a;
-  line-height: 19.5px;
-}
+/* .kb-title / .kb-desc：由 global.scss 统一 */
 
 /* ====== Tab 切换 ====== */
 .kb-tabs {

@@ -1,10 +1,10 @@
 <template>
-  <div class="rc-page">
+  <div class="rc-page geo-page">
     <!-- 头部 -->
-    <div class="rc-header">
+    <div class="rc-header geo-page-header">
       <div class="rc-title-block">
-        <h2 class="rc-title">发稿记录</h2>
-        <p class="rc-desc">把稿件一键分发到 AI 收录的媒体平台 · 每次发布按媒体逐家生成订单，实时回传发布状态与收录链接 · 提交冻结积分，成功扣除、失败全额退回</p>
+        <h2 class="rc-title geo-page-title">发稿记录</h2>
+        <p class="rc-desc geo-page-desc">把稿件一键分发到 AI 收录的媒体平台 · 每次发布按媒体逐家生成订单，实时回传发布状态与收录链接 · 提交冻结积分，成功扣除、失败全额退回</p>
       </div>
       <div class="rc-header-actions">
         <button class="rc-btn rc-btn--ghost" type="button">
@@ -21,6 +21,8 @@
         </button>
       </div>
     </div>
+
+    <div class="geo-page-stack">
 
     <!-- 内容卡片 -->
     <div class="rc-card">
@@ -151,6 +153,7 @@
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -173,14 +176,7 @@
    =================================================== */
 
 .rc-page {
-  margin: -16px auto -16px;
-  padding: 28px 36px 80px;
   background: #f8fafc;
-  min-height: calc(100vh - 32px);
-  max-width: 1240px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
   font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   color: #0f1115;
   font-size: 16px;
@@ -237,22 +233,7 @@
   &:hover { background: #e6e0ff; }
 }
 
-.rc-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  color: #0f1115;
-  line-height: 33px;
-  letter-spacing: -0.3px;
-}
-
-.rc-desc {
-  margin: 0;
-  font-size: 12.5px;
-  font-weight: 400;
-  color: #5b606a;
-  line-height: 18.75px;
-}
+/* .rc-title / .rc-desc：由 global.scss 统一 */
 
 /* ====== 内容卡片 ====== */
 .rc-card {

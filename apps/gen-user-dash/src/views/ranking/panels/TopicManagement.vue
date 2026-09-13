@@ -1,16 +1,12 @@
 <template>
-  <div class="max-w-[1240px] w-full mx-auto px-9 pb-20 pt-7 min-w-0">
-    <div class="flex flex-col gap-6 animate-fade-in max-w-[1600px] mx-auto pb-24 relative">
-
-      <!-- 头部 -->
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-100 pb-6">
-        <div>
-          <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">监控问题管理</h2>
-          <div class="flex items-center gap-3 mt-2 text-sm text-gray-500">
-            <span>配置实际发送给 AI 的监控问题。</span>
-          </div>
+  <div class="geo-page">
+          <!-- 头部 -->
+<div class="geo-page-header">
+        <div class="geo-page-header__text">
+          <h1 class="geo-page-title">监控问题管理</h1>
+          <p class="geo-page-desc">配置实际发送给 AI 的监控问题。</p>
         </div>
-        <div class="flex gap-4 items-center">
+        <div class="geo-page-header__actions flex gap-4 items-center">
           <div class="flex items-stretch bg-white border border-gray-100 rounded-xl shadow-sm">
             <div class="px-5 py-2.5 flex flex-col justify-center border-r border-gray-100 relative group cursor-help bg-gradient-to-b from-white to-gray-50 rounded-l-xl">
               <div class="flex items-center gap-1.5 mb-0.5">
@@ -43,6 +39,10 @@
           </div>
         </div>
       </div>
+
+    <div class="flex flex-col gap-6 animate-fade-in max-w-[1600px] mx-auto pb-24 relative">
+
+      
 
       <!-- 内容卡片 -->
       <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col relative min-h-[400px]">

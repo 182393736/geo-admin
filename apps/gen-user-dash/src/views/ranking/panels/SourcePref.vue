@@ -1,14 +1,14 @@
 <template>
-  <div class="max-w-[1240px] w-full mx-auto px-9 pb-20 pt-7 min-w-0">
-    <div class="space-y-6">
-
-      <!-- 头部 -->
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900">信源平台偏好</h1>
-          <p class="text-sm text-gray-500 mt-1">分析各 AI 平台收录引用的来源偏好，洞察内容分发策略</p>
-        </div>
+  <div class="geo-page">
+    <!-- 头部 -->
+    <div class="geo-page-header">
+      <div class="geo-page-header__text">
+        <h1 class="geo-page-title">信源平台偏好</h1>
+        <p class="geo-page-desc">分析各 AI 平台收录引用的来源偏好，洞察内容分发策略</p>
       </div>
+    </div>
+
+    <div class="space-y-6">
 
       <!-- 筛选行 -->
       <div class="flex flex-wrap items-center gap-3">

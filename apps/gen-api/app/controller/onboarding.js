@@ -14,13 +14,10 @@ class OnboardingController extends Controller {
     const { ctx } = this;
     const rows = await ctx.model.Brand.find({ user_id: ctx.state.user.id, status: { $ne: 'disabled' } })
       .sort({ created_at: 1 }).lean();
+    // 与登录响应同款摘要（含 vip_level / vip_expire_date），供侧栏品牌切换面板使用
     ctx.body = {
       code: 200, msg: 'ok',
-      data: rows.map(b => ({
-        brand_id: b.brand_id, name: b.name, industry: b.industry || '',
-        status: b.status, is_first_brand: !!b.is_first_brand,
-        platforms: b.platforms || [],
-      })),
+      data: await ctx.service.brandScope.brandBriefs(rows),
     };
   }
 }

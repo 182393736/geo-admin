@@ -8,6 +8,12 @@ const routes = [
     meta: { title: '登录' },
   },
   {
+    path: '/dev/header-lab',
+    name: 'HeaderLab',
+    component: () => import('@/views/dev/HeaderLab.vue'),
+    meta: { title: '页头实验室', public: true },
+  },
+  {
     path: '/',
     component: () => import('@/layout/MainLayout.vue'),
     redirect: '/dashboard/overview',
@@ -196,10 +202,12 @@ function goToTrial(auth: ReturnType<typeof useAuthStore>) {
 }
 
 router.beforeEach(async (to) => {
+  if (to.meta.public) return true;
   const auth = useAuthStore();
   if (to.path === '/login') {
     if (auth.isAuthenticated) {
       await ensureBrands(auth);
+      if (!auth.brandsLoaded) return { path: '/dashboard/overview' };
       return auth.hasBrand ? { path: '/dashboard/overview' } : goToTrial(auth);
     }
     return true;
@@ -210,7 +218,13 @@ router.beforeEach(async (to) => {
 
   // 旧书签直接访问后台 /trial：有品牌回工作台，无品牌去官网站
   if (to.path === '/trial') {
+    if (!auth.brandsLoaded && auth.activeBrandId) return { path: '/dashboard/overview' };
     return auth.hasBrand ? { path: '/dashboard/overview' } : goToTrial(auth);
+  }
+  // 关键：拉取失败时勿当作「无品牌」踢回 /trial（handoff 后会死循环回落地页）
+  if (!auth.brandsLoaded) {
+    if (auth.activeBrandId || to.path.startsWith('/dashboard') || to.path === '/') return true;
+    return goToTrial(auth);
   }
   if (!auth.hasBrand) return goToTrial(auth);
 
@@ -218,12 +232,18 @@ router.beforeEach(async (to) => {
   return true;
 });
 
-/** 会话恢复兜底：token 在但品牌列表未加载时拉取一次（失败不阻塞路由） */
+/** 会话恢复兜底：token 在但品牌列表未加载时拉取（失败不标记 loaded，避免误踢 /trial） */
 async function ensureBrands(auth: ReturnType<typeof useAuthStore>) {
   if (auth.brandsLoaded) return;
-  try {
-    await auth.refreshBrands();
-  } catch {
-    auth.brandsLoaded = true; // 网络异常时视为无品牌，由 /trial 页内自行兜底
+  let lastErr: unknown;
+  for (let i = 0; i < 3; i++) {
+    try {
+      await auth.refreshBrands();
+      return;
+    } catch (e) {
+      lastErr = e;
+      await new Promise(r => setTimeout(r, 250 * (i + 1)));
+    }
   }
+  console.warn('[ensureBrands] 品牌列表拉取失败，暂不踢回 trial', lastErr);
 }

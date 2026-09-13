@@ -171,7 +171,7 @@ const authModal = useAuthModal()
 const config = useRuntimeConfig()
 const route = useRoute()
 const isAddBrand = computed(() => String(route.query.from || '') === 'add_brand')
-const consoleUrl = String((config.public as Record<string, unknown>).consoleUrl || '#')
+const consoleUrl = String((config.public as Record<string, unknown>).consoleUrl || 'http://127.0.0.1:5173')
 /** 确认落库后的新 brand_id，回控制台时写入 hash 以便后台切到该品牌 */
 const savedBrandId = ref('')
 /** 「前往控制台」落地地址：#token= + 可选 brand_id= */

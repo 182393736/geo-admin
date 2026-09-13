@@ -46,6 +46,41 @@ class BrandScopeService extends Service {
   }
 
   /**
+   * 品牌列表摘要（登录 / GET /user/brands 同款）：含 vip 档位与过期日，供侧栏切换面板。
+   * 尚未开通订阅时按「免费体验版」语义返回 vip_level=free。
+   */
+  async brandBriefs(brands) {
+    const { ctx } = this;
+    if (!brands || !brands.length) return [];
+    const ids = brands.map(b => b.brand_id);
+    const [subs, aliasRows] = await Promise.all([
+      ctx.model.Subscription.find({ brand_id: { $in: ids }, status: 'active' }).sort({ created_at: -1 }).lean(),
+      ctx.model.BrandAlias.find({ brand_id: { $in: ids }, enabled: true }).lean(),
+    ]);
+    const subMap = {};
+    for (const s of subs) if (!subMap[s.brand_id]) subMap[s.brand_id] = s;
+    const aliasMap = {};
+    for (const a of aliasRows) (aliasMap[a.brand_id] ||= []).push(a.alias);
+    return brands.map(b => {
+      const sub = subMap[b.brand_id];
+      return {
+        brand_id: b.brand_id,
+        name: b.name,
+        industry: b.industry || '',
+        vip_level: sub ? (sub.vip_level || 'free') : 'free',
+        vip_plan_code: sub ? (sub.plan_code || '') : '',
+        vip_expire_date: sub ? (sub.expire_date || '') : '',
+        status: b.status,
+        platforms: b.platforms || [],
+        aliases: aliasMap[b.brand_id] || [],
+        is_first_brand: !!b.is_first_brand,
+        rename_remaining: b.rename_remaining != null ? b.rename_remaining : 0,
+        created_at: b.created_at,
+      };
+    });
+  }
+
+  /**
    * 幂等：品牌无 active 订阅时开通免费体验版（对齐 payment.subscriptionCurrent）
    * @returns {object|null} subscription lean/doc
    */

@@ -1,11 +1,15 @@
 <template>
-  <div class="max-w-[1240px] w-full mx-auto px-9 pb-20 pt-7 min-w-0">
+  <div class="geo-page">
+    <header class="geo-page-header">
+        <div class="geo-page-header__text">
+          <h1 class="geo-page-title">监控识别管理</h1>
+          <p class="geo-page-desc">告诉 AI 哪些说法算「你」、哪些算「对手」，榜单与统计口径由此决定</p>
+        </div>
+      </header>
+
     <div class="min-w-0 animate-fade-in">
 
-      <header class="mb-5">
-        <h1 class="m-0 text-[22px] font-extrabold text-gray-950">监控识别管理</h1>
-        <p class="mt-1.5 text-[13px] leading-5 text-gray-500">告诉 AI 哪些说法算「你」、哪些算「对手」，榜单与统计口径由此决定</p>
-      </header>
+      
 
       <div class="mb-5 inline-flex w-full rounded-lg border border-gray-200 bg-white p-[3px] sm:w-auto">
         <button class="h-8 flex-1 rounded-md px-5 text-[13px] transition-colors sm:flex-none bg-gray-950 font-bold text-white shadow-sm">识别词</button>

@@ -10,6 +10,14 @@ const { steps, extractBrandName } = require('./steps');
 const { getTask, updateTask, appendStep, connect } = require('./db');
 const { decodeJwtPayload } = require('@geo-admin/contracts');
 
+function skipDetail(step, runCtx) {
+  const name = String(step.name || '');
+  if (/品牌 2|添加新品牌|添加品牌|2 个品牌/.test(name)) {
+    return '未填写品牌 2，跳过多品牌步骤';
+  }
+  return '不适用（账号已有品牌，跳过首登建档）';
+}
+
 const DASH = process.env.DASH_URL || 'http://127.0.0.1:5173';
 const SITE = process.env.SITE_URL || 'http://localhost:3002';
 const API = process.env.API_URL || 'http://127.0.0.1:7001';
@@ -75,7 +83,7 @@ async function runTask(taskId) {
         continue;
       }
       if (step.skip && step.skip(runCtx)) {
-        await appendStep(taskId, { seq, name: step.name, status: 'skip', detail: '不适用（账号已有品牌，跳过首登建档）', screenshot: null, ts: new Date() });
+        await appendStep(taskId, { seq, name: step.name, status: 'skip', detail: skipDetail(step, runCtx), screenshot: null, ts: new Date() });
         continue;
       }
       let out;

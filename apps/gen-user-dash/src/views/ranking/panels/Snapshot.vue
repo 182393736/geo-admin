@@ -1,16 +1,12 @@
 <template>
-  <div class="max-w-[1240px] w-full mx-auto px-9 pb-20 pt-7 min-w-0">
-    <div class="flex flex-col gap-8 animate-fade-in max-w-[1600px] mx-auto pb-20">
-
-      <!-- 头部 -->
-      <div class="flex justify-between items-end border-b border-gray-100 pb-6">
-        <div>
-          <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">搜索快照下载</h2>
-          <div class="flex items-center gap-3 mt-2 text-sm text-gray-500">
-            <span>预览 AI 回答，并下载不同模型中的搜索结果快照或回答 Excel</span>
-          </div>
+  <div class="geo-page">
+          <!-- 头部 -->
+<div class="geo-page-header">
+        <div class="geo-page-header__text">
+          <h1 class="geo-page-title">搜索快照下载</h1>
+          <p class="geo-page-desc">预览 AI 回答，并下载不同模型中的搜索结果快照或回答 Excel</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="geo-page-header__actions">
           <button title="最多导出连续 7 天" class="px-5 py-2.5 bg-white text-gray-700 font-bold text-sm rounded-lg border border-gray-200 hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
             导出回答 Excel
@@ -21,6 +17,10 @@
           </button>
         </div>
       </div>
+
+    <div class="flex flex-col gap-8 animate-fade-in max-w-[1600px] mx-auto pb-20">
+
+      
 
       <!-- 卡片 -->
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-h-[400px] flex flex-col">

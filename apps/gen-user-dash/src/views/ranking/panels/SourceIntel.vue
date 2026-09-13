@@ -1,21 +1,25 @@
 <template>
-  <div class="max-w-[1240px] w-full mx-auto px-9 pb-20 pt-7 min-w-0">
-    <div class="space-y-6 pb-12">
-
-      <!-- 头部 -->
-      <div class="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 class="text-xl font-extrabold text-gray-900 tracking-tight">引用源洞察</h1>
-          <p class="text-sm text-gray-500 mt-1">深度拆解 AI 平台的引用源偏好与你的内容被引效果，产出内容分发与优化策略</p>
+  <div class="geo-page">
+          <!-- 头部 -->
+<div class="geo-page-header">
+        <div class="geo-page-header__text">
+          <h1 class="geo-page-title">引用源洞察</h1>
+          <p class="geo-page-desc">深度拆解 AI 平台的引用源偏好与你的内容被引效果，产出内容分发与优化策略</p>
         </div>
-        <div class="relative">
-          <button class="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:border-indigo-300 transition-all shadow-sm">
-            <span>{{ rangeStart }} ~ {{ rangeEnd }}</span>
-            <span class="text-gray-300 mx-0.5">vs</span>
-            <span>{{ cmpStart }} ~ {{ cmpEnd }}</span>
-          </button>
+        <div class="geo-page-header__actions">
+          <div class="relative">
+            <button class="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:border-indigo-300 transition-all shadow-sm">
+              <span>{{ rangeStart }} ~ {{ rangeEnd }}</span>
+              <span class="text-gray-300 mx-0.5">vs</span>
+              <span>{{ cmpStart }} ~ {{ cmpEnd }}</span>
+            </button>
+          </div>
         </div>
       </div>
+
+    <div class="space-y-6 pb-12">
+
+      
 
       <!-- 卡片1：Top10 信源每日波动趋势 -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

@@ -1,11 +1,13 @@
 <template>
-  <div class="brand-page">
+  <div class="brand-page geo-page">
     <!-- 名片 -->
     <div v-if="currentTab === 'Brand'" class="brand-card-layout">
       <!-- 头部 -->
-      <header class="brand-header">
-        <h1 class="brand-title">品牌名片</h1>
-        <p class="brand-subtitle">品牌身份与基础信息 · 监控统计、AI 写稿、洞察分析时调用</p>
+      <header class="brand-header geo-page-header">
+        <div class="geo-page-header__text">
+          <h1 class="brand-title geo-page-title">品牌名片</h1>
+          <p class="brand-subtitle geo-page-desc">品牌身份与基础信息 · 监控统计、AI 写稿、洞察分析时调用</p>
+        </div>
       </header>
 
       <!-- 第一卡片: 品牌名 + 别名 -->
@@ -97,8 +99,8 @@
       <!-- 头部 + 添加按钮 -->
       <header class="products-header">
         <div>
-          <h1 class="brand-title">产品矩阵</h1>
-          <p class="brand-subtitle">品牌旗下的产品系列 · 写稿、关联资料、产品分析时调用</p>
+          <h1 class="brand-title geo-page-title">产品矩阵</h1>
+          <p class="brand-subtitle geo-page-desc">品牌旗下的产品系列 · 写稿、关联资料、产品分析时调用</p>
         </div>
         <button class="add-product-btn">
           <icon-plus :size="13" />
@@ -144,8 +146,8 @@
       <!-- 头部 + 搜索 + 添加按钮 -->
       <header class="products-header">
         <div>
-          <h1 class="brand-title">竞品名单</h1>
-          <p class="brand-subtitle">主要竞争对手 · 监控分析、对比稿件、竞争洞察时作为对照</p>
+          <h1 class="brand-title geo-page-title">竞品名单</h1>
+          <p class="brand-subtitle geo-page-desc">主要竞争对手 · 监控分析、对比稿件、竞争洞察时作为对照</p>
         </div>
         <div class="header-actions">
           <div class="search-box">
@@ -222,8 +224,8 @@
       <!-- 头部 + 添加资料按钮 -->
       <header class="products-header">
         <div>
-          <h1 class="brand-title">资料库</h1>
-          <p class="brand-subtitle">为 AI 准备的参考资料 · 写稿、问答、洞察分析时自动调用</p>
+          <h1 class="brand-title geo-page-title">资料库</h1>
+          <p class="brand-subtitle geo-page-desc">为 AI 准备的参考资料 · 写稿、问答、洞察分析时自动调用</p>
         </div>
         <button class="add-product-btn wiki-add-btn">
           <icon-plus :size="13" />
@@ -318,13 +320,9 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
-/* 容器 - 目标站: max-w-[1240px] w-full mx-auto px-9 pb-20 pt-7 */
+/* 容器边距由 .geo-page 统一 */
 .brand-page {
-  max-width: 1240px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 28px 36px 80px;
-  min-width: 0;
+  /* padding/max-width 见 global .geo-page */
 }
 
 .brand-card-layout {
@@ -332,30 +330,7 @@ onMounted(async () => {
   flex-direction: column;
 }
 
-/* Header - 目标站: mb-5 */
-.brand-header {
-  margin-bottom: 20px;
-}
-
-/* h1 - 目标站: 22px/800/lh33px/ls-0.55px/color #0f1115 */
-.brand-title {
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 33px;
-  letter-spacing: -0.55px;
-  color: #0f1115;
-  margin: 0;
-}
-
-/* p - 目标站: 13px/400/lh19.5px/mt4px/color #5b606a */
-.brand-subtitle {
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 19.5px;
-  margin-top: 4px;
-  margin-bottom: 0;
-  color: #5b606a;
-}
+/* Header / title / desc：由 global.scss .geo-page-* 统一 */
 
 /* 卡片 - 目标站: rounded-2xl p-5 mb-5 flex flex-col gap-[18px] bg #fff border 1px solid #e6e8ee */
 .brand-card {

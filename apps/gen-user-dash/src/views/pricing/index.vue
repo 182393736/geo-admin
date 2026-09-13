@@ -1,17 +1,18 @@
 <template>
-  <div class="pricing-page">
+  <div class="pricing-page geo-page">
     <!-- ============ 1. 头部 ============ -->
-    <header class="pp-header">
-      <div class="pp-header-left">
-        <h1>套餐版本</h1>
-        <p>查看当前的套餐权益、用量与账单记录 · 统计周期：实时</p>
+    <header class="pp-header geo-page-header">
+      <div class="pp-header-left geo-page-header__text">
+        <h1 class="geo-page-title">套餐版本</h1>
+        <p class="geo-page-desc">查看当前的套餐权益、用量与账单记录 · 统计周期：实时</p>
       </div>
-      <div class="pp-header-right">
+      <div class="pp-header-right geo-page-header__actions">
         <button class="pp-credit-btn">账户积分 ✦ {{ credit }}</button>
         <button class="pp-topup-btn">充值积分</button>
       </div>
     </header>
 
+    <div class="geo-page-stack">
     <!-- ============ 2. 当前套餐信息卡 ============ -->
     <div class="pp-current-card">
       <div class="pp-current-left">
@@ -167,6 +168,7 @@
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -320,42 +322,11 @@ onMounted(async () => {
    ================================================================ */
 
 .pricing-page {
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: 28px 36px 80px;
   font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   color: #111827;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
 }
 
-/* ====== 1. 头部 ====== */
-.pp-header {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-
-  h1 {
-    font-size: 24px;
-    font-weight: 800;
-    color: #111827;
-    line-height: 32px;
-    margin: 0;
-    letter-spacing: -0.6px;
-  }
-
-  p {
-    font-size: 14px;
-    font-weight: 400;
-    color: #9ca3af;
-    line-height: 20px;
-    margin: 4px 0 0;
-  }
-}
-
+/* ====== 1. 头部（标题字号/颜色由 global.scss 统一） ====== */
 .pp-header-left {
   display: block;
 }

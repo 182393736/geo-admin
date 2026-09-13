@@ -1,10 +1,10 @@
 <template>
-  <div class="ml-page">
+  <div class="ml-page geo-page">
     <!-- 头部 -->
-    <div class="ml-header">
+    <div class="ml-header geo-page-header">
       <div class="ml-title-block">
-        <h2 class="ml-title">信源库</h2>
-        <p class="ml-desc">全库 {{ total }} 家在这些源上发的内容，更容易被 AI 引用</p>
+        <h2 class="ml-title geo-page-title">信源库</h2>
+        <p class="ml-desc geo-page-desc">全库 {{ total }} 家在这些源上发的内容，更容易被 AI 引用</p>
       </div>
       <div class="ml-header-actions">
         <button class="ml-btn ml-btn--indigo" type="button">
@@ -13,6 +13,8 @@
         </button>
       </div>
     </div>
+
+    <div class="geo-page-stack">
 
     <!-- 内容卡片 -->
     <div class="ml-card">
@@ -190,6 +192,7 @@
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -266,17 +269,7 @@ onMounted(async () => {
 */
 
 .ml-page {
-  margin-top: -16px;
-  margin-bottom: -16px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 28px 36px 80px;
   background: #f8fafc;
-  min-height: calc(100vh - 32px);
-  max-width: 1240px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
   font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   color: #0f1115;
   font-size: 16px;
@@ -293,25 +286,12 @@ onMounted(async () => {
 .ml-title-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
-.ml-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  color: #0f1115;
-  line-height: 33px;
-  letter-spacing: -0.3px;
-}
-
-.ml-desc {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 400;
-  color: #5b606a;
-  line-height: 21px;
-}
+/* .ml-title / .ml-desc：由 global.scss 统一 */
 
 .ml-header-actions {
   display: flex;

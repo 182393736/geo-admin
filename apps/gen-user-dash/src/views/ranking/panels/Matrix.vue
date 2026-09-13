@@ -1,26 +1,26 @@
 <template>
-  <div class="max-w-[1240px] w-full mx-auto px-9 pb-20 pt-7 min-w-0">
-    <div class="flex flex-col gap-8 animate-fade-in max-w-[1600px] mx-auto pb-20">
-
-      <!-- ===== 页面头部 ===== -->
-      <div class="mb-2 flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">AI排名透视</h2>
-          <div class="mt-2 text-sm text-gray-500"><span>深度分析品牌在不同 AI 引擎中的排名竞争态势</span></div>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="relative">
-            <button class="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 text-sm font-bold rounded-xl border border-indigo-200 hover:bg-indigo-50 shadow-sm transition-all mb-1 disabled:opacity-50 disabled:cursor-not-allowed">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-              导出
+  <div class="geo-page">
+          <!-- ===== 页面头部 ===== -->
+<PageHeader title="AI排名透视" desc="深度分析品牌在不同 AI 引擎中的排名竞争态势">
+        <template #actions>
+          <div class="flex items-center gap-2">
+            <div class="relative">
+              <button class="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 text-sm font-bold rounded-xl border border-indigo-200 hover:bg-indigo-50 shadow-sm transition-all mb-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                导出
+              </button>
+            </div>
+            <button class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all mb-1">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>
+              列表
             </button>
           </div>
-          <button class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all mb-1">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>
-            列表
-          </button>
-        </div>
-      </div>
+        </template>
+      </PageHeader>
+
+    <div class="flex flex-col gap-8 animate-fade-in max-w-[1600px] mx-auto pb-20">
+
+      
 
       <!-- ===== 卡片1：排名指标 ===== -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm">

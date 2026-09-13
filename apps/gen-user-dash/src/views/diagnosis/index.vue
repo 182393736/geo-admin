@@ -1,10 +1,13 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h2 class="page-title">诊断</h2>
-      <p class="page-desc">单次品牌诊断 · 覆盖五大国产大模型</p>
+  <div class="page-container geo-page">
+    <div class="page-header geo-page-header">
+      <div class="geo-page-header__text">
+        <h2 class="page-title geo-page-title">诊断</h2>
+        <p class="page-desc geo-page-desc">单次品牌诊断 · 覆盖五大国产大模型</p>
+      </div>
     </div>
 
+    <div class="geo-page-stack">
     <a-row :gutter="16">
       <a-col :span="16">
         <a-card class="card-shadow diagnosis-intro">
@@ -68,6 +71,7 @@
         </template>
       </a-table>
     </a-card>
+    </div>
   </div>
 </template>
 

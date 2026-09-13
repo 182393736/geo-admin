@@ -32,44 +32,9 @@ class AuthController extends Controller {
     ctx.body = {
       accessToken: token,
       user: { id: user._id, username: user.account },
-      brands: await this._brandBriefs(brands),
+      brands: await ctx.service.brandScope.brandBriefs(brands),
       activeOrg: null,
     };
-  }
-
-  /**
-   * 品牌摘要（登录响应 brands 列表）：订阅档位/识别词等一律真实查询，杜绝硬编码。
-   * 尚未开通订阅（未访问过套餐页）时按系统默认「免费体验版」语义返回 free。
-   */
-  async _brandBriefs(brands) {
-    const { ctx } = this;
-    if (!brands || !brands.length) return [];
-    const ids = brands.map(b => b.brand_id);
-    const [subs, aliasRows] = await Promise.all([
-      ctx.model.Subscription.find({ brand_id: { $in: ids }, status: 'active' }).sort({ created_at: -1 }).lean(),
-      ctx.model.BrandAlias.find({ brand_id: { $in: ids }, enabled: true }).lean(),
-    ]);
-    const subMap = {};
-    for (const s of subs) if (!subMap[s.brand_id]) subMap[s.brand_id] = s;
-    const aliasMap = {};
-    for (const a of aliasRows) (aliasMap[a.brand_id] ||= []).push(a.alias);
-    return brands.map(b => {
-      const sub = subMap[b.brand_id];
-      return {
-        brand_id: b.brand_id,
-        name: b.name,
-        industry: b.industry || '',
-        vip_level: sub ? (sub.vip_level || 'free') : 'free',
-        vip_plan_code: sub ? (sub.plan_code || '') : '',
-        vip_expire_date: sub ? (sub.expire_date || '') : '',
-        status: b.status,
-        platforms: b.platforms || [],
-        aliases: aliasMap[b.brand_id] || [],
-        is_first_brand: !!b.is_first_brand,
-        rename_remaining: b.rename_remaining != null ? b.rename_remaining : 0,
-        created_at: b.created_at,
-      };
-    });
   }
 
   async info() {

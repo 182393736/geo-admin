@@ -1,12 +1,16 @@
 <template>
+  <div class="geo-page">
   <div class="periodic-report-page">
     <!-- ============ 1. 头部 header.rp-page-header ============ -->
-    <header class="rp-page-header">
-      <div>
-        <h1>报告</h1>
-        <p>当前品牌：{{ brandName }} · 周报 每周日截止、月报 每月月末截止后次日自动生成</p>
+    <header class="rp-page-header geo-page-header">
+      <div class="geo-page-header__text">
+        <h1 class="geo-page-title">报告</h1>
+        <p class="geo-page-desc">当前品牌：{{ brandName }} · 周报 每周日截止、月报 每月月末截止后次日自动生成</p>
       </div>
-      <button class="rp-template-trigger">报告模板 标准版</button>
+      <button type="button" class="rp-template-trigger">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/></svg>
+        <span>报告模板<br><small>标准版</small></span>
+      </button>
     </header>
 
     <!-- ============ 2. 品牌卡片 + 快捷动作 section.ov2-top2 ============ -->
@@ -14,7 +18,7 @@
       <!-- 左：品牌卡片 -->
       <div class="ov2-hero">
         <div class="ov2-hero-top">
-          <div class="ov2-mark">佛</div>
+          <div class="ov2-mark">{{ brandMark }}</div>
           <div class="ov2-hero-id">
             <div class="ov2-brand">
               {{ brandName }}
@@ -22,7 +26,7 @@
               <span v-else class="ov2-live normal" :title="`采集槽位 ${ovStats?.actual_slots ?? 0}/${ovStats?.expected_slots ?? 0}，完整度 ${ovStats?.completeness_rate ?? 0}%`"><i></i>采集正常</span>
             </div>
             <div class="ov2-meta">
-              <span class="ov2-mchip pri">{{ industry || '未识别行业' }}</span>
+              <span class="ov2-mchip pri">{{ industry || '未设置行业' }}</span>
               <span class="ov2-mchip">{{ website || '未设置官网' }}</span>
               <button type="button" class="ov2-mchip">{{ aliasCount }} 个识别词</button>
               <button type="button" class="ov2-mchip">{{ industryQueryCount }} 个监控问题</button>
@@ -34,7 +38,7 @@
           </button>
         </div>
         <div class="ov2-facts2">
-          <div class="ov2-fact"><b>{{ pendingCollection ? '—' : (ovStats?.collected_queries ?? '—') }}</b><span>本期采集查询</span></div>
+          <div class="ov2-fact"><b>{{ pendingCollection ? '—' : (ovStats?.collected_queries ?? '—') }}</b><span>当日采集查询</span></div>
           <div class="ov2-fact"><b>{{ pendingCollection ? '—' : (ovStats?.reference_sources ?? '—') }}</b><span>引用源</span></div>
           <div class="ov2-fact"><b>{{ pendingCollection ? '—' : (ovStats?.published_articles ?? '—') }}</b><span>已发稿件</span></div>
           <span class="ov2-upd">{{ pendingCollection ? `等待首次采集 · 预计 ${queryStatus?.expected_slots || 0} 槽位（${queryStatus?.enabled_queries || 0} 问题 × 5 引擎）` : `统计日期 ${ovStats?.stat_date || '—'} · 更新于 ${ovStats?.updated_at || '—'}` }}</span>
@@ -43,41 +47,25 @@
       <!-- 右：快捷动作 -->
       <div class="ov2-actcard">
         <div class="ov2-actcard-head">快捷动作</div>
-        <button class="ov2-tile">
-          <div class="ov2-tile-ic">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/></svg>
-          </div>
-          <div class="ov2-tile-body">
-            <div>挖掘监控问题</div>
-            <div>对话式补全监测面</div>
-          </div>
+        <button class="ov2-tile" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/></svg>
+          <span class="ov2-tile-body"><b>挖掘监控问题</b><span>对话式补全监测面</span></span>
+          <svg class="ov2-tile-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </button>
-        <button class="ov2-tile">
-          <div class="ov2-tile-ic">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </div>
-          <div class="ov2-tile-body">
-            <div>AI 撰写稿件</div>
-            <div>写作 Agent · 挂载知识库</div>
-          </div>
+        <button class="ov2-tile" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          <span class="ov2-tile-body"><b>AI 撰写稿件</b><span>写作 Agent · 挂载知识库</span></span>
+          <svg class="ov2-tile-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </button>
-        <button class="ov2-tile">
-          <div class="ov2-tile-ic">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
-          </div>
-          <div class="ov2-tile-body">
-            <div>信源库</div>
-            <div>监控 × 价格 · 按被引成本推荐</div>
-          </div>
+        <button class="ov2-tile" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+          <span class="ov2-tile-body"><b>信源库</b><span>监控 × 价格 · 按被引成本推荐</span></span>
+          <svg class="ov2-tile-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </button>
-        <button class="ov2-tile">
-          <div class="ov2-tile-ic">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-5"/></svg>
-          </div>
-          <div class="ov2-tile-body">
-            <div>AI排名透视</div>
-            <div>实时位次 · 逐题下钻</div>
-          </div>
+        <button class="ov2-tile" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-5"/></svg>
+          <span class="ov2-tile-body"><b>AI排名透视</b><span>实时位次 · 逐题下钻</span></span>
+          <svg class="ov2-tile-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </button>
       </div>
     </section>
@@ -85,9 +73,9 @@
     <!-- ============ 3. 周报/月报 Tabs + 元信息 section.rp-top ============ -->
     <template v-if="!pendingCollection">
     <section class="rp-top">
-      <div class="rp-typeseg">
-        <button class="on">周报</button>
-        <button class="on">月报</button>
+      <div class="rp-typeseg" role="tablist" aria-label="报告周期">
+        <button type="button" role="tab" :aria-selected="periodType === 'weekly'" :class="{ on: periodType === 'weekly' }" @click="setPeriod('weekly')">周报</button>
+        <button type="button" role="tab" :aria-selected="periodType === 'monthly'" :class="{ on: periodType === 'monthly' }" @click="setPeriod('monthly')">月报</button>
       </div>
       <span class="rp-pick-cur">{{ report?.label || '—' }}</span>
       <span class="rp-meta-sep">·</span>
@@ -181,8 +169,14 @@
       <section class="rp-modcard">
         <div class="rp-modcard-h">
           <span class="rp-modcard-ic">⚑</span>
-          <div class="rp-modcard-t">竞争格局</div>
-          <div class="rp-modcard-s">竞品透视</div>
+          <div>
+            <div class="rp-modcard-t">竞争格局</div>
+          </div>
+          <div class="rp-modcard-link">
+            <button type="button" @click="$router.push('/dashboard/competitor-insight')">竞品透视
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+          </div>
         </div>
         <div class="rp-modcard-b">
           <div class="rp-cp">
@@ -217,9 +211,9 @@
         </div>
         <div class="rp-modcard-b">
           <div class="rp-sc-top">
-            <div class="rp-sc-kpi"><b>{{ citationPlatforms.length }}</b><span>命中信源平台数</span></div>
-            <div class="rp-sc-kpi"><b class="flat">{{ newSources.length ? '+' + newSources.length : '—' }}</b><span>本期新增信源平台</span></div>
-            <div class="rp-sc-kpi"><b class="flat">{{ lostSources.length ? lostSources.length : '—' }}</b><span>本期流失信源平台</span></div>
+            <div class="rp-sc-kpi"><b>{{ (payload?.sources || []).length }}</b><span>命中信源平台数</span></div>
+            <div class="rp-sc-kpi"><b :class="newSources.length ? 'up' : 'flat'">{{ newSources.length ? '↑' + newSources.length : '—' }}</b><span>本期新增信源平台</span></div>
+            <div class="rp-sc-kpi"><b :class="lostSources.length ? 'dn' : 'flat'">{{ lostSources.length ? '↓' + lostSources.length : '—' }}</b><span>本期流失信源平台</span></div>
           </div>
           <div class="rp-sc">
             <div class="rp-sc-h">
@@ -231,7 +225,7 @@
             </div>
             <div class="rp-sc-r" v-for="(row, i) in citationPlatforms" :key="i">
               <span class="rp-sc-n">{{ row.platform }}</span>
-              <span class="rp-sc-v"><b>{{ row.cited }}</b><em class="flat">—</em></span>
+              <span class="rp-sc-v"><b>{{ row.cited }}</b><em :class="row.deltaCls">{{ row.deltaTxt }}</em></span>
               <span class="rp-sc-bar"><i :style="{ width: row.bar + '%' }"></i></span>
               <span class="rp-sc-q">{{ row.cover }} 个</span>
               <span><em :class="row.placeable === '信源库内' ? 'ok' : ''">{{ row.placeable }}</em></span>
@@ -261,9 +255,15 @@
       <section class="rp-modcard">
         <div class="rp-modcard-h">
           <span class="rp-modcard-ic">⌘</span>
-          <div class="rp-modcard-t">信源投放分析</div>
-          <div class="rp-modcard-s">各信源的发稿 / 发布 / 被引转化与积分成本效率</div>
-          <div class="rp-modcard-link">信源库</div>
+          <div>
+            <div class="rp-modcard-t">信源投放分析</div>
+            <div class="rp-modcard-s">各信源的发稿 / 发布 / 被引转化与积分成本效率</div>
+          </div>
+          <div class="rp-modcard-link">
+            <button type="button">信源库
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+          </div>
         </div>
         <div class="rp-modcard-b">
           <div class="rp-wbox solo">
@@ -285,9 +285,15 @@
       <section class="rp-modcard">
         <div class="rp-modcard-h">
           <span class="rp-modcard-ic">☷</span>
-          <div class="rp-modcard-t">发稿明细</div>
-          <div class="rp-modcard-s">本期稿件清单与发布状态</div>
-          <div class="rp-modcard-link">全部记录</div>
+          <div>
+            <div class="rp-modcard-t">发稿明细</div>
+            <div class="rp-modcard-s">本期稿件清单与发布状态</div>
+          </div>
+          <div class="rp-modcard-link">
+            <button type="button">全部记录
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+          </div>
         </div>
         <div class="rp-modcard-b">
           <div class="rp-pubtb">
@@ -321,6 +327,7 @@
       </div>
     </section>
   </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -340,6 +347,10 @@ const report = ref<any>(null);
 const loadError = ref('');
 
 const brandName = computed(() => summary.value?.brand?.name || '—');
+const brandMark = computed(() => {
+  const n = (brandName.value || '').replace(/\s+/g, '');
+  return n && n !== '—' ? n.slice(0, 1) : '品';
+});
 const industry = computed(() => summary.value?.brand?.industry || '');
 const website = computed(() => summary.value?.brand?.website || '');
 const aliasCount = computed(() => summary.value?.aliases?.length || 0);
@@ -347,6 +358,13 @@ const industryQueryCount = computed(() => summary.value?.queries?.industry?.leng
 const competitorCount = computed(() => summary.value?.competitors?.length || 0);
 /** 是否等待首次采集（采集之前恒为 true；首次采集后 collect_tasks 有值则翻 false） */
 const pendingCollection = computed(() => queryStatus.value?.pending ?? true);
+
+const periodType = ref<'weekly' | 'monthly'>('weekly');
+function setPeriod(t: 'weekly' | 'monthly') {
+  if (periodType.value === t) return;
+  periodType.value = t;
+  loadReport();
+}
 
 async function loadBrand() {
   try {
@@ -369,7 +387,7 @@ const reportGeneratedAt = computed(() => {
 
 async function loadReport() {
   try {
-    report.value = await reportApi.latest('weekly');
+    report.value = await reportApi.latest(periodType.value);
   } catch { /* 报告未就绪保持空态 */ }
 }
 
@@ -409,8 +427,8 @@ const metricCard = computed(() => ({
 
 // ---- Panel 4 信源引用趋势 ----
 const sourceChanges = computed(() => payload.value?.sourceChanges || []);
-const newSources = computed(() => sourceChanges.value.filter((s: any) => s.delta_ref > 0));
-const lostSources = computed(() => sourceChanges.value.filter((s: any) => s.delta_ref < 0));
+const newSources = computed(() => sourceChanges.value.filter((s: any) => Number(s.delta_ref) > 0 && Number(s.ref_count) > 0 && Number(s.delta_ref) === Number(s.ref_count)));
+const lostSources = computed(() => sourceChanges.value.filter((s: any) => Number(s.ref_count) === 0 && Number(s.delta_ref) < 0));
 
 // ---- Panel 5 信源投放分析 ----
 const channelRows = computed(() => (payload.value?.channels || []).map((c: any) => ({
@@ -447,13 +465,30 @@ const maxRef = computed(() => {
   const s = payload.value?.sources || [];
   return s.length ? Math.max(...s.map((x: any) => x.ref_count || 0)) : 1;
 });
-const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: any) => ({
-  platform: s.canonical_source,
-  cited: String(s.ref_count || 0),
-  cover: s.query_count || 0,
-  placeable: s.media_key ? '信源库内' : '未收录',
-  bar: maxRef.value ? Math.round((s.ref_count || 0) / maxRef.value * 100) : 0,
-})));
+const deltaBySource = computed(() => {
+  const m: Record<string, number> = {};
+  for (const s of sourceChanges.value) m[s.canonical_source] = Number(s.delta_ref) || 0;
+  return m;
+});
+const citationPlatforms = computed(() => {
+  const known = new Set(payload.value?.knownSourceNames || []);
+  return (payload.value?.sources || []).slice(0, 15).map((s: any) => {
+    const delta = deltaBySource.value[s.canonical_source] ?? 0;
+    let deltaCls = 'flat';
+    let deltaTxt = '—';
+    if (delta > 0) { deltaCls = 'up'; deltaTxt = `↑${delta}`; }
+    else if (delta < 0) { deltaCls = 'dn'; deltaTxt = `↓${Math.abs(delta)}`; }
+    return {
+      platform: s.canonical_source,
+      cited: String(s.ref_count || 0),
+      cover: s.query_count || 0,
+      placeable: (s.media_key || known.has(s.canonical_source)) ? '信源库内' : '未收录',
+      bar: maxRef.value ? Math.round((s.ref_count || 0) / maxRef.value * 100) : 0,
+      deltaCls,
+      deltaTxt,
+    };
+  });
+});
 </script>
 
 <style lang="scss" scoped>
@@ -521,8 +556,11 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
 }
 
 .rp-template-trigger {
-  font-size: 16px;
-  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
   color: #4f3fd3;
   background: #fff;
   border: 1px solid #e7e9f0;
@@ -532,18 +570,30 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
   font-family: inherit;
   white-space: nowrap;
   flex-shrink: 0;
+  text-align: left;
+  line-height: 1.25;
+
+  small {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: #8b8d9d;
+  }
 }
 
 /* ====== 2. 品牌卡片 + 快捷动作 grid ====== */
 .ov2-top2 {
   display: grid;
-  grid-template-columns: 1fr 401px;
+  grid-template-columns: 1.75fr 1fr;
   gap: 16px;
   margin-bottom: 16px;
+  align-items: stretch;
 }
 
 /* --- 品牌卡片 --- */
 .ov2-hero {
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(126deg, #fff 42%, rgba(100, 82, 255, 0.075) 132%);
   border: 1px solid rgba(100, 82, 255, 0.16);
   border-radius: 14px;
@@ -551,10 +601,27 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
   padding: 20px 22px 17px;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
   gap: 16px;
+  min-height: 280px;
+}
+
+.ov2-hero::after {
+  content: "";
+  position: absolute;
+  right: -76px;
+  top: -96px;
+  width: 236px;
+  height: 236px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(100, 82, 255, 0.14), transparent 68%);
+  pointer-events: none;
 }
 
 .ov2-hero-top {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: row;
   align-items: flex-start;
@@ -573,6 +640,7 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: rgba(100, 82, 255, 0.3) 0px 7px 20px;
 }
 
 .ov2-hero-id {
@@ -628,20 +696,32 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
 }
 
 .ov2-mchip {
+  appearance: none;
   font-size: 11.5px;
   font-weight: 700;
-  color: #4f3fd3;
-  background: #eeebff;
-  border: 1px solid rgba(100, 82, 255, 0.22);
+  color: #414356;
+  background: #fff;
+  border: 1px solid #e7e9f0;
   border-radius: 999px;
   padding: 5px 11px;
-  cursor: pointer;
+  cursor: default;
   font-family: inherit;
-  line-height: 11.5px;
+  line-height: 1;
+}
+
+button.ov2-mchip {
+  cursor: pointer;
+}
+
+button.ov2-mchip:hover {
+  border-color: #6452ff;
+  color: #4f3fd3;
 }
 
 .ov2-mchip.pri {
-  /* same as above */
+  color: #4f3fd3;
+  background: #eeebff;
+  border: 1px solid rgba(100, 82, 255, 0.22);
 }
 
 .ov2-hero-link {
@@ -663,6 +743,8 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
 
 /* --- 统计区 --- */
 .ov2-facts2 {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: row;
   gap: 0;
@@ -709,13 +791,16 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
   background: #fff;
   border: 1px solid #e7e9f0;
   border-radius: 14px;
+  box-shadow: rgba(30, 31, 50, 0.05) 0px 2px 10px 0px;
   padding: 16px 16px 15px;
   display: flex;
   flex-direction: column;
   gap: 9px;
+  min-height: 280px;
 }
 
 .ov2-actcard-head {
+  padding-bottom: 3px;
   font-size: 12px;
   font-weight: 700;
   color: #626477;
@@ -723,6 +808,8 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
 }
 
 .ov2-tile {
+  appearance: none;
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -732,41 +819,63 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
   background: #fff;
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  text-align: left;
+  color: #4f3fd3;
+  transition: border-color 0.15s, transform 0.15s;
 
   &:hover {
-    border-color: rgba(100, 82, 255, 0.3);
-    box-shadow: rgba(100, 82, 255, 0.08) 0px 2px 8px;
+    border-color: #6452ff;
+    transform: translateY(-1px);
+  }
+
+  > svg:first-child {
+    width: 32px;
+    height: 32px;
+    padding: 8px;
+    box-sizing: border-box;
+    border-radius: 10px;
+    background: #eeebff;
+    flex-shrink: 0;
+    color: #4f3fd3;
   }
 }
 
-.ov2-tile-ic {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background: #eef2ff;
-  color: #4f3fd3;
-}
-
 .ov2-tile-body {
-  & > div:first-child {
+  flex: 1 1 0%;
+  min-width: 0;
+  text-align: left;
+
+  b {
+    display: block;
     font-size: 13.5px;
     font-weight: 700;
     color: #17182b;
     line-height: 1.4;
+    text-align: left;
   }
 
-  & > div:last-child {
+  span {
+    display: block;
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 11.5px;
     font-weight: 400;
     color: #8b8d9d;
     line-height: 1.4;
-    margin-top: 2px;
+    text-align: left;
   }
+}
+
+.ov2-tile-arrow {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: #c8cad4;
+}
+
+.ov2-tile:hover .ov2-tile-arrow {
+  color: #4f3fd3;
 }
 
 /* ====== 3. 周报/月报 Tabs + 元信息 ====== */
@@ -786,6 +895,10 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
 .rp-typeseg {
   display: flex;
   gap: 3px;
+  padding: 3px;
+  background: #f7f8fb;
+  border: 1px solid #e7e9f0;
+  border-radius: 11px;
 
   button {
     font-size: 13px;
@@ -796,16 +909,13 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
     font-family: inherit;
     border: none;
     line-height: 1.4;
+    color: #626477;
+    background: transparent;
     transition: background 0.15s, color 0.15s;
 
-    &:first-child {
+    &.on {
       color: #4f3fd3;
       background: #fff;
-    }
-
-    &:last-child {
-      color: #626477;
-      background: transparent;
     }
   }
 }
@@ -881,11 +991,20 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
   gap: 11px;
   padding: 14px 18px;
   border-bottom: 1px solid #f0f1f5;
+  background: #f7f8fb;
 }
 
 .rp-modcard-ic {
-  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: #eeebff;
   color: #4f3fd3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
   line-height: 1;
 }
 
@@ -1301,6 +1420,8 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
     display: inline;
   }
 
+  b.up { color: #0fb5a6; }
+  b.dn { color: #ff4757; }
   b.flat {
     color: #8b8d9d;
     font-style: normal;
@@ -1382,14 +1503,16 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
       line-height: 22.5px;
     }
 
-    em.flat {
+    em {
       font-size: 11px;
       font-weight: 700;
-      color: #8b8d9d;
       font-style: normal;
       line-height: 16.5px;
       margin-left: 5px;
     }
+    em.up { color: #0fb5a6; }
+    em.dn { color: #ff4757; }
+    em.flat { color: #8b8d9d; }
   }
 
   .rp-sc-bar {
@@ -1427,7 +1550,7 @@ const citationPlatforms = computed(() => (payload.value?.sources || []).map((s: 
     display: inline-block;
   }
 
-  em:not(.ok):not(.flat) {
+  em:not(.ok):not(.flat):not(.up):not(.dn) {
     font-size: 11px;
     font-weight: 700;
     color: #8b8d9d;

@@ -40,6 +40,116 @@ body {
   padding: 16px 24px;
 }
 
+/* ================================================================
+   全站页面壳 + 主标题 / 描述
+   对标 geo.timus.cn：外层 max-w-[1240px] px-9 pt-7 pb-20
+   标题体系对标报告页 .rp-page-header（全站强制同一套）
+   ================================================================ */
+
+/* 内容区外壳：所有业务页统一边距 */
+.geo-page {
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 28px 36px 80px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* 标题下方的内容区（卡片之间间距）；不要把 header 放进这个 stack */
+.geo-page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.geo-page-header {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 18px !important;
+  padding: 0 !important;
+  border: none;
+  flex-shrink: 0;
+}
+
+.geo-page-header__text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.geo-page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.geo-page-title,
+.rp-page-header h1,
+.pp-header h1,
+.brand-title,
+.page-title,
+.ml-title,
+.ar-title,
+.pb-title,
+.tk-title,
+.rc-title,
+.kb-title {
+  font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif !important;
+  font-size: 25px !important;
+  font-weight: 800 !important;
+  color: #17182b !important;
+  line-height: 31.25px !important;
+  letter-spacing: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.geo-page-desc,
+.rp-page-header p,
+.pp-header p,
+.brand-subtitle,
+.page-desc,
+.ml-desc,
+.ar-desc,
+.pb-desc,
+.tk-desc,
+.rc-desc,
+.kb-desc {
+  font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  color: #8b8d9d !important;
+  line-height: 20px !important;
+  letter-spacing: 0 !important;
+  margin: 6px 0 0 !important;
+  padding: 0 !important;
+}
+
+.rp-page-header,
+.pp-header,
+.brand-header,
+.page-header,
+.ml-header,
+.ar-header,
+.pb-header,
+.tk-header,
+.rc-header,
+.kb-header {
+  margin: 0 0 18px !important;
+  padding: 0 !important;
+}
+
+/* 兼容旧 page-container：诊断等页改用 geo-page */
+.page-container.geo-page,
+.geo-page.page-container {
+  padding: 28px 36px 80px;
+}
+
 // 覆盖Arco主色为 indigo-700
 body {
   --primary-1: 238 242 255;

@@ -1,16 +1,12 @@
 <template>
-  <div class="max-w-[1240px] w-full mx-auto px-9 pb-20 pt-7 min-w-0">
-    <div class="flex flex-col gap-6 animate-fade-in max-w-[1600px] mx-auto pb-20 min-w-0 overflow-x-hidden">
-
-      <!-- 头部 -->
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">AI 竞品透视</h2>
-          <div class="flex items-center gap-3 mt-2 text-sm text-gray-500">
-            <span>基于 AI 搜索排名数据的竞品分析与对比</span>
-          </div>
+  <div class="geo-page">
+          <!-- 头部 -->
+<div class="geo-page-header">
+        <div class="geo-page-header__text">
+          <h1 class="geo-page-title">AI 竞品透视</h1>
+          <p class="geo-page-desc">基于 AI 搜索排名数据的竞品分析与对比</p>
         </div>
-        <div class="flex flex-wrap items-center justify-end gap-3">
+        <div class="geo-page-header__actions flex flex-wrap items-center justify-end gap-3">
           <div class="flex items-center gap-2">
             <div class="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase tracking-wider shrink-0 select-none">
               <span>周期:</span>
@@ -36,6 +32,10 @@
           </button>
         </div>
       </div>
+
+    <div class="flex flex-col gap-6 animate-fade-in max-w-[1600px] mx-auto pb-20 min-w-0 overflow-x-hidden">
+
+      
 
       <!-- KPI 指标 -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">

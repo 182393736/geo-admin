@@ -1,10 +1,14 @@
 <template>
-  <div class="pb-page">
+  <div class="pb-page geo-page">
     <!-- 头部 -->
-    <div class="pb-header">
-      <h2 class="pb-title">发布稿件</h2>
-      <p class="pb-desc">多媒体编辑 · 一键分发到 AI 引擎收录的内容平台 · 让稿件被豆包 / DeepSeek / 文心一言引用</p>
+    <div class="pb-header geo-page-header">
+      <div class="geo-page-header__text">
+        <h2 class="pb-title geo-page-title">发布稿件</h2>
+        <p class="pb-desc geo-page-desc">多媒体编辑 · 一键分发到 AI 引擎收录的内容平台 · 让稿件被豆包 / DeepSeek / 文心一言引用</p>
+      </div>
     </div>
+
+    <div class="geo-page-stack">
 
     <!-- 上传区域 -->
     <div class="pb-upload-row">
@@ -150,6 +154,7 @@
         <li>所有发布出的链接默认时效为保证一个月，违规违法稿件一经发现会立马删除且扣除收益。</li>
       </ul>
     </div>
+    </div>
   </div>
 </template>
 
@@ -172,41 +177,17 @@ const titleText = ref('');
    =================================================== */
 
 .pb-page {
-  margin: -16px auto -16px;
-  padding: 28px 36px 80px;
   background: #f8fafc;
-  min-height: calc(100vh - 32px);
-  max-width: 1240px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
   font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   color: #0f1115;
   font-size: 16px;
 }
 
-/* ====== 头部 ====== */
+/* ====== 头部（标题字号/颜色由 global.scss 统一） ====== */
 .pb-header {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.pb-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  color: #0f1115;
-  line-height: 33px;
-  letter-spacing: -0.3px;
-}
-
-.pb-desc {
-  margin: 0;
-  font-size: 12.5px;
-  font-weight: 400;
-  color: #5b606a;
-  line-height: 18.75px;
+  gap: 0;
 }
 
 /* ====== 上传按钮 ====== */

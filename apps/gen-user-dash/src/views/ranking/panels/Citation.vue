@@ -1,16 +1,12 @@
 <template>
-  <div class="max-w-[1240px] w-full mx-auto px-9 pb-20 pt-7 min-w-0">
-    <div class="flex flex-col gap-6 animate-fade-in max-w-[1600px] mx-auto pb-20">
-
-      <!-- 头部 -->
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">引用源追溯</h2>
-          <div class="flex items-center gap-3 mt-2 text-sm text-gray-500">
-            <span>追踪 AI 回答中高频引用的信息来源与权重归因</span>
-          </div>
+  <div class="geo-page">
+          <!-- 头部 -->
+<div class="geo-page-header">
+        <div class="geo-page-header__text">
+          <h1 class="geo-page-title">引用源追溯</h1>
+          <p class="geo-page-desc">追踪 AI 回答中高频引用的信息来源与权重归因</p>
         </div>
-        <div>
+        <div class="geo-page-header__actions">
           <div class="flex items-center gap-2">
             <button class="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 text-sm font-bold rounded-xl border border-indigo-200 hover:bg-indigo-50 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
@@ -23,6 +19,10 @@
           </div>
         </div>
       </div>
+
+    <div class="flex flex-col gap-6 animate-fade-in max-w-[1600px] mx-auto pb-20">
+
+      
 
       <!-- 表格卡片 -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-visible flex flex-col min-h-[600px]">
