@@ -8,12 +8,15 @@ const Controller = require('egg').Controller;
  *  - GET  /report/cycle   周期元信息
  */
 class ReportController extends Controller {
-  async _resolveBrand(userId, brandId) {
+  async _requireBrand(brandId) {
     const { ctx } = this;
-    const brands = await ctx.model.Brand.find({ user_id: userId, status: { $ne: 'disabled' } })
-      .sort({ created_at: 1 }).lean();
-    if (!brands.length) return null;
-    return brands.find(b => b.brand_id === brandId) || brands[0];
+    try {
+      return await ctx.service.brandScope.requireBrand(ctx.state.user.id, brandId);
+    } catch (e) {
+      ctx.status = e.status || 400;
+      ctx.body = { code: e.code || e.status || 400, msg: e.message };
+      return null;
+    }
   }
 
   _fmtTemplate() {
@@ -35,11 +38,8 @@ class ReportController extends Controller {
     const userId = ctx.state.user.id;
     const body = ctx.request.body || {};
     const period_type = body.period_type === 'monthly' ? 'monthly' : 'weekly';
-    const brand = await this._resolveBrand(userId, body.brand_id);
-    if (!brand) {
-      ctx.body = { code: 200, msg: 'ok', data: null };
-      return;
-    }
+    const brand = await this._requireBrand(body.brand_id);
+    if (!brand) return;
     let rep = await ctx.model.Report.findOne({ brand_id: brand.brand_id, period_type, status: 'ready' })
       .sort({ generated_at: -1 }).lean();
     // 测试期（parse.mode=realtime）数据每 5s 都在变：报告必须随聚合刷新，否则永远停留在首次落库的空/旧快照。
@@ -84,11 +84,8 @@ class ReportController extends Controller {
     const userId = ctx.state.user.id;
     const body = ctx.request.body || {};
     const period_type = body.period_type === 'monthly' ? 'monthly' : 'weekly';
-    const brand = await this._resolveBrand(userId, body.brand_id);
-    if (!brand) {
-      ctx.body = { code: 200, msg: 'ok', data: { list: [] } };
-      return;
-    }
+    const brand = await this._requireBrand(body.brand_id);
+    if (!brand) return;
     const rows = await ctx.model.Report.find({ brand_id: brand.brand_id, period_type })
       .sort({ generated_at: -1 }).limit(Number(body.limit) || 8).lean();
     ctx.body = {

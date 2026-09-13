@@ -51,6 +51,7 @@
 | 29 | 接口 | `GET /api/brand/intro | aliases | products | competitors`（4读） | 品牌页 4 个子页 |
 | 30 | 建表 | `competitor_registers` | 用户登记竞品（线上实测 3 个），报告竞对卡片的白名单 |
 | 31 | 任务 | 品牌切换上下文（token 内 activeBrandId + 每接口强制 brand_id 归属校验） | 多品牌安全隔离必须第一天就内建 |
+| | 进度 | **MVP 已落地（2026-09）**：请求级 `brand_id` + `brand_scope.requireBrand`；dash 左上角切换/添加→trial；**JWT activeBrand 未做** | 见 `docs/post-collection-automation.md` §8 |
 | ✅ 验收 | | 全流程：注册→填表单→5 分钟后出现 8 条问题+2 个别名+3 个竞品；品牌页各子页能看能改 | |
 
 ---

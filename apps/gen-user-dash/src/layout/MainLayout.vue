@@ -13,7 +13,7 @@
         <icon-expand :size="12" />
       </button>
       <div class="logo-area">
-        <div class="logo-icon">佛</div>
+        <BrandSwitcher />
       </div>
 
       <!-- 品牌 -->
@@ -101,7 +101,7 @@
 
     <!-- 第三栏: 内容区 -->
     <main class="main-content">
-      <router-view v-slot="{ Component }" :key="route.path">
+      <router-view v-slot="{ Component }" :key="`${route.fullPath}::${auth.activeBrandId}`">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
         </transition>
@@ -114,7 +114,9 @@
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
+import { useAuthStore } from '@/stores/auth';
 import UserMenu from '@/components/UserMenu.vue';
+import BrandSwitcher from '@/components/BrandSwitcher.vue';
 import {
   IconDashboard,
   IconBarChart,
@@ -148,6 +150,7 @@ import {
 // IconDownload 和 IconSettings 用于底部特殊按钮
 
 const appStore = useAppStore();
+const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 

@@ -19,12 +19,15 @@ const Controller = require('egg').Controller;
 const ENGINE_ORDER = ['doubao', 'wenxin', 'deepseek', 'qwen', 'yuanbao'];
 
 class SourceController extends Controller {
-  async _resolveBrand(userId, brandId) {
+  async _requireBrand(brandId) {
     const { ctx } = this;
-    const brands = await ctx.model.Brand.find({ user_id: userId, status: { $ne: 'disabled' } })
-      .sort({ created_at: 1 }).lean();
-    if (!brands.length) return null;
-    return brands.find(b => b.brand_id === brandId) || brands[0];
+    try {
+      return await ctx.service.brandScope.requireBrand(ctx.state.user.id, brandId);
+    } catch (e) {
+      ctx.status = e.status || 400;
+      ctx.body = { code: e.code || e.status || 400, msg: e.message };
+      return null;
+    }
   }
   _n(v, d = 2) { const n = Number(v); return Number.isFinite(n) ? +n.toFixed(d) : 0; }
   _engine(p) { return p === 'qianwen' ? 'qwen' : p; }
@@ -65,9 +68,9 @@ class SourceController extends Controller {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
-    const brand = await this._resolveBrand(userId, b.brand_id);
+    const brand = await this._requireBrand(b.brand_id);
     const empty = { list: [], summary: { total_ref_count: 0, total_article_count: 0, total_sources: 0, own_source_count: 0, top5_share: 0, platform_breakdown: {} }, page: 1, page_size: 20, total: 0 };
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    if (!brand) return;
     const page = Math.max(1, parseInt(b.page, 10) || 1);
     const size = Math.min(100, Math.max(1, parseInt(b.page_size, 10) || 20));
     // category 请求参数 = 问题类型维度（industry=排名 / brand=口碑），对标站实测如此；
@@ -151,8 +154,8 @@ class SourceController extends Controller {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
-    const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { dates: [], sources: [] } }; return; }
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
     const topN = Number(b.top_n) || 10;
     const start = String(b.start_date || '').slice(0, 10);
     const end = String(b.end_date || '').slice(0, 10);
@@ -191,8 +194,8 @@ class SourceController extends Controller {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
-    const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { sources: [] } }; return; }
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
     const cur = await this._aggRange(brand.brand_id, String(b.start_date || '').slice(0, 10), String(b.end_date || '').slice(0, 10));
     const cmp = await this._aggRange(brand.brand_id, String(b.cmp_start_date || '').slice(0, 10), String(b.cmp_end_date || '').slice(0, 10));
 
@@ -226,9 +229,9 @@ class SourceController extends Controller {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
-    const brand = await this._resolveBrand(userId, b.brand_id);
+    const brand = await this._requireBrand(b.brand_id);
     const empty = { trend: [], summary: { cited: 0, cited_chg: 0, rate_now: 0, rate_chg: 0, own_articles: 0, own_articles_chg: 0 } };
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    if (!brand) return;
 
     const start = String(b.start_date || '').slice(0, 10);
     const end = String(b.end_date || '').slice(0, 10);
@@ -280,9 +283,9 @@ class SourceController extends Controller {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
-    const brand = await this._resolveBrand(userId, b.brand_id);
+    const brand = await this._requireBrand(b.brand_id);
     const empty = { list: [], total: 0, page: 1, page_size: 20 };
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    if (!brand) return;
 
     const page = Math.max(1, parseInt(b.page, 10) || 1);
     const size = Math.min(100, Math.max(1, parseInt(b.page_size, 10) || 20));
@@ -335,8 +338,8 @@ class SourceController extends Controller {
   async topics() {
     const { ctx } = this;
     const userId = ctx.state.user.id;
-    const brand = await this._resolveBrand(userId, '');
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: [] }; return; }
+    const brand = await this._requireBrand(ctx.query.brand_id);
+    if (!brand) return;
     const rows = await ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_status: true }).lean();
     ctx.body = { code: 200, msg: 'ok', data: rows.map(m => ({ query_id: m.query_id, name: m.query })) };
   }
@@ -349,8 +352,8 @@ class SourceController extends Controller {
     void b.query_type;
     const empty = { list: [], total: 0, page: 1, page_size: 10 };
     const userId = ctx.state.user.id;
-    const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
     const page = Math.max(1, parseInt(b.page, 10) || 1);
     const size = Math.min(50, Math.max(1, parseInt(b.page_size, 10) || 10));
     const q = { brand_id: brand.brand_id };

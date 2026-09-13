@@ -16,10 +16,14 @@ async function persistResult(models, opts) {
   for (const k of need) if (!models[k]) throw new Error(`geo-agent.persist: models.${k} 必填`);
   const counts = { aliases: 0, products: 0, competitors: 0, queries: 0, library: 0, traces: 0 };
 
-  // ---- 品牌主档：有 brandId 更新，无则新建（is_first_brand 看存量） ----
+  // ---- 品牌主档：有 brandId 更新（须归属当前用户），无则新建（is_first_brand 看存量） ----
   let brandId = opts.brandId;
   if (brandId) {
-    await models.Brand.updateOne({ brand_id: brandId }, { $set: {
+    const owned = await models.Brand.findOne({
+      brand_id: brandId, user_id: opts.userId, status: { $ne: 'disabled' },
+    }).lean();
+    if (!owned) throw new Error('品牌不存在或无权访问');
+    await models.Brand.updateOne({ brand_id: brandId, user_id: opts.userId }, { $set: {
       name: result.brand.name, industry: result.brand.industry || '',
       website: result.brand.website || '', business_desc: result.brand.business_desc || '',
       status: 'active',

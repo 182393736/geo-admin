@@ -150,3 +150,14 @@ raw_answer（parsed=false） + collect_slot 状态机 + collect_task 汇总   �
 ## 7. 一句话结论
 
 采集入库后：**实时或日批解析**（A/B LLM + C 规则）→ **S5 聚合** → **周日报告装配**。排名/口碑抽取与 `report` service 已接通；剩余主要是快照截图、月报调度、信源映射扩表，以及用户后台部分查询接口仍可能依赖线上 geoapi。
+
+---
+
+## 8. 多品牌请求约定（用户后台）
+
+- 业务接口须显式传 `brand_id`（dash HTTP 客户端会从 `activeBrandId` 自动注入）。
+- 缺 `brand_id` → **400**；非本人/禁用品牌 → **403**（`service/brand_scope.requireBrand`），禁止静默回落首个品牌。
+- 账号级白名单：`/user/brands`、`/credit/*`、套餐价目等不要求 `brand_id`。
+- 添加品牌：控制台左上角 → `/trial?from=add_brand#token=` → confirm 新建 → 回控制台 `#brand_id=` 自动切换。
+- 未做：品牌禁用/删除入口、JWT 内嵌 activeBrand、Agency 组织。
+- 静态校验：`node scripts/check-multi-brand.mjs`

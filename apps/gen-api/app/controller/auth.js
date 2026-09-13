@@ -80,30 +80,36 @@ class AuthController extends Controller {
       ctx.body = { code: 401, msg: '用户不存在' };
       return;
     }
-    // 品牌态与 onboarding 投影：first_login=1 表示还没有任何品牌（前端据此跳 /trial）
+    // brand_id 可选：传入则投影该品牌；缺省兼容取首个启用品牌
     const brands = await ctx.model.Brand.find({ user_id: user._id, status: { $ne: 'disabled' } })
       .sort({ created_at: 1 }).lean();
-    const first = brands[0] || null;
+    let current = null;
+    try {
+      current = await ctx.service.brandScope.resolveBrandOptional(user._id, ctx.query.brand_id);
+    } catch (e) {
+      ctx.status = e.status || 400;
+      ctx.body = { code: e.code || e.status || 400, msg: e.message };
+      return;
+    }
     const dayjs = ctx.app.dayjs ? ctx.app.dayjs() : require('dayjs')();
     const today = dayjs.format('YYYY-MM-DD');
     const [task, aliasRows, sub, freePlan, dailyExec] = await Promise.all([
       ctx.service.onboarding.latestForUser(String(user._id)),
-      first ? ctx.model.BrandAlias.find({ brand_id: first.brand_id, enabled: true }).lean() : Promise.resolve([]),
-      first ? ctx.model.Subscription.findOne({ brand_id: first.brand_id, status: 'active' }).sort({ created_at: -1 }).lean() : Promise.resolve(null),
+      current ? ctx.model.BrandAlias.find({ brand_id: current.brand_id, enabled: true }).lean() : Promise.resolve([]),
+      current ? ctx.model.Subscription.findOne({ brand_id: current.brand_id, status: 'active' }).sort({ created_at: -1 }).lean() : Promise.resolve(null),
       ctx.model.Plan.findOne({ plan_code: 'free' }).lean(),
-      // 当日已执行采集槽位（ok/fail/empty 为已落定结果；采集前无 collect_slots → 真实为 0）
-      first ? ctx.model.CollectSlot.countDocuments({ brand_id: first.brand_id, date: today, status: { $in: ['ok', 'fail', 'empty'] } }) : Promise.resolve(0),
+      current ? ctx.model.CollectSlot.countDocuments({ brand_id: current.brand_id, date: today, status: { $in: ['ok', 'fail', 'empty'] } }) : Promise.resolve(0),
     ]);
     ctx.body = {
       code: 200,
       msg: 'ok',
       data: {
         user_id: user._id,
-        brand_id: first ? first.brand_id : '',
+        brand_id: current ? current.brand_id : '',
         phone: user.phone || '',
-        brand: first ? first.name : (user.company || ''),
+        brand: current ? current.name : (user.company || ''),
         company: user.company || '',
-        industary: (first && first.industry) || user.industry || '',
+        industary: (current && current.industry) || user.industry || '',
         aliases: aliasRows.map(a => a.alias),
         vip_level: sub ? (sub.vip_level || 'free') : 'free',
         vip_expire_date: sub ? (sub.expire_date || '') : '',

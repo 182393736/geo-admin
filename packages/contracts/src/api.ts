@@ -21,6 +21,7 @@ export interface BrandBrief {
   rename_remaining: number; created_at: string;
 }
 
+/** GET /user/info?brand_id= 指定投影品牌；缺省为首个启用品牌 */
 export interface UserInfo {
   user_id: string; brand_id: string; phone: string; brand: string; company: string;
   industary: string; aliases: string[]; vip_level: string; vip_expire_date: string;

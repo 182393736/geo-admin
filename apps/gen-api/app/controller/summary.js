@@ -15,12 +15,15 @@ const ENGINE_LABELS = { doubao: '豆包', wenxin: '文心一言', deepseek: 'Dee
 const ENGINE_ORDER = ['doubao', 'wenxin', 'deepseek', 'qwen', 'yuanbao'];
 
 class SummaryController extends Controller {
-  async _resolveBrand(userId, brandId) {
+  async _requireBrand(brandId) {
     const { ctx } = this;
-    const brands = await ctx.model.Brand.find({ user_id: userId, status: { $ne: 'disabled' } })
-      .sort({ created_at: 1 }).lean();
-    if (!brands.length) return null;
-    return brands.find(b => b.brand_id === brandId) || brands[0];
+    try {
+      return await ctx.service.brandScope.requireBrand(ctx.state.user.id, brandId);
+    } catch (e) {
+      ctx.status = e.status || 400;
+      ctx.body = { code: e.code || e.status || 400, msg: e.message };
+      return null;
+    }
   }
 
   _n(v, d = 2) { const n = Number(v); return Number.isFinite(n) ? +n.toFixed(d) : 0; }
@@ -43,9 +46,9 @@ class SummaryController extends Controller {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
-    const brand = await this._resolveBrand(userId, b.brand_id);
+    const brand = await this._requireBrand(b.brand_id);
     const empty = { platforms: PLATFORMS, list: {}, group_rows: [], valid_data_date_list: [] };
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    if (!brand) return;
     const qids = (Array.isArray(b.query_id) ? b.query_id : (b.query_id != null ? [b.query_id] : []))
       .map(Number).filter(Number.isFinite);
     if (!qids.length) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
@@ -98,9 +101,9 @@ class SummaryController extends Controller {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
-    const brand = await this._resolveBrand(userId, b.brand_id);
+    const brand = await this._requireBrand(b.brand_id);
     const empty = { start_date: '', end_date: '', summary: { all: { denominator: 0, numerator: 0, rate: 0 } }, trend: [] };
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    if (!brand) return;
     const start = String(b.start_date || '').slice(0, 10);
     const end = String(b.end_date || '').slice(0, 10);
     const q = { brand_id: brand.brand_id };
@@ -148,9 +151,9 @@ class SummaryController extends Controller {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
-    const brand = await this._resolveBrand(userId, b.brand_id);
+    const brand = await this._requireBrand(b.brand_id);
     const empty = { list: {}, group_rows: [] };
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    if (!brand) return;
     const qids = (Array.isArray(b.query_id) ? b.query_id : (b.query_id != null ? [b.query_id] : []))
       .map(Number).filter(Number.isFinite);
     if (!qids.length) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
@@ -185,9 +188,9 @@ class SummaryController extends Controller {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
-    const brand = await this._resolveBrand(userId, b.brand_id);
+    const brand = await this._requireBrand(b.brand_id);
     const empty = { query_dict: {}, query_id: null, result: [], score_result: [], valid_data_date_list: [], user_data_status: false };
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    if (!brand) return;
     const query_id = Number(b.query_id) || null;
     const start_date = String(b.start_date || '').slice(0, 10);
     const end_date = String(b.end_date || '').slice(0, 10);
@@ -254,9 +257,9 @@ class SummaryController extends Controller {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
-    const brand = await this._resolveBrand(userId, b.brand_id);
+    const brand = await this._requireBrand(b.brand_id);
     const empty = { query_dict: {}, company_ranking_data: [], visibility_trend: { all: [] }, valid_data_date_list: [], user_data_status: false };
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    if (!brand) return;
 
     // 有效数据日期（对标：valid_data_date_list 近 7 日降序）
     const metricDates = await ctx.model.DailyMetricQuery.distinct('date', { brand_id: brand.brand_id });
@@ -343,7 +346,7 @@ class SummaryController extends Controller {
     const { ctx } = this;
     const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
-    const brand = await this._resolveBrand(userId, b.brand_id);
+    const brand = await this._requireBrand(b.brand_id);
     // 对标 geoapi.timus.cn /competitor/insight 响应结构
     const empty = {
       brand: '', date: '', start_date: '', end_date: '',
@@ -355,7 +358,7 @@ class SummaryController extends Controller {
       },
       valid_data_date_list: [], keyword_details: [], competitor_compare_list: [],
     };
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: empty }; return; }
+    if (!brand) return;
 
     const [mentions, queries, metrics, boards, competitorTotal] = await Promise.all([
       ctx.model.BrandMention.find({ brand_id: brand.brand_id }).lean(),

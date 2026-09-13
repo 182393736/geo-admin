@@ -1,8 +1,9 @@
 <template>
   <!-- ================= 落地态：品牌输入作曲家 ================= -->
   <div v-if="phase === 'landing'" class="trial-hero">
-    <h1 class="trial-h-title"><span class="trial-h-light">当客户问 AI 时，</span><br><span class="trial-h-grad">你被 AI 推荐了吗？</span></h1>
-    <p class="trial-h-sub">AI 流量时代，别让品牌"隐形"——告诉我你的品牌，<span class="trial-h-purple">立即免费分析</span>它在豆包、DeepSeek、通义千问等大模型中的真实排名。</p>
+    <h1 class="trial-h-title"><span class="trial-h-light">{{ heroTitleLight }}</span><br><span class="trial-h-grad">{{ heroTitleGrad }}</span></h1>
+    <p v-if="isAddBrand" class="trial-h-sub">{{ heroSub }}</p>
+    <p v-else class="trial-h-sub">AI 流量时代，别让品牌"隐形"——告诉我你的品牌，<span class="trial-h-purple">立即免费分析</span>它在豆包、DeepSeek、通义千问等大模型中的真实排名。</p>
     <div class="trial-h-card">
       <textarea
         v-model="form.text"
@@ -29,7 +30,7 @@
             上传文档
           </button>
         </div>
-        <button class="trial-h-send" type="button" :disabled="!form.text.trim()" @click="onSubmit">开始免费分析</button>
+        <button class="trial-h-send" type="button" :disabled="!form.text.trim()" @click="onSubmit">{{ sendLabel }}</button>
       </div>
     </div>
     <p v-if="hint" class="trial-h-hint">{{ hint }}</p>
@@ -168,12 +169,19 @@ const { sse, apiPost, getToken } = useGeoApi()
 const { isLoggedIn } = useAuth()
 const authModal = useAuthModal()
 const config = useRuntimeConfig()
+const route = useRoute()
+const isAddBrand = computed(() => String(route.query.from || '') === 'add_brand')
 const consoleUrl = String((config.public as Record<string, unknown>).consoleUrl || '#')
-/** 「前往控制台」落地地址：携带 token（#token=）让后台免二次登录 */
+/** 确认落库后的新 brand_id，回控制台时写入 hash 以便后台切到该品牌 */
+const savedBrandId = ref('')
+/** 「前往控制台」落地地址：#token= + 可选 brand_id= */
 const consoleLink = computed(() => {
   const base = consoleUrl.split('#')[0]
   const tk = getToken()
-  return tk ? `${base}#token=${encodeURIComponent(tk)}` : base
+  if (!tk) return base
+  const parts = [`token=${encodeURIComponent(tk)}`]
+  if (savedBrandId.value) parts.push(`brand_id=${encodeURIComponent(savedBrandId.value)}`)
+  return `${base}#${parts.join('&')}`
 })
 
 const QUICK = ['小鹏汽车', '完美日记', '格力空调', '维乐口腔']
@@ -191,7 +199,19 @@ const selected = reactive(new Set<string>())
 const saving = ref(false)
 const wrapEl = ref<HTMLElement | null>(null)
 const runningTip = ref('分析进行中…')
-const doneTip = '已完成。可前往控制台查看明细，或点击报告卡再分析一个品牌。'
+const doneTip = computed(() => (
+  isAddBrand.value
+    ? '已完成。可前往控制台查看新品牌，或再分析另一个品牌。'
+    : '已完成。可前往控制台查看明细，或点击报告卡再分析一个品牌。'
+))
+const heroTitleLight = computed(() => (isAddBrand.value ? '添加一个新品牌，' : '当客户问 AI 时，'))
+const heroTitleGrad = computed(() => (isAddBrand.value ? '继续免费分析' : '你被 AI 推荐了吗？'))
+const heroSub = computed(() => (
+  isAddBrand.value
+    ? '为账号再增加一个监测空间——描述品牌后走同样的建档流程，完成后可在控制台左上角切换。'
+    : 'AI 流量时代，别让品牌"隐形"——告诉我你的品牌，立即免费分析它在豆包、DeepSeek、通义千问等大模型中的真实排名。'
+))
+const sendLabel = computed(() => (isAddBrand.value ? '开始添加品牌' : '开始免费分析'))
 let seq = 0
 let pendingStart = false
 let curBlock: Msg | null = null
@@ -460,6 +480,7 @@ async function doConfirm() {
       { preview: preview.value, selected_queries: [...selected] },
     )
     const saved = res?.data?.saved
+    if (saved?.brand_id) savedBrandId.value = saved.brand_id
     phase.value = 'done'
     push({
       type: 'ai',
@@ -506,6 +527,7 @@ function reset() {
   form.website = ''
   showLink.value = false
   hint.value = ''
+  savedBrandId.value = ''
 }
 </script>
 

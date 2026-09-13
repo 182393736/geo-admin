@@ -52,6 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function switchBrand(brand_id: string) {
+    if (!brands.value.some(b => b.brand_id === brand_id)) return;
     activeBrandId.value = brand_id;
     localStorage.setItem(LS_BRAND, brand_id);
   }

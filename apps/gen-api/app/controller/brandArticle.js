@@ -17,18 +17,21 @@ const Controller = require('egg').Controller;
  *  - articles    { uid, brand_id, total, counters:{starting,running,awaiting_user,completed,failed,cancelled,all}, pagination:{}, list:[] }
  */
 class BrandArticleController extends Controller {
-  async _resolveBrand(userId, brandId) {
+  async _requireBrand(brandId) {
     const { ctx } = this;
-    const brands = await ctx.model.Brand.find({ user_id: userId, status: { $ne: 'disabled' } })
-      .sort({ created_at: 1 }).lean();
-    if (!brands.length) return null;
-    return brands.find(b => b.brand_id === brandId) || brands[0];
+    try {
+      return await ctx.service.brandScope.requireBrand(ctx.state.user.id, brandId);
+    } catch (e) {
+      ctx.status = e.status || 400;
+      ctx.body = { code: e.code || e.status || 400, msg: e.message };
+      return null;
+    }
   }
 
   async intro() {
     const { ctx } = this;
-    const brand = await this._resolveBrand(ctx.state.user.id, ctx.query.brand_id);
-    if (!brand) { ctx.body = { industry: [], website: '', slogan: '', tone: {}, description: '', scripts: '' }; return; }
+    const brand = await this._requireBrand(ctx.query.brand_id);
+    if (!brand) return;
     const profile = await ctx.model.BrandProfile.findOne({ brand_id: brand.brand_id }).lean();
     const scripts = profile && Array.isArray(profile.scripts) ? profile.scripts.join('\n') : '';
     ctx.body = {
@@ -43,32 +46,32 @@ class BrandArticleController extends Controller {
 
   async aliases() {
     const { ctx } = this;
-    const brand = await this._resolveBrand(ctx.state.user.id, ctx.query.brand_id);
-    if (!brand) { ctx.body = { aliases: [] }; return; }
+    const brand = await this._requireBrand(ctx.query.brand_id);
+    if (!brand) return;
     const rows = await ctx.model.BrandAlias.find({ brand_id: brand.brand_id, enabled: true }).lean();
     ctx.body = { aliases: rows.map(a => a.alias) };
   }
 
   async competitors() {
     const { ctx } = this;
-    const brand = await this._resolveBrand(ctx.state.user.id, ctx.query.brand_id);
-    if (!brand) { ctx.body = []; return; }
+    const brand = await this._requireBrand(ctx.query.brand_id);
+    if (!brand) return;
     const rows = await ctx.model.CompetitorRegister.find({ brand_id: brand.brand_id, enabled: true }).lean();
     ctx.body = rows.map(c => ({ name: c.name }));
   }
 
   async products() {
     const { ctx } = this;
-    const brand = await this._resolveBrand(ctx.state.user.id, ctx.query.brand_id);
-    if (!brand) { ctx.body = []; return; }
+    const brand = await this._requireBrand(ctx.query.brand_id);
+    if (!brand) return;
     const rows = await ctx.model.BrandProduct.find({ brand_id: brand.brand_id }).lean();
     ctx.body = rows.map(p => ({ name: p.name, 来源: p.source || '品牌挖掘' }));
   }
 
   async _library(kind) {
     const { ctx } = this;
-    const brand = await this._resolveBrand(ctx.state.user.id, ctx.query.brand_id);
-    if (!brand) { ctx.body = []; return; }
+    const brand = await this._requireBrand(ctx.query.brand_id);
+    if (!brand) return;
     const rows = await ctx.model.BrandLibrary.find({ brand_id: brand.brand_id, kind }).sort({ created_at: -1 }).lean();
     ctx.body = rows.map(r => ({
       slug: r.slug || null, title: r.title || null, tags: r.tags || [],
@@ -82,9 +85,8 @@ class BrandArticleController extends Controller {
 
   async wikiTree() {
     const { ctx } = this;
-    const brand = await this._resolveBrand(ctx.state.user.id, ctx.query.brand_id);
-    const empty = { brand_present: false, company_present: false, brand_md: '', company_md: '', competitor: [], competitors: [] };
-    if (!brand) { ctx.body = empty; return; }
+    const brand = await this._requireBrand(ctx.query.brand_id);
+    if (!brand) return;
     const rows = await ctx.model.BrandWiki.find({ brand_id: brand.brand_id }).lean();
     const mdOf = scope => {
       const r = rows.find(x => x.scope === scope);
@@ -105,11 +107,12 @@ class BrandArticleController extends Controller {
 
   async articles() {
     const { ctx } = this;
+    const brand = await this._requireBrand(ctx.query.brand_id);
+    if (!brand) return;
     const uid = ctx.query.uid || ctx.state.user.id;
-    const brandId = ctx.query.brand_id;
+    const brandId = brand.brand_id;
     const limit = Math.min(500, Math.max(1, parseInt(ctx.query.limit, 10) || 200));
-    const q = { uid };
-    if (brandId) q.brand_id = brandId;
+    const q = { uid, brand_id: brandId };
 
     const [jobs, articles] = await Promise.all([
       ctx.model.WritingJob.find(q).lean(),

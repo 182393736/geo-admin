@@ -10,22 +10,21 @@ const Controller = require('egg').Controller;
  * 概览页据此展示「等待首次采集」而不是伪造指标。
  */
 class QueryController extends Controller {
-  async _resolveBrand(userId, brandId) {
+  async _requireBrand(brandId) {
     const { ctx } = this;
-    const brands = await ctx.model.Brand.find({ user_id: userId, status: { $ne: 'disabled' } })
-      .sort({ created_at: 1 }).lean();
-    if (!brands.length) return null;
-    return brands.find(b => b.brand_id === brandId) || brands[0];
+    try {
+      return await ctx.service.brandScope.requireBrand(ctx.state.user.id, brandId);
+    } catch (e) {
+      ctx.status = e.status || 400;
+      ctx.body = { code: e.code || e.status || 400, msg: e.message };
+      return null;
+    }
   }
 
   async list() {
     const { ctx } = this;
-    const userId = ctx.state.user.id;
-    const brand = await this._resolveBrand(userId, ctx.query.brand_id);
-    if (!brand) {
-      ctx.body = { code: 200, msg: 'ok', data: { list: [] } };
-      return;
-    }
+    const brand = await this._requireBrand(ctx.query.brand_id);
+    if (!brand) return;
     const qt = ctx.query.query_type === 'brand' ? 'brand' : 'industry';
     const rows = await ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_type: qt })
       .sort({ query_order: 1, created_at: 1 }).lean();
@@ -56,11 +55,10 @@ class QueryController extends Controller {
   /** 问题分组（对标 POST /query-group/list）：{ groups, ungrouped_count, total, query_map } */
   async queryGroupList() {
     const { ctx } = this;
-    const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
     const qt = b.query_type === 'brand' ? 'brand' : 'industry';
-    const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { groups: [], ungrouped_count: 0, total: 0, query_map: {} } }; return; }
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
     const [groups, queries] = await Promise.all([
       ctx.model.QueryGroup.find({ brand_id: brand.brand_id, query_type: qt }).sort({ sort: 1, created_at: 1 }).lean(),
       ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_type: qt }).lean(),
@@ -84,13 +82,9 @@ class QueryController extends Controller {
   /** 采集状态（概览页采集状态卡）：契约对齐线上 { list, last_date }，并附加采集前语义 */
   async status() {
     const { ctx } = this;
-    const userId = ctx.state.user.id;
-    const brand = await this._resolveBrand(userId, ctx.query.brand_id);
+    const brand = await this._requireBrand(ctx.query.brand_id);
 
-    if (!brand) {
-      ctx.body = { code: 200, msg: 'ok', data: { list: {}, last_date: '', pending: true, enabled_queries: 0, expected_slots: 0 } };
-      return;
-    }
+    if (!brand) return;
 
     const [enabledQueries, lastTask] = await Promise.all([
       ctx.model.MonitorQuery.countDocuments({ brand_id: brand.brand_id, query_status: true }),

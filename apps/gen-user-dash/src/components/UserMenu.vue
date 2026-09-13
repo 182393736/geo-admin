@@ -23,6 +23,12 @@
             </span>
             <span class="um-label">计费与套餐</span>
           </button>
+          <button class="um-item" type="button" @click="goAddBrand">
+            <span class="um-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            </span>
+            <span class="um-label">添加品牌</span>
+          </button>
           <button class="um-item" type="button" @click="goProfile">
             <span class="um-icon">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -69,6 +75,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { siteTrialUrl } from '@/utils/site';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -106,6 +113,10 @@ function toggle() { open.value = !open.value; }
 function close() { open.value = false; }
 
 function goBilling() { close(); router.push('/dashboard/plan-upgrade'); }
+function goAddBrand() {
+  close();
+  window.location.assign(siteTrialUrl(auth.token, { from: 'add_brand' }));
+}
 function goProfile() { close(); router.push('/dashboard/profile'); }
 function contactSupport() { close(); router.push('/dashboard/support'); }
 async function doLogout() {

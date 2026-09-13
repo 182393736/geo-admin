@@ -86,6 +86,10 @@ class AgentRunnerService extends Service {
       (saved && saved.task_id) || taskId,
       result && result.usage,
     );
+    if (saved && saved.brand_id) {
+      const brand = await ctx.model.Brand.findOne({ brand_id: saved.brand_id }).lean();
+      await ctx.service.brandScope.ensureFreeSubscription(userId, brand || { brand_id: saved.brand_id });
+    }
     return { result, saved };
   }
 
@@ -116,6 +120,8 @@ class AgentRunnerService extends Service {
         },
         { $set: { brand_id: String(bid), ref_id: String(tid) } },
       ).catch(() => {});
+      const brand = await ctx.model.Brand.findOne({ brand_id: bid }).lean();
+      await ctx.service.brandScope.ensureFreeSubscription(userId, brand || { brand_id: bid });
     }
     return { result, saved };
   }

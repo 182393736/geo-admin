@@ -8,12 +8,15 @@ const Controller = require('egg').Controller;
  *  - GET /payment/orders?limit=20      充值/套餐/诊断订单（采集前为空列表）
  */
 class PaymentController extends Controller {
-  async _resolveBrand(userId, brandId) {
+  async _requireBrand(brandId) {
     const { ctx } = this;
-    const brands = await ctx.model.Brand.find({ user_id: userId, status: { $ne: 'disabled' } })
-      .sort({ created_at: 1 }).lean();
-    if (!brands.length) return null;
-    return brands.find(b => b.brand_id === brandId) || brands[0];
+    try {
+      return await ctx.service.brandScope.requireBrand(ctx.state.user.id, brandId);
+    } catch (e) {
+      ctx.status = e.status || 400;
+      ctx.body = { code: e.code || e.status || 400, msg: e.message };
+      return null;
+    }
   }
 
   _fmtPlan(p) {
@@ -41,53 +44,15 @@ class PaymentController extends Controller {
     ctx.body = { code: 200, msg: 'ok', data: grouped };
   }
 
-  /** 自增序列（counters 集合）——subscription_id 唯一来源 */
-  async _nextSeq(name) {
-    const coll = this.app.mongoose.connection.db.collection('counters');
-    const r = await coll.findOneAndUpdate(
-      { _id: name }, { $inc: { seq: 1 } },
-      { upsert: true, returnDocument: 'after' },
-    );
-    const doc = r && r.value ? r.value : r;
-    return doc.seq;
-  }
-
   async subscriptionCurrent() {
     const { ctx } = this;
     const userId = ctx.state.user.id;
-    const brand = await this._resolveBrand(userId, ctx.query.brand_id);
-    if (!brand) {
-      ctx.body = { code: 200, msg: 'ok', data: null };
-      return;
-    }
+    const brand = await this._requireBrand(ctx.query.brand_id);
+    if (!brand) return;
 
-    let sub = await ctx.model.Subscription.findOne({ brand_id: brand.brand_id, status: 'active' })
-      .sort({ created_at: -1 }).lean();
-
-    // 无订阅 → 自动开通免费体验版（幂等：与首次建档完成等价）
-    if (!sub) {
-      const free = await ctx.model.Plan.findOne({ plan_code: 'free' }).lean();
-      const dayjs = ctx.app.dayjs ? ctx.app.dayjs() : require('dayjs')();
-      const start = dayjs.format('YYYY-MM-DD');
-      const expire = dayjs.add(free && free.duration_days ? free.duration_days : 30, 'day').format('YYYY-MM-DD');
-      const platforms = (brand.platforms && brand.platforms.length)
-        ? brand.platforms
-        : (ctx.app.config.platforms || ['doubao', 'deepseek', 'wenxin', 'yuanbao']);
-      sub = await ctx.model.Subscription.create({
-        subscription_id: await this._nextSeq('subscription'),
-        user_id: userId, brand_id: brand.brand_id,
-        plan_id: free ? free.plan_id : null,
-        plan_code: free ? free.plan_code : 'free',
-        plan_name: free ? free.plan_name : '免费体验版',
-        vip_level: 'free',
-        start_date: start, expire_date: expire,
-        query_limit: free ? (free.query_limit || 8) : 8,
-        query_count: 0,
-        // 免费体验版覆盖 3 个网页端引擎；付费套餐覆盖全部
-        platform_list: free ? platforms.slice(0, 3) : platforms,
-        status: 'active',
-      });
-    }
+    // 无订阅 → 自动开通免费体验版（幂等）
+    let sub = await ctx.service.brandScope.ensureFreeSubscription(userId, brand);
+    if (sub && sub.toObject) sub = sub.toObject();
 
     // query_count 冗余字段随监控问题实时刷新（采集前=建档生成的问题数）
     const queryCount = await ctx.model.MonitorQuery.countDocuments({ brand_id: brand.brand_id, query_status: true });

@@ -8,12 +8,15 @@ const Controller = require('egg').Controller;
  * 渠道本体为运维种子数据（app.js 幂等灌注代表性渠道）。
  */
 class PublishController extends Controller {
-  async _resolveBrand(userId, brandId) {
+  async _requireBrand(brandId) {
     const { ctx } = this;
-    const brands = await ctx.model.Brand.find({ user_id: userId, status: { $ne: 'disabled' } })
-      .sort({ created_at: 1 }).lean();
-    if (!brands.length) return null;
-    return brands.find(b => b.brand_id === brandId) || brands[0];
+    try {
+      return await ctx.service.brandScope.requireBrand(ctx.state.user.id, brandId);
+    } catch (e) {
+      ctx.status = e.status || 400;
+      ctx.body = { code: e.code || e.status || 400, msg: e.message };
+      return null;
+    }
   }
 
   _fmtChannel(c) {
@@ -140,8 +143,8 @@ class PublishController extends Controller {
     const page = Math.max(1, parseInt(b.page, 10) || 1);
     const size = Math.min(100, Math.max(1, parseInt(b.page_size, 10) || 20));
 
-    const brand = await this._resolveBrand(userId, b.brand_id);
-    if (!brand) { ctx.body = { code: 200, msg: 'ok', data: { list: [], total: 0, page, page_size: size } }; return; }
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
 
     const q = { brand_id: brand.brand_id };
     if (b.start_date && b.end_date) q.first_cited_at = { $gte: b.start_date, $lte: b.end_date };

@@ -6,7 +6,7 @@
 
 ```
 apps/
-├── gen-user-dash  @geo-admin/gen-user-dash  用户后台控制台（Vue3 + Vite + Pinia + Arco Design + ECharts）
+├── gen-user-dash  @geo-admin/gen-user-dash  用户后台控制台（Vue3 + Vite + Pinia + Arco Design + ECharts；多品牌切换与添加品牌→/trial 建档）
 ├── gen-api        @geo-admin/gen-api        Egg.js + Mongoose 后台（46 model + 3 schedule + 7 pipeline service + LLM 封装）
 ├── gen-user-site  @geo-admin/gen-user-site  官网首页 / 首登分析站（Nuxt，/trial 为唯一建档入口）
 ├── gen-test       @geo-admin/gen-test       端到端测试程序（网页添加任务 → Playwright 执行 → 一键删除任务数据）
