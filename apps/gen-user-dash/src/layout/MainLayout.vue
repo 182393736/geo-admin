@@ -20,7 +20,7 @@
       <div
         class="nav-item"
         :class="{ 'nav-item--active': activeGroup === 'brand' }"
-        @click="handleMainMenu('brand', '/dashboard/brand-card')"
+        @click="handleMainMenu('brand', '/dashboard/brand-library')"
       >
         <div class="nav-icon"><icon-share-alt /></div>
         <span class="nav-text">品牌</span>
@@ -130,9 +130,6 @@ import {
   IconShareAlt,
   IconDownload,
   IconSettings,
-  IconIdcard,
-  IconApps,
-  IconLaunch,
   IconBook,
   IconEye,
   IconLink,
@@ -272,27 +269,14 @@ const menuItems: MenuItem[] = [
 ];
 
 const brandGroups: SubGroup[] = [
-  {
-    label: '品牌信息',
-    items: [
-      { path: '/dashboard/brand-card', label: '名片', icon: IconIdcard },
-      { path: '/dashboard/brand-card/products', label: '产品', icon: IconApps },
-      { path: '/dashboard/brand-card/competitors', label: '竞品', icon: IconLaunch },
-    ],
-  },
-  {
-    label: '品牌知识库',
-    items: [
-      { path: '/dashboard/brand-card/wiki', label: '知识库', icon: IconBook },
-    ],
-  },
+  // 对标 geo.timus.cn：品牌为单页入口，二级侧栏收起不展示；名片/产品/竞品/知识库路由仍保留
 ];
 
 const activeGroup = computed(() => {
   const path = route.path;
   // 口碑与排名共用 4 个页面，仅 ?type=brand 区分归属
   const shared = ['/dashboard/citation-sources', '/dashboard/topic-management', '/dashboard/monitor-recognition', '/dashboard/downloads'];
-  if (path.startsWith('/dashboard/brand-card')) return 'brand';
+  if (path.startsWith('/dashboard/brand-library') || path.startsWith('/dashboard/brand-card')) return 'brand';
   if (path.startsWith('/dashboard/sentiment')) return 'sentiment';
   if (shared.some(p => path.startsWith(p))) return route.query.type === 'brand' ? 'sentiment' : 'ranking';
   if (path.startsWith('/dashboard/ai-index') || path.startsWith('/dashboard/competitor-insight') || path.startsWith('/dashboard/source-preference') || path.startsWith('/dashboard/source-intelligence')) return 'ranking';
@@ -311,6 +295,7 @@ const activeMenuLabel = computed(() => {
 });
 
 const currentGroups = computed<SubGroup[]>(() => {
+  // 品牌：对标无二级菜单区域
   if (activeGroup.value === 'brand') return brandGroups;
   const item = menuItems.find((m) => m.key === activeGroup.value);
   return item?.groups ?? [];
@@ -321,7 +306,7 @@ function handleMainMenu(key: string, path: string) {
   if (item?.groups && item.groups.length > 0) {
     router.push(item.groups[0].items[0].path);
   } else if (key === 'brand') {
-    router.push('/dashboard/brand-card');
+    router.push('/dashboard/brand-library');
   } else {
     router.push(path);
   }

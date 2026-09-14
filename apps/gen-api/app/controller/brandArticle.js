@@ -28,20 +28,121 @@ class BrandArticleController extends Controller {
     }
   }
 
+  _introPayload(brand, profile) {
+    const profileIndustry = profile && Array.isArray(profile.industry)
+      ? profile.industry.map(s => String(s || '').trim()).filter(Boolean)
+      : [];
+    const industry = profileIndustry.length
+      ? profileIndustry
+      : (brand.industry ? [brand.industry] : []);
+    const scripts = profile && Array.isArray(profile.scripts) ? profile.scripts.join('\n') : '';
+    return {
+      industry,
+      website: (profile && profile.website) || brand.website || '',
+      slogan: profile ? (profile.slogan || '') : '',
+      tone: (profile && profile.tone) ? profile.tone : {},
+      description: profile
+        ? (profile.description || '')
+        : (brand.business_desc || ''),
+      scripts,
+      updated_at: (profile && profile.updated_at) || brand.updated_at || null,
+      exists: !!(profile && profile.exists !== false),
+      seeded_from_db: !!(profile && profile.seeded_from_db),
+    };
+  }
+
   async intro() {
     const { ctx } = this;
     const brand = await this._requireBrand(ctx.query.brand_id);
     if (!brand) return;
     const profile = await ctx.model.BrandProfile.findOne({ brand_id: brand.brand_id }).lean();
-    const scripts = profile && Array.isArray(profile.scripts) ? profile.scripts.join('\n') : '';
-    ctx.body = {
-      industry: brand.industry ? [brand.industry] : [],
-      website: brand.website || '',
-      slogan: profile ? (profile.slogan || '') : '',
-      tone: (profile && profile.tone) ? profile.tone : {},
-      description: profile ? (profile.description || '') : '',
-      scripts,
-    };
+    ctx.body = this._introPayload(brand, profile);
+  }
+
+  /**
+   * 编辑档案失焦保存（对标 geoarticle PATCH /api/brand/intro）
+   * body 可部分提交：{ brand_id, industry?: string[], website?: string, description?: string }
+   */
+  async updateIntro() {
+    const { ctx } = this;
+    const body = ctx.request.body || {};
+    const brand = await this._requireBrand(body.brand_id || ctx.query.brand_id);
+    if (!brand) return;
+
+    const brandSet = {};
+    const profileSet = {};
+    let touched = false;
+
+    if (Object.prototype.hasOwnProperty.call(body, 'industry')) {
+      let industry = [];
+      if (Array.isArray(body.industry)) {
+        industry = body.industry.map(s => String(s || '').trim()).filter(Boolean);
+      } else if (body.industry != null) {
+        industry = String(body.industry)
+          .split(/[·•、,，|/]+/)
+          .map(s => s.trim())
+          .filter(Boolean);
+      }
+      if (industry.length > 20) {
+        ctx.status = 400;
+        ctx.body = { code: 400, msg: '行业标签过多（最多 20 个）' };
+        return;
+      }
+      profileSet.industry = industry;
+      brandSet.industry = industry.join(' · ');
+      touched = true;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'website')) {
+      const website = String(body.website || '').trim();
+      if (website.length > 300) {
+        ctx.status = 400;
+        ctx.body = { code: 400, msg: '官网链接过长' };
+        return;
+      }
+      profileSet.website = website;
+      brandSet.website = website;
+      touched = true;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'description')) {
+      const description = String(body.description || '').trim();
+      if (description.length > 2000) {
+        ctx.status = 400;
+        ctx.body = { code: 400, msg: '品牌简介过长（最多 2000 字）' };
+        return;
+      }
+      profileSet.description = description;
+      brandSet.business_desc = description;
+      touched = true;
+    }
+
+    if (!touched) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '没有可更新的字段' };
+      return;
+    }
+
+    const bid = brand.brand_id;
+    const [updatedBrand, profile] = await Promise.all([
+      Object.keys(brandSet).length
+        ? ctx.model.Brand.findOneAndUpdate(
+          { brand_id: bid, user_id: ctx.state.user.id },
+          { $set: brandSet },
+          { new: true },
+        ).lean()
+        : Promise.resolve(brand),
+      ctx.model.BrandProfile.findOneAndUpdate(
+        { brand_id: bid },
+        {
+          $set: { ...profileSet, brand_id: bid, exists: true },
+          $setOnInsert: { seeded_from_db: false },
+        },
+        { new: true, upsert: true },
+      ).lean(),
+    ]);
+
+    ctx.body = this._introPayload(updatedBrand || brand, profile);
   }
 
   async aliases() {

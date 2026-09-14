@@ -15,6 +15,8 @@ declare module 'vue' {
     ATable: typeof import('@arco-design/web-vue')['Table']
     ATableColumn: typeof import('@arco-design/web-vue')['TableColumn']
     ATag: typeof import('@arco-design/web-vue')['Tag']
+    BrandIdentityFields: typeof import('./components/brand/BrandIdentityFields.vue')['default']
+    BrandProfileFields: typeof import('./components/brand/BrandProfileFields.vue')['default']
     BrandSwitcher: typeof import('./components/BrandSwitcher.vue')['default']
     PageHeader: typeof import('./components/PageHeader.vue')['default']
     PreCollectionEmpty: typeof import('./components/PreCollectionEmpty.vue')['default']

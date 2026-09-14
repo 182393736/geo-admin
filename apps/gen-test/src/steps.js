@@ -19,8 +19,13 @@ function extractBrandName(input) {
   const toks = t.split(/[\s，。,.；;：:（）()]+/).filter(Boolean);
   for (const tok of toks) {
     if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(tok)) continue;
-    if (/^[a-z0-9-]{2,30}$/i.test(tok) || /^[一-龥]{2,20}$/.test(tok)) return tok;
+    if (
+      /^[a-z0-9-]{2,30}$/i.test(tok)
+      || /^[一-龥]{2,20}$/.test(tok)
+      || /^(?=.*[一-龥])(?=.*[a-z0-9])[一-龥a-z0-9-]{2,30}$/i.test(tok)
+    ) return tok;
   }
+  if (/^[一-龥a-z0-9][一-龥a-z0-9-]{1,29}$/i.test(t) && !/\./.test(t)) return t.slice(0, 30);
   return '你的品牌';
 }
 
@@ -34,11 +39,44 @@ async function absorbSiteToken(page) {
   await page.waitForFunction(() => !location.hash.includes('token='), null, { timeout: 15_000 });
 }
 
-/** 填写品牌描述并点发送 */
+/** 填写品牌描述并点发送；确认已离开落地态（避免「点了但未真正提交」假成功） */
 async function submitTrialBrand(page, brandInput) {
+  let text = String(brandInput || '').trim();
+  if (!text) throw new Error('品牌输入为空');
+  // 短名兜底成「品牌叫「X」」，兼容中英混合名（如透镜geo）与官网 extractBrand 旧逻辑
+  if (!/[「『"']/.test(text) && !/品牌(?:叫|是|为)/.test(text) && text.length <= 40 && !/\s/.test(text)) {
+    text = `我的品牌叫「${text}」`;
+  }
   await page.waitForSelector('textarea.trial-h-ta', { timeout: 30_000 });
-  await page.fill('textarea.trial-h-ta', brandInput);
+  const ta = page.locator('textarea.trial-h-ta');
+  await ta.click();
+  await ta.fill('');
+  await ta.fill(text);
+  await page.waitForFunction(() => {
+    const btn = document.querySelector('button.trial-h-send');
+    return !!btn && !btn.disabled;
+  }, null, { timeout: 5_000 });
   await page.click('button.trial-h-send');
+
+  const outcome = await page.waitForFunction(() => {
+    const hint = document.querySelector('.trial-h-hint');
+    if (hint && /没认出来品牌名/.test(hint.textContent || '')) return 'bad_name';
+    // 离开落地态：landing 的 textarea 消失，进入对话/分析态
+    if (!document.querySelector('.trial-hero textarea.trial-h-ta')) return 'ok';
+    // 登录弹层（少见：add_brand 一般已带 token）
+    if (document.body.innerText.includes('登录') && document.querySelector('input[type="password"], input[placeholder*="密码"]')) {
+      return 'need_login';
+    }
+    return null;
+  }, null, { timeout: 15_000, polling: 300 });
+  const v = await outcome.jsonValue();
+  if (v === 'bad_name') {
+    throw new Error('官网未识别品牌名：请用「品牌名」写法或补充官网链接');
+  }
+  if (v === 'need_login') {
+    throw new Error('提交后弹出登录，geo.token 可能未写入');
+  }
+  if (v !== 'ok') throw new Error(`提交后页面状态异常：${v}`);
 }
 
 /** 等 SSE 出候选确认面板 */
@@ -121,14 +159,19 @@ const steps = [
     name: '点击登录并等待跳转',
     async run(page, ctx) {
       await page.click('button.submit-btn');
-      await page.waitForFunction(
-        ({ dash, site }) => {
-          const u = location.href;
-          return u.includes('/dashboard/overview') || u.includes(`${site}/trial`) || u.includes('/trial');
-        },
-        { dash: ctx.deps.DASH, site: ctx.deps.SITE },
-        { timeout: 30_000 },
-      );
+      try {
+        await page.waitForFunction(
+          ({ dash, site }) => {
+            const u = location.href;
+            return u.includes('/dashboard/overview') || u.includes(`${site}/trial`) || u.includes('/trial');
+          },
+          { dash: ctx.deps.DASH, site: ctx.deps.SITE },
+          { timeout: 30_000 },
+        );
+      } catch (e) {
+        const err = await page.locator('.err-msg').first().innerText().catch(() => '');
+        throw new Error(`登录未跳转（url=${page.url()}${err ? `，提示=${err}` : ''}）：${e.message}`);
+      }
       ctx.route = page.url().includes(`${ctx.deps.SITE}/trial`) || page.url().includes('/trial') ? 'trial' : 'console';
       return { status: 'ok', detail: `${page.url()}（${ctx.route === 'trial' ? '首次用户 → 官网建档' : '已有品牌 → 直接进后台'}）` };
     },
@@ -324,9 +367,10 @@ const steps = [
     name: '名片页（品牌名 / 剩余修改次数）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/brand-card`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('input.input-readonly', { timeout: 30_000 });
-      const nameInput = await page.locator('input.input-readonly').inputValue();
-      const rename = await page.locator('.field-hint strong').first().innerText();
+      // BrandIdentityFields：只读识别词 input.bi-input-ro（旧 class 为 input-readonly）
+      await page.waitForSelector('input.bi-input-ro, input.input-readonly', { timeout: 30_000 });
+      const nameInput = await page.locator('input.bi-input-ro, input.input-readonly').first().inputValue();
+      const rename = await page.locator('.bi-field-hint strong, .field-hint strong').first().innerText();
       const ok = nameInput.includes(ctx.brandName);
       return { status: ok ? 'ok' : 'fail', detail: `品牌名=${nameInput}，剩余修改=${rename}` };
     },

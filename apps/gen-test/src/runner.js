@@ -4,11 +4,46 @@
  * 执行结束后从 geo_token 解出 user_id、从业务库查出 brand_id，供「删除任务数据」使用。
  */
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { chromium } = require('playwright');
-const { steps, extractBrandName } = require('./steps');
-const { getTask, updateTask, appendStep, connect } = require('./db');
+const { getTask, updateTask, appendStep, connect, ensureTestUser } = require('./db');
 const { decodeJwtPayload } = require('@geo-admin/contracts');
+
+/**
+ * Cursor Agent shell 会注入 PLAYWRIGHT_BROWSERS_PATH → sandbox 缓存，
+ * 且常缺完整 Chromium。强制回落到本机 ms-playwright。
+ */
+function ensurePlaywrightBrowsers() {
+  const cur = process.env.PLAYWRIGHT_BROWSERS_PATH || '';
+  const homeCache = path.join(os.homedir(), 'Library/Caches/ms-playwright');
+  if (cur.includes('cursor-sandbox-cache')) {
+    delete process.env.PLAYWRIGHT_BROWSERS_PATH;
+  }
+  let exe = '';
+  try {
+    exe = chromium.executablePath();
+  } catch {
+    exe = '';
+  }
+  if ((!exe || !fs.existsSync(exe)) && fs.existsSync(homeCache)) {
+    process.env.PLAYWRIGHT_BROWSERS_PATH = homeCache;
+    exe = chromium.executablePath();
+  }
+  if (!exe || !fs.existsSync(exe)) {
+    throw new Error(
+      `Playwright Chromium 不存在: ${exe || '(unknown)'}\n请在本机执行: cd apps/gen-test && npx playwright install chromium`,
+    );
+  }
+  return exe;
+}
+
+/** 每次任务重新加载 steps.js，避免改步骤后还要重启 gen-test */
+function loadSteps() {
+  const stepsPath = require.resolve('./steps');
+  delete require.cache[stepsPath];
+  return require('./steps');
+}
 
 function skipDetail(step, runCtx) {
   const name = String(step.name || '');
@@ -45,8 +80,11 @@ async function runTask(taskId) {
   const startedAt = new Date();
   let browser = null;
   try {
+    const { steps, extractBrandName } = loadSteps();
     const task = await getTask(taskId);
     if (!task) throw new Error('任务不存在');
+    // 与 gen-api 同库同步账号密码，避免 geo_dev / 过期密码导致登录失败
+    await ensureTestUser(task.account, task.password);
     const brandName = extractBrandName(task.brand_input);
     await updateTask(taskId, { status: 'running', started_at: startedAt, result: null, steps: [], cleanup: null });
 
@@ -65,7 +103,8 @@ async function runTask(taskId) {
     // 有头模式：弹出真实浏览器窗口供观察；配合 slowMo 放慢每步操作，便于肉眼跟进交互过程。
     // 无头模式（默认）：静默执行，适合无人值守批量回归。
     const headed = !!task.headed;
-    browser = await chromium.launch({ headless: !headed, slowMo: headed ? 250 : 0 });
+    const executablePath = ensurePlaywrightBrowsers();
+    browser = await chromium.launch({ headless: !headed, slowMo: headed ? 250 : 0, executablePath });
     const bctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = await bctx.newPage();
     const pageErrors = [];

@@ -1,14 +1,15 @@
 'use strict';
 /**
  * MongoDB 连接与任务 CRUD
- * 复用 gen-api 的 MongoDB（TEST_MONGO_URL，默认同 dev 库 geo_dev）。
+ * 复用 gen-api 的 MongoDB（TEST_MONGO_URL / MONGO_URL，须与 gen-api 进程一致）。
+ * 注意：本机常见是 mongodb://127.0.0.1:42439/geo_dev（隧道），不是 27017/geo。
  * 任务集合 gen_test_tasks 与业务集合同库，便于「删除任务相关数据」时一并清理。
  */
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
 const { randomUUID } = require('node:crypto');
 
-const MONGO_URL = process.env.TEST_MONGO_URL || 'mongodb://127.0.0.1:27017/geo_dev';
+const MONGO_URL = process.env.TEST_MONGO_URL || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/geo';
 const TASKS_COLLECTION = 'gen_test_tasks';
 
 let client = null;
@@ -58,26 +59,28 @@ async function createTask({ account, password, brandInput, brandInput2 = '', scr
 }
 
 /**
- * 添加任务前的账号预检（对齐「没有则自动插入、已有则拒绝」）：
- *  - 账号不存在 → 按 gen-api users 结构自动插入（bcrypt 密码哈希，UUID _id），返回 { created:true }
- *  - 账号已存在 → 抛错（status=409），调用方据此拒绝创建任务并提示
- * 插入结构对齐 apps/gen-api/app/model/user.js（account 唯一、password_hash、status:active）。
+ * 确保测试账号可用（与 gen-api 同库）：
+ *  - 不存在 → 插入 users（bcrypt），返回 { created:true }
+ *  - 已存在 → 同步 password_hash / status，保证任务密码能登录（测试工具预期行为）
  */
 async function ensureTestUser(account, password) {
   const db = await connect();
   const users = db.collection('users');
   const existing = await users.findOne({ account });
-  if (existing) {
-    const err = new Error(`账号「${account}」已存在，未创建任务（请换一个账号，或先删除该账号的旧任务以清理数据）`);
-    err.status = 409;
-    throw err;
-  }
   const now = new Date();
+  const password_hash = bcrypt.hashSync(password, 10);
+  if (existing) {
+    await users.updateOne(
+      { _id: existing._id },
+      { $set: { password_hash, status: 'active', updated_at: now } },
+    );
+    return { created: false, account };
+  }
   await users.insertOne({
     _id: randomUUID(),
     account,
     name: account,
-    password_hash: bcrypt.hashSync(password, 10),
+    password_hash,
     is_superuser: false,
     status: 'active',
     created_at: now,

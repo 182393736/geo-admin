@@ -152,7 +152,13 @@ const routes = [
         component: () => import('@/views/placeholder/index.vue'),
         meta: { title: '联系客服', icon: '💬' },
       },
-      // 品牌 - 4个子页面
+      // 品牌 - 档案总览 + 名片/产品/竞品/知识库
+      {
+        path: '/dashboard/brand-library',
+        name: 'BrandLibrary',
+        component: () => import('@/views/brand/library.vue'),
+        meta: { title: '品牌档案' },
+      },
       {
         path: '/dashboard/brand-card',
         name: 'Brand',

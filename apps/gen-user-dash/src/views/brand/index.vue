@@ -3,94 +3,29 @@
     <!-- 名片 -->
     <div v-if="currentTab === 'Brand'" class="brand-card-layout">
       <!-- 头部 -->
-      <header class="brand-header geo-page-header">
-        <div class="geo-page-header__text">
-          <h1 class="brand-title geo-page-title">品牌名片</h1>
-          <p class="brand-subtitle geo-page-desc">品牌身份与基础信息 · 监控统计、AI 写稿、洞察分析时调用</p>
-        </div>
+      <header class="brand-header">
+        <h1 class="brand-title">品牌名片</h1>
+        <p class="brand-subtitle">品牌身份与基础信息 · 监控统计、AI 写稿、洞察分析时调用</p>
       </header>
 
-      <!-- 第一卡片: 品牌名 + 别名 -->
-      <section class="brand-card">
-        <!-- 品牌名 -->
-        <div class="field-group">
-          <div class="field-label-row">
-            <span class="field-name">品牌名</span>
-            <span class="badge-required">必填</span>
-            <span class="field-hint">剩余修改次数 <strong>{{ renameRemaining }}</strong> 次</span>
-            <button class="field-edit-btn">
-              <icon-edit :size="11" />
-              修改
-            </button>
-          </div>
-          <input
-            type="text"
-            class="input-readonly"
-            v-model="form.name"
-            readonly
-          />
-        </div>
-
-        <!-- 相似名称 / 别名 -->
-        <div class="field-group">
-          <div class="field-label-row">
-            <span class="field-name">相似名称 / 别名</span>
-            <span class="field-hint">已登记 <strong>{{ form.aliases.length }}</strong> 个别名 · 监控统计时合并为「{{ form.name }}」</span>
-            <button class="field-edit-btn">
-              <icon-edit :size="11" />
-              修改
-            </button>
-          </div>
-          <div class="aliases-box">
-            <span v-for="alias in form.aliases" :key="alias" class="alias-tag">
-              {{ alias }}
-            </span>
-          </div>
-        </div>
+      <!-- 第一卡片: 识别词 + 相似识别词 -->
+      <section class="brand-card brand-card--primary">
+        <BrandIdentityFields
+          v-model:name="form.name"
+          :aliases="form.aliases"
+          v-model:rename-remaining="renameRemaining"
+          @update:aliases="onAliasesUpdate"
+        />
       </section>
 
       <!-- 第二卡片: 行业 + 官网 + 简介 -->
-      <section class="brand-card">
-        <div class="grid-form">
-          <!-- 所属行业 -->
-          <div class="form-field">
-            <label class="form-label">所属行业</label>
-            <input
-              type="text"
-              class="form-input"
-              v-model="form.industry"
-              placeholder="例如:家电 · 空调"
-            />
-          </div>
-
-          <!-- 官网 / 主链接 -->
-          <div class="form-field">
-            <label class="form-label">官网 / 主链接</label>
-            <div class="url-input-group">
-              <select class="url-select" v-model="form.protocol">
-                <option value="https://">https://</option>
-                <option value="http://">http://</option>
-              </select>
-              <input
-                type="text"
-                class="url-input"
-                v-model="form.urlPath"
-                placeholder="example.com/path"
-              />
-            </div>
-          </div>
-
-          <!-- 品牌简介 -->
-          <div class="form-field form-field--full">
-            <label class="form-label">品牌简介</label>
-            <textarea
-              class="form-textarea"
-              v-model="form.description"
-              placeholder="一段话描述品牌的背景与定位..."
-              rows="4"
-            ></textarea>
-          </div>
-        </div>
+      <section class="brand-card brand-card--secondary">
+        <BrandProfileFields
+          v-model:industry="form.industry"
+          v-model:protocol="form.protocol"
+          v-model:url-path="form.urlPath"
+          v-model:description="form.description"
+        />
       </section>
     </div>
 
@@ -99,8 +34,8 @@
       <!-- 头部 + 添加按钮 -->
       <header class="products-header">
         <div>
-          <h1 class="brand-title geo-page-title">产品矩阵</h1>
-          <p class="brand-subtitle geo-page-desc">品牌旗下的产品系列 · 写稿、关联资料、产品分析时调用</p>
+          <h1 class="brand-title">产品矩阵</h1>
+          <p class="brand-subtitle">品牌旗下的产品系列 · 写稿、关联资料、产品分析时调用</p>
         </div>
         <button class="add-product-btn">
           <icon-plus :size="13" />
@@ -146,8 +81,8 @@
       <!-- 头部 + 搜索 + 添加按钮 -->
       <header class="products-header">
         <div>
-          <h1 class="brand-title geo-page-title">竞品名单</h1>
-          <p class="brand-subtitle geo-page-desc">主要竞争对手 · 监控分析、对比稿件、竞争洞察时作为对照</p>
+          <h1 class="brand-title">竞品名单</h1>
+          <p class="brand-subtitle">主要竞争对手 · 监控分析、对比稿件、竞争洞察时作为对照</p>
         </div>
         <div class="header-actions">
           <div class="search-box">
@@ -224,8 +159,8 @@
       <!-- 头部 + 添加资料按钮 -->
       <header class="products-header">
         <div>
-          <h1 class="brand-title geo-page-title">资料库</h1>
-          <p class="brand-subtitle geo-page-desc">为 AI 准备的参考资料 · 写稿、问答、洞察分析时自动调用</p>
+          <h1 class="brand-title">资料库</h1>
+          <p class="brand-subtitle">为 AI 准备的参考资料 · 写稿、问答、洞察分析时自动调用</p>
         </div>
         <button class="add-product-btn wiki-add-btn">
           <icon-plus :size="13" />
@@ -283,6 +218,8 @@ import { reactive, computed, ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { IconEdit, IconPlus, IconDelete, IconSearch, IconDown } from '@arco-design/web-vue/es/icon';
 import { brandApi } from '@/api/modules/brand';
+import BrandIdentityFields from '@/components/brand/BrandIdentityFields.vue';
+import BrandProfileFields from '@/components/brand/BrandProfileFields.vue';
 
 const route = useRoute();
 const currentTab = computed(() => route.name as string);
@@ -301,16 +238,30 @@ const products = reactive<{ id: string; name: string; desc: string }[]>([]);
 const competitors = reactive<{ id: string; name: string; desc: string; aliases: string[] }[]>([]);
 const compSearch = ref('');
 
+function onAliasesUpdate(list: string[]) {
+  form.aliases.splice(0, form.aliases.length, ...list);
+}
+
 onMounted(async () => {
   try {
     const s = await brandApi.summary();
     if (!s) return;
     form.name = s.brand?.name || '';
     form.industry = s.brand?.industry || '';
-    form.urlPath = s.brand?.website || '';
     form.description = s.profile?.description || s.brand?.business_desc || '';
     form.aliases = (s.aliases || []).map(a => a.alias);
     renameRemaining.value = s.brand?.rename_remaining ?? 0;
+    const website = s.brand?.website || '';
+    if (website.startsWith('http://')) {
+      form.protocol = 'http://';
+      form.urlPath = website.slice('http://'.length);
+    } else if (website.startsWith('https://')) {
+      form.protocol = 'https://';
+      form.urlPath = website.slice('https://'.length);
+    } else {
+      form.protocol = 'https://';
+      form.urlPath = website;
+    }
     products.splice(0, products.length,
       ...(s.products || []).map((p, i) => ({ id: `prod${i + 1}`, name: p.name, desc: p.category || '' })));
     competitors.splice(0, competitors.length,
@@ -326,25 +277,61 @@ onMounted(async () => {
 }
 
 .brand-card-layout {
-  display: flex;
-  flex-direction: column;
+  /* 与对标一致：块级布局，卡片 margin 可折叠 */
 }
 
-/* Header / title / desc：由 global.scss .geo-page-* 统一 */
+/* Header - 目标站: mb-5 */
+.brand-header {
+  margin: 0 0 20px;
+  padding: 0;
+}
 
-/* 卡片 - 目标站: rounded-2xl p-5 mb-5 flex flex-col gap-[18px] bg #fff border 1px solid #e6e8ee */
+/* h1 - 目标站: text-[22px] font-extrabold tracking-tight #0f1115 lh33 ls-0.55 */
+.brand-title {
+  margin: 0;
+  padding: 0;
+  font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f1115;
+  line-height: 33px;
+  letter-spacing: -0.55px;
+}
+
+/* desc - 目标站: text-[13px] mt-1 #5b606a */
+.brand-subtitle {
+  margin: 4px 0 0;
+  padding: 0;
+  font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #5b606a;
+  line-height: 19.5px;
+  letter-spacing: 0;
+}
+
+/* 卡片 - 目标站: rounded-2xl px-[22px] pt-5 pb-[22px] hover purple border/shadow */
 .brand-card {
   background: #fff;
   border: 1px solid #e6e8ee;
   border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+  padding: 20px 22px 22px;
+  transition: all 0.15s;
 
-  &:last-child {
-    margin-bottom: 0;
+  &:hover {
+    border-color: rgba(100, 82, 255, 0.25);
+    box-shadow: 0 8px 24px rgba(20, 20, 40, 0.06);
+  }
+
+  &--primary {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin: 0 0 28px;
+  }
+
+  &--secondary {
+    margin: 18px 0 0;
   }
 }
 
@@ -393,7 +380,7 @@ onMounted(async () => {
   }
 }
 
-/* 修改按钮 - 目标站: ml-auto flex items-center gap-1 px-2 py-1 rounded text-[11.5px] font-semibold color #5b606a border 1px solid #e6e8ee */
+/* 修改按钮 - 目标站 hover:bg-[#fafafe]；边框来自按钮全局/内联实测 */
 .field-edit-btn {
   margin-left: auto;
   display: inline-flex;
@@ -407,16 +394,16 @@ onMounted(async () => {
   background: transparent;
   border: 1px solid #e6e8ee;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color 0.15s, background-color 0.15s;
 
   &:hover {
-    background: #f5f6fa;
+    background: #fafafe;
   }
 }
 
-/* 只读输入框 - 目标站: h-10 px-3 rounded-lg text-[14px] font-semibold cursor-pointer bg #f5f6fa border 1px solid #e6e8ee color #0f1115 */
+/* 只读输入框 - 目标站: h-[38px] */
 .input-readonly {
-  height: 40px;
+  height: 38px;
   padding: 0 12px;
   border-radius: 8px;
   border: 1px solid #e6e8ee;
@@ -455,10 +442,11 @@ onMounted(async () => {
   height: 24px;
 }
 
-/* Grid 表单 - 目标站: grid gap-4 grid-cols-1 md:grid-cols-2 */
+/* Grid 表单 - 目标站: grid gap-y-4 gap-x-[18px] */
 .grid-form {
   display: grid;
-  gap: 16px;
+  row-gap: 16px;
+  column-gap: 18px;
   grid-template-columns: 1fr 1fr;
 
   @media (max-width: 768px) {
@@ -482,7 +470,7 @@ onMounted(async () => {
 .form-label {
   font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.025em;
   color: #2a2d36;
 }
 

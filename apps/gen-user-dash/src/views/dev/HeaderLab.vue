@@ -24,13 +24,12 @@
     </div>
 
     <div class="geo-page lab-card">
-      <header class="brand-header geo-page-header">
-        <div class="geo-page-header__text">
-          <h1 class="brand-title geo-page-title">品牌名片</h1>
-          <p class="brand-subtitle geo-page-desc">品牌身份与基础信息 · 监控统计、AI 写稿、洞察分析时调用</p>
-        </div>
+      <p class="lab-meta-desc" style="margin-bottom:12px">品牌页独立规范：标题 22px/800/#0f1115/ls-0.55 · 描述 13px/#5b606a · mt 4 · header mb 20</p>
+      <header class="brand-header">
+        <h1 class="brand-title">品牌名片</h1>
+        <p class="brand-subtitle">品牌身份与基础信息 · 监控统计、AI 写稿、洞察分析时调用</p>
       </header>
-      <div class="lab-fake-card">内容区起点</div>
+      <div class="lab-fake-card">内容区起点（应距 header 底 20px）</div>
     </div>
 
     <div class="geo-page lab-card">
@@ -90,5 +89,25 @@
   font-weight: 700;
   color: #4f3fd3;
   cursor: pointer;
+}
+.brand-header {
+  margin: 0 0 20px;
+}
+.brand-title {
+  margin: 0;
+  font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f1115;
+  line-height: 33px;
+  letter-spacing: -0.55px;
+}
+.brand-subtitle {
+  margin: 4px 0 0;
+  font-family: Inter, 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #5b606a;
+  line-height: 19.5px;
 }
 </style>

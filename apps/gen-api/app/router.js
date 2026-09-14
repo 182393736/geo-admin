@@ -23,6 +23,8 @@ module.exports = app => {
 
   // ============ 品牌档案展示（建档结果页 / 概览页品牌卡 / 名片） ============
   router.get('/api/brand/summary', jwtAuth, controller.brand.summary);
+  router.post('/api/brand/rename', jwtAuth, controller.brand.rename);
+  router.post('/api/brand/aliases', jwtAuth, controller.brand.updateAliases);
 
   // ============ 监控问题 / 采集状态（概览页采集状态卡 · 排名/口碑问题列表） ============
   // 对标 geoapi.timus.cn：/query/list（无 /api 前缀）；保留 /api/query/list 兼容旧前端
@@ -74,6 +76,7 @@ module.exports = app => {
 
   // ============ 品牌·内容域（geoarticle 无壳 raw，带 /api 前缀） ============
   router.get('/api/brand/intro', jwtAuth, controller.brandArticle.intro);
+  router.patch('/api/brand/intro', jwtAuth, controller.brandArticle.updateIntro);
   router.get('/api/brand/aliases', jwtAuth, controller.brandArticle.aliases);
   router.get('/api/brand/competitors', jwtAuth, controller.brandArticle.competitors);
   router.get('/api/brand/products', jwtAuth, controller.brandArticle.products);

@@ -241,8 +241,17 @@ function extractBrand(rawText: string): { name: string, website: string, cleanTe
     const tokens = t.replace(/https?:\/\/\S+/gi, ' ').split(/[\s，。,.；;：:（）()]+/).filter(Boolean)
     for (const tok of tokens) {
       if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(tok)) continue // 跳过域名
-      if (/^[a-z0-9-]{2,30}$/i.test(tok) || /^[一-龥]{2,20}$/.test(tok)) { name = tok; break }
+      // 纯英文 / 纯中文 / 中英混合短名（如「透镜geo」）
+      if (
+        /^[a-z0-9-]{2,30}$/i.test(tok)
+        || /^[一-龥]{2,20}$/.test(tok)
+        || /^(?=.*[一-龥])(?=.*[a-z0-9])[一-龥a-z0-9-]{2,30}$/i.test(tok)
+      ) { name = tok; break }
     }
+  }
+  // 整段就是一个短品牌名（无空格、非域名）时直接采用
+  if (!name && /^[一-龥a-z0-9][一-龥a-z0-9-]{1,29}$/i.test(t) && !/\./.test(t)) {
+    name = t
   }
   return { name: name.slice(0, 30), website, cleanText: t }
 }

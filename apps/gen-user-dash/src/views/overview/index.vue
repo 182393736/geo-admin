@@ -33,7 +33,7 @@
               <button type="button" class="ov2-mchip">{{ competitorCount }} 个竞品</button>
             </div>
           </div>
-          <button type="button" class="ov2-hero-link">品牌档案
+          <button type="button" class="ov2-hero-link" @click="$router.push('/dashboard/brand-library')">品牌档案
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
           </button>
         </div>
@@ -44,29 +44,32 @@
           <span class="ov2-upd">{{ pendingCollection ? `等待首次采集 · 预计 ${queryStatus?.expected_slots || 0} 槽位（${queryStatus?.enabled_queries || 0} 问题 × 5 引擎）` : `统计日期 ${ovStats?.stat_date || '—'} · 更新于 ${ovStats?.updated_at || '—'}` }}</span>
         </div>
       </div>
-      <!-- 右：快捷动作 -->
+      <!-- 右：快捷动作（对标跳转；用 router-link 避免被左侧卡片溢出挡住点击） -->
       <div class="ov2-actcard">
         <div class="ov2-actcard-head">快捷动作</div>
-        <button class="ov2-tile" type="button">
+        <router-link
+          class="ov2-tile"
+          :to="{ path: '/dashboard/topic-management', query: { type: 'industry' } }"
+        >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/></svg>
           <span class="ov2-tile-body"><b>挖掘监控问题</b><span>对话式补全监测面</span></span>
           <svg class="ov2-tile-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        </button>
-        <button class="ov2-tile" type="button">
+        </router-link>
+        <router-link class="ov2-tile" to="/dashboard/new-agent">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           <span class="ov2-tile-body"><b>AI 撰写稿件</b><span>写作 Agent · 挂载知识库</span></span>
           <svg class="ov2-tile-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        </button>
-        <button class="ov2-tile" type="button">
+        </router-link>
+        <router-link class="ov2-tile" to="/dashboard/media-library">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
           <span class="ov2-tile-body"><b>信源库</b><span>监控 × 价格 · 按被引成本推荐</span></span>
           <svg class="ov2-tile-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        </button>
-        <button class="ov2-tile" type="button">
+        </router-link>
+        <router-link class="ov2-tile" to="/dashboard/ai-index">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-5"/></svg>
           <span class="ov2-tile-body"><b>AI排名透视</b><span>实时位次 · 逐题下钻</span></span>
           <svg class="ov2-tile-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        </button>
+        </router-link>
       </div>
     </section>
 
@@ -584,7 +587,7 @@ const citationPlatforms = computed(() => {
 /* ====== 2. 品牌卡片 + 快捷动作 grid ====== */
 .ov2-top2 {
   display: grid;
-  grid-template-columns: 1.75fr 1fr;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
   gap: 16px;
   margin-bottom: 16px;
   align-items: stretch;
@@ -593,7 +596,9 @@ const citationPlatforms = computed(() => {
 /* --- 品牌卡片 --- */
 .ov2-hero {
   position: relative;
+  z-index: 0;
   overflow: hidden;
+  min-width: 0;
   background: linear-gradient(126deg, #fff 42%, rgba(100, 82, 255, 0.075) 132%);
   border: 1px solid rgba(100, 82, 255, 0.16);
   border-radius: 14px;
@@ -658,6 +663,8 @@ const citationPlatforms = computed(() => {
   gap: 9px;
   flex-wrap: wrap;
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .ov2-live {
@@ -788,6 +795,8 @@ button.ov2-mchip:hover {
 
 /* --- 快捷动作 --- */
 .ov2-actcard {
+  position: relative;
+  z-index: 2;
   background: #fff;
   border: 1px solid #e7e9f0;
   border-radius: 14px;
@@ -797,6 +806,7 @@ button.ov2-mchip:hover {
   flex-direction: column;
   gap: 9px;
   min-height: 280px;
+  min-width: 0;
 }
 
 .ov2-actcard-head {
@@ -821,11 +831,14 @@ button.ov2-mchip:hover {
   font-family: inherit;
   text-align: left;
   color: #4f3fd3;
+  text-decoration: none;
+  box-sizing: border-box;
   transition: border-color 0.15s, transform 0.15s;
 
   &:hover {
     border-color: #6452ff;
     transform: translateY(-1px);
+    color: #4f3fd3;
   }
 
   > svg:first-child {
@@ -837,6 +850,7 @@ button.ov2-mchip:hover {
     background: #eeebff;
     flex-shrink: 0;
     color: #4f3fd3;
+    pointer-events: none;
   }
 }
 
@@ -872,6 +886,7 @@ button.ov2-mchip:hover {
   flex-shrink: 0;
   margin-left: auto;
   color: #c8cad4;
+  pointer-events: none;
 }
 
 .ov2-tile:hover .ov2-tile-arrow {

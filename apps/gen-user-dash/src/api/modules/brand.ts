@@ -1,13 +1,34 @@
 /** 品牌域（geoarticle 域带 /api 前缀） */
-import { get, post } from '../http';
+import { get, post, patch } from '../http';
 import type { BrandSummary } from '../types';
+
+export type BrandIntro = {
+  industry: string[];
+  website: string;
+  slogan?: string;
+  tone?: Record<string, unknown>;
+  description: string;
+  scripts?: string;
+  updated_at?: string | null;
+  exists?: boolean;
+  seeded_from_db?: boolean;
+};
 
 const art = { base: 'article' as const };
 export const brandApi = {
   // 品牌档案聚合（gen-api 主域）：建档结果页 / 概览页品牌卡
   summary: (brand_id?: string) =>
     get<BrandSummary>(`/api/brand/summary${brand_id ? `?brand_id=${encodeURIComponent(brand_id)}` : ''}`),
-  intro: () => get('/api/brand/intro', art),
+  /** 修改识别词（正式名，限次） */
+  rename: (name: string) =>
+    post<{ name: string; rename_remaining: number }>('/api/brand/rename', { name }),
+  /** 覆盖相似识别词列表 */
+  updateAliases: (aliases: string[]) =>
+    post<{ aliases: { alias: string; source: string; enabled: boolean }[] }>('/api/brand/aliases', { aliases }),
+  intro: () => get<BrandIntro>('/api/brand/intro', art),
+  /** 编辑档案失焦保存（部分字段） */
+  patchIntro: (body: { industry?: string[]; website?: string; description?: string }) =>
+    patch<BrandIntro>('/api/brand/intro', body, art),
   products: () => get('/api/brand/products', art),
   aliases: () => get('/api/brand/aliases', art),
   competitors: () => get('/api/brand/competitors', art),
