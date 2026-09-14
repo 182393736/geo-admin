@@ -49,7 +49,7 @@ async function main() {
   try {
     const r = await runConversation(page, PROMPT, log);
     fs.mkdirSync(OUT, { recursive: true });
-    const saved = saveResult(OUT, {
+    const saved = await saveResult(OUT, {
       ip: IP,
       platform: 'yuanbao',
       platformName: '腾讯元宝',

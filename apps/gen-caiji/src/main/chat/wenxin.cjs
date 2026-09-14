@@ -419,83 +419,122 @@ async function waitForAnswer(page, baselineText, log) {
   throw new Error(`等待文心一言完整回答超时 [${lastDebug}]`);
 }
 
-async function openSourcesPanel(page, log) {
-  const alreadyOpen = await page.evaluate(() => {
-    const items = document.querySelectorAll('[class*="_reference-item_"], [class*="reference-item"], [class*="reference-list"] [class*="_text_"]');
-    return items.length >= 2;
-  });
-  if (alreadyOpen) {
-    log('info', '信源列表已展开');
+async function openSourcesPanel(page, log, opts = {}) {
+  const force = !!opts.force;
+
+  const countVisibleRefs = async () =>
+    page.evaluate(() => {
+      const isVisible = el => {
+        if (!(el instanceof HTMLElement)) return false;
+        const st = window.getComputedStyle(el);
+        if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 8 && r.height > 8;
+      };
+      const sels = [
+        '[class*="_reference-item_"]',
+        '[class*="reference-item"]',
+        '[class*="sourceContainer"] [class*="item"]',
+        '[class*="source-item"]',
+        '[class*="reference-list"] a',
+        '[class*="reference-list"] li',
+      ];
+      let n = 0;
+      for (const sel of sels) {
+        for (const el of document.querySelectorAll(sel)) {
+          if (isVisible(el)) n += 1;
+        }
+      }
+      return n;
+    });
+
+  const visibleBefore = await countVisibleRefs();
+  // 必须以「可见」信源为准；DOM 里藏着隐藏节点时不能当成已展开（否则截图前会跳过点击，甚至再次点击会收起）
+  if (visibleBefore >= 2) {
+    log('info', `信源列表已展开（可见 ${visibleBefore} 条）`);
     return true;
   }
 
-  log('info', '点击回答上方「共参考N篇资料」展开信源…');
+  log('info', force
+    ? '截图前展开「共参考N篇资料」（当前未见可见信源）…'
+    : '点击回答上方「共参考N篇资料」展开信源…');
 
-  const clicked = await page.evaluate(() => {
-    const isVisible = el => {
-      if (!(el instanceof HTMLElement)) return false;
-      const style = window.getComputedStyle(el);
-      if (style.display === 'none' || style.visibility === 'hidden') return false;
-      const rect = el.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0;
-    };
-
-    const expandHeader = Array.from(
-      document.querySelectorAll('[class*="_could-expand_"], [class*="_main-header_"], .thinking-steps-title-extra, span.pre-text')
-    ).find(el => {
-      if (!isVisible(el)) return false;
-      const t = (el.textContent || '').replace(/\s+/g, '');
-      return /共参考\d+篇资料/.test(t);
-    });
-
-    if (expandHeader) {
-      const clickable =
-        expandHeader.closest('[class*="_could-expand_"]') ||
-        expandHeader.closest('[class*="_main-header_"]') ||
-        expandHeader;
-      clickable.scrollIntoView({ block: 'center' });
-      clickable.click();
-      return true;
+  // 1) Playwright 文本定位（比 class hash 稳）
+  let clicked = false;
+  try {
+    const loc = page.locator('text=/共参考\\d+篇资料/').last();
+    if (await loc.count()) {
+      await loc.scrollIntoViewIfNeeded().catch(() => undefined);
+      await loc.click({ timeout: 4000 });
+      clicked = true;
     }
+  } catch {
+    clicked = false;
+  }
 
-    const ranked = Array.from(document.querySelectorAll('div, span, header, button'))
-      .filter(isVisible)
-      .map(el => {
+  // 2) DOM 回退：找短文本节点并点可展开父级
+  if (!clicked) {
+    clicked = await page.evaluate(() => {
+      const isVisible = el => {
+        if (!(el instanceof HTMLElement)) return false;
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      };
+
+      const candidates = [];
+      for (const el of document.querySelectorAll('div, span, header, button, p, a, section')) {
+        if (!isVisible(el)) continue;
         const t = (el.textContent || '').replace(/\s+/g, '');
+        if (!t || t.length > 36) continue;
         let s = 0;
         if (/^共参考\d+篇资料$/.test(t)) s = 100;
-        else if (/共参考\d+篇资料/.test(t) && t.length < 24) s = 80;
+        else if (/共参考\d+篇资料/.test(t)) s = 80;
         else if (/^参考\d+个网页$/.test(t)) s = 50;
-        return { el, s, y: el.getBoundingClientRect().y };
-      })
-      .filter(x => x.s > 0)
-      .sort((a, b) => b.s - a.s || a.y - b.y);
+        else if (/^参考资料$/.test(t)) s = 40;
+        if (s) candidates.push({ el, s, y: el.getBoundingClientRect().y, t });
+      }
+      candidates.sort((a, b) => b.s - a.s || b.y - a.y);
+      const pick = candidates[0]?.el;
+      if (!(pick instanceof HTMLElement)) return false;
 
-    const pick = ranked[0]?.el;
-    if (!(pick instanceof HTMLElement)) return false;
-    const clickable = pick.closest('[class*="_could-expand_"]') || pick.closest('[class*="_main-header_"]') || pick;
-    clickable.scrollIntoView({ block: 'center' });
-    clickable.click();
-    return true;
-  });
+      const clickable =
+        pick.closest('[class*="_could-expand_"]') ||
+        pick.closest('[class*="could-expand"]') ||
+        pick.closest('[class*="_main-header_"]') ||
+        pick.closest('[class*="main-header"]') ||
+        pick.closest('[role="button"]') ||
+        pick.closest('button') ||
+        pick;
+      clickable.scrollIntoView({ block: 'center', inline: 'nearest' });
+      // 派发完整鼠标事件，避免仅 el.click 被框架忽略
+      try {
+        clickable.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+        clickable.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+        clickable.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+      } catch {
+        clickable.click();
+      }
+      return true;
+    });
+  }
 
   if (!clicked) {
     log('warn', '未找到「共参考N篇资料」入口');
     return false;
   }
 
-  for (let i = 0; i < 12; i++) {
-    await sleep(400);
-    const ready = await page.evaluate(() => {
-      return document.querySelectorAll('[class*="_reference-item_"], [class*="reference-item"]').length >= 2;
-    });
-    if (ready) {
-      log('info', '信源列表已展开');
+  for (let i = 0; i < 16; i++) {
+    await sleep(350);
+    const n = await countVisibleRefs();
+    if (n >= 2) {
+      log('info', `信源列表已展开（可见 ${n} 条）`);
       return true;
     }
   }
 
-  log('warn', '已点击参考入口，但信源列表未出现');
+  log('warn', '已点击参考入口，但可见信源列表未出现');
   return false;
 }
 
@@ -645,4 +684,4 @@ async function runConversation(page, prompt, log) {
   return { answer: finalAnswer, answerHtml, sources };
 }
 
-module.exports = { runConversation };
+module.exports = { runConversation, openSourcesPanel };

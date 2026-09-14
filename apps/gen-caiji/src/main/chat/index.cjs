@@ -9,6 +9,7 @@ const { runConversation: runDoubao } = require('./doubao.cjs');
 const { runConversation: runQianwen } = require('./qianwen.cjs');
 const { runConversation: runWenxin } = require('./wenxin.cjs');
 const { runConversation: runYuanbao } = require('./yuanbao.cjs');
+const { compressShot, buildShotCompareHtml, formatBytes } = require('./shot-compress.cjs');
 
 const RUNNERS = {
   deepseek: runDeepseek,
@@ -244,8 +245,11 @@ function buildJsonPreviewHtml(content) {
 </html>`;
 }
 
-/** 保存结果：同时写 HTML 与模拟提交 JSON（同时间戳成对），返回 { htmlPath, jsonPath } */
-function saveResult(dir, { ip, platform, platformName, prompt, answer, answerHtml, sources, startedAt }) {
+/**
+ * 保存结果：HTML + 模拟提交 JSON + 可选对话截图（WebP 无损优先，保留 PNG raw 对比）
+ * @returns {Promise<{ htmlPath, jsonPath, shotPath: string|null, shotRawPath: string|null, shotComparePath: string|null, shotBytes: number, shotRawBytes: number, shotEngine: string }>}
+ */
+async function saveResult(dir, { ip, platform, platformName, prompt, answer, answerHtml, sources, startedAt, screenshot }) {
   const finishedAt = fmt(new Date());
   const started = fmtTime(startedAt) || finishedAt;
   const html = buildResultHtml({
@@ -258,7 +262,61 @@ function saveResult(dir, { ip, platform, platformName, prompt, answer, answerHtm
   const jsonPath = path.join(dir, `${platform}-${stamp}.json`);
   fs.writeFileSync(htmlPath, html, 'utf8');
   fs.writeFileSync(jsonPath, JSON.stringify(json, null, 2), 'utf8');
-  return { htmlPath, jsonPath };
+
+  let shotPath = null;
+  let shotRawPath = null;
+  let shotComparePath = null;
+  let shotBytes = 0;
+  let shotRawBytes = 0;
+  let shotEngine = 'none';
+
+  if (screenshot && screenshot.length) {
+    const packed = await compressShot(screenshot);
+    shotRawBytes = packed.rawBytes;
+    shotBytes = packed.compressedBytes;
+    shotEngine = packed.engine;
+
+    const rawName = `${platform}-${stamp}-raw.png`;
+    const cmpName = `${platform}-${stamp}.${packed.ext || 'webp'}`;
+    const compareName = `${platform}-${stamp}-compare.html`;
+    shotRawPath = path.join(dir, rawName);
+    shotPath = path.join(dir, cmpName);
+    shotComparePath = path.join(dir, compareName);
+
+    fs.writeFileSync(shotRawPath, packed.raw);
+    fs.writeFileSync(shotPath, packed.compressed);
+    fs.writeFileSync(
+      shotComparePath,
+      buildShotCompareHtml({
+        platformName: platformName || platform,
+        rawFile: rawName,
+        compressedFile: cmpName,
+        rawBytes: shotRawBytes,
+        compressedBytes: shotBytes,
+        engine: shotEngine,
+      }),
+      'utf8',
+    );
+  }
+
+  return {
+    htmlPath,
+    jsonPath,
+    shotPath,
+    shotRawPath,
+    shotComparePath,
+    shotBytes,
+    shotRawBytes,
+    shotEngine,
+  };
 }
 
-module.exports = { runChat, buildResultHtml, buildSubmitJson, buildJsonPreviewHtml, saveResult, RUNNERS };
+module.exports = {
+  runChat,
+  buildResultHtml,
+  buildSubmitJson,
+  buildJsonPreviewHtml,
+  saveResult,
+  RUNNERS,
+  formatBytes,
+};

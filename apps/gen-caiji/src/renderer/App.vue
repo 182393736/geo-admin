@@ -106,6 +106,24 @@
         </template>
       </el-table-column>
 
+      <el-table-column label="截图" width="230">
+        <template #default="{ row }">
+          <div class="col">
+            <div v-for="p in platforms" :key="p.key" class="preview-row shot-row">
+              <el-button
+                size="small"
+                class="preview-btn"
+                type="info"
+                plain
+                :disabled="!hasShot(row.ip, p.key)"
+                @click="doPreviewShot(row, p)"
+              >截图{{ p.name }}</el-button>
+              <span v-if="shotSizeText(row.ip, p.key)" class="shot-size" :title="'点击预览可看压缩前后对比'">{{ shotSizeText(row.ip, p.key) }}</span>
+            </div>
+          </div>
+        </template>
+      </el-table-column>
+
       <el-table-column label="拉取" width="150">
         <template #default="{ row }">
           <div class="col">
@@ -184,6 +202,9 @@ const running = reactive({});            // `${ip}:${platform}` -> true（对话
 const pulling = reactive({});            // `${ip}:${platform}` -> true（该平台测试拉取中）
 const lastExecAt = reactive({});         // `${ip}:${platform}` -> 该 tab 上次拉取结束时间（冷却按 tab）
 const results = reactive({});            // `${ip}:${platform}` -> true（已有对话结果可预览）
+const shots = reactive({});              // `${ip}:${platform}` -> true（已有对话截图可预览）
+const shotBytes = reactive({});          // `${ip}:${platform}` -> number（压缩后字节数）
+const shotRawBytes = reactive({});       // `${ip}:${platform}` -> number（压缩前字节数）
 const logs = ref([]);                    // 页面底部日志区
 const logBox = ref(null);
 const logCollapsed = ref(false);        // 日志面板收起/展开（悬浮于底部）
@@ -196,7 +217,37 @@ const authOf = (ip, platform) => authStates[`${ip}:${platform}`];
 const isRunning = (ip, platform) => !!running[`${ip}:${platform}`];
 const isPulling = (ip, platform) => !!pulling[`${ip}:${platform}`];
 const hasResult = (ip, platform) => !!results[`${ip}:${platform}`];
+const hasShot = (ip, platform) => !!shots[`${ip}:${platform}`];
+const formatShotSize = bytes => {
+  const n = Number(bytes) || 0;
+  if (n <= 0) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) {
+    const kb = n / 1024;
+    return `${kb >= 100 ? Math.round(kb) : kb.toFixed(1)} KB`;
+  }
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+};
+const shotSizeText = (ip, platform) => {
+  const key = `${ip}:${platform}`;
+  const after = formatShotSize(shotBytes[key]);
+  if (!after) return '';
+  const before = formatShotSize(shotRawBytes[key]);
+  if (before && shotRawBytes[key] > shotBytes[key]) return `${before}→${after}`;
+  return after;
+};
 const isBusy = (ip, platform) => isPulling(ip, platform) || isRunning(ip, platform);
+
+function rememberShot(key, r) {
+  const has = !!(r && (r.hasShot || r.shotPath));
+  shots[key] = has;
+  const bytes = Number(r && r.shotBytes) || 0;
+  const raw = Number(r && r.shotRawBytes) || 0;
+  if (has && bytes > 0) shotBytes[key] = bytes;
+  else if (!has) delete shotBytes[key];
+  if (has && raw > 0) shotRawBytes[key] = raw;
+  else if (!has) delete shotRawBytes[key];
+}
 
 function platformName(key) {
   if (key === 'collector') return '拉取';
@@ -364,9 +415,11 @@ async function doTest(row, p) {
     const r = await window.electronAPI.runChat(row.ip, p.key, q);
     if (r && r.ok) {
       results[key] = true;
+      rememberShot(key, r);
       openedBrowsers.value[row.ip] = true;             // 对话会确保浏览器会话已打开
       if (r.openedPlatform) openedPlatforms.value[key] = true; // 对话自动补开的平台 tab
-      ElMessage.success(`${p.name} 完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 HTML`);
+      const sizeTip = shotSizeText(row.ip, p.key);
+      ElMessage.success(`${p.name} 完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 HTML${r.hasShot ? ` / 截图${sizeTip ? ` ${sizeTip}` : ''}` : ''}`);
     } else {
       ElMessage.error(`${p.name} 对话失败：${(r && r.error) || '未知错误'}`);
     }
@@ -397,6 +450,16 @@ async function doPreviewJson(row, p) {
   }
 }
 
+async function doPreviewShot(row, p) {
+  if (!isElectron) return;
+  try {
+    const r = await window.electronAPI.previewChatShot(row.ip, p.key);
+    if (!r || !r.ok) ElMessage.info((r && r.error) || '暂无对话截图');
+  } catch (e) {
+    ElMessage.error('截图预览失败：' + ((e && e.message) || e));
+  }
+}
+
 /**
  * 拉取槽位并采集提交。
  * fromAuto=true：自动调度触发，空任务只写日志不弹 toast；无论空/失败/完成都释放进行中。
@@ -423,9 +486,11 @@ async function runPull(ip, platformKey, { fromAuto = false } = {}) {
     }
     if (r && r.ok) {
       results[key] = true;
+      rememberShot(key, r);
       openedBrowsers.value[ip] = true;
       if (r.openedPlatform) openedPlatforms.value[key] = true;
-      const tip = `${name} 拉取完成并已提交：回答 ${(r.answer || '').length} 字 · 信源 ${((r.sources || []).length)} 条`;
+      const sizeTip = shotSizeText(ip, platformKey);
+      const tip = `${name} 拉取完成并已提交：回答 ${(r.answer || '').length} 字 · 信源 ${((r.sources || []).length)} 条${r.hasShot ? ` · 已截图${sizeTip ? ` ${sizeTip}` : ''}` : ''}`;
       if (fromAuto) {
         pushLog({ ip, platform: platformKey, level: 'success', time: Date.now(), message: tip });
       } else {
@@ -650,6 +715,22 @@ body {
 }
 .preview-btn {
   width: 100%;
+}
+.shot-row {
+  align-items: center;
+  gap: 6px;
+}
+.shot-row .preview-btn {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 88px;
+}
+.shot-size {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: #909399;
+  white-space: nowrap;
+  line-height: 1;
 }
 .log-panel {
   position: fixed;

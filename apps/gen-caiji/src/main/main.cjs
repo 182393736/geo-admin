@@ -15,6 +15,7 @@ const { chromium } = require('playwright');
 const PLATFORMS = require('../shared/platforms.json');
 const { detectAuth, watchUsername } = require('./login-detect.cjs');
 const { runChat, saveResult, buildJsonPreviewHtml, buildSubmitJson } = require('./chat/index.cjs');
+const { captureConversationScreenshot } = require('./chat/common.cjs');
 const { pullSlot, submitSlot, getConfig: getCollectorConfig } = require('./collector-api.cjs');
 
 const IP_LIST_URL = 'http://api.tupianseo.com/daili/daili_list';
@@ -52,7 +53,7 @@ app.setName('gen-caiji');
 /** ip -> { context, pages: Map<platform, Page>, dir } */
 const sessions = new Map();
 
-/** 对话测试：最近一次结果 `${ip}:${platform}` -> { htmlPath, jsonPath } */
+/** 对话测试：最近一次结果 `${ip}:${platform}` -> { htmlPath, jsonPath, shotPath } */
 const lastResults = new Map();
 /** 对话测试：进行中的 `${ip}:${platform}` 集合（防重入） */
 const runningChats = new Set();
@@ -64,7 +65,7 @@ const CHAT_TIMEOUT_MS = 600_000; // 10 分钟
 
 /**
  * 在指定 IP 会话上执行一次平台对话（打开/复用 tab → goto 初始 URL → runChat → 落盘）
- * @returns {{ openedPlatform, answer, sources, htmlPath, jsonPath, submitBody }}
+ * @returns {{ openedPlatform, answer, sources, htmlPath, jsonPath, shotPath, submitBody }}
  */
 async function executePlatformChat(ip, platform, prompt, log, startedAt = new Date()) {
   const cfg = PLATFORMS.find(p => p.key === platform);
@@ -84,7 +85,26 @@ async function executePlatformChat(ip, platform, prompt, log, startedAt = new Da
   await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   log('info', `开始 ${cfg.name} 对话：${q}`);
   const r = await runChat(page, platform, q, log);
-  const saved = saveResult(resultsDirFor(ip), {
+
+  // 对话结束后截完整回答（撑开内部滚动容器，不只截当前视口）
+  let screenshot = null;
+  try {
+    // 文心：先展开上方「共参考N篇资料」，与回答一并入镜
+    if (platform === 'wenxin') {
+      try {
+        const { openSourcesPanel } = require('./chat/wenxin.cjs');
+        await openSourcesPanel(page, log, { force: true });
+        await new Promise(r => setTimeout(r, 600));
+      } catch (e) {
+        log('warn', `展开文心参考资料失败：${(e && e.message) || e}`);
+      }
+    }
+    screenshot = await captureConversationScreenshot(page, { platform });
+  } catch (e) {
+    log('warn', `对话截图失败：${(e && e.message) || e}`);
+  }
+
+  const saved = await saveResult(resultsDirFor(ip), {
     ip,
     platform,
     platformName: cfg.name,
@@ -93,11 +113,15 @@ async function executePlatformChat(ip, platform, prompt, log, startedAt = new Da
     answerHtml: r.answerHtml || '',
     sources: r.sources || [],
     startedAt,
+    screenshot,
   });
   lastResults.set(`${ip}:${platform}`, saved);
+  const shotTip = saved.shotPath
+    ? ` / 截图 ${saved.shotRawBytes || 0}→${saved.shotBytes || 0}B (${saved.shotEngine || '-'})`
+    : '';
   log(
     'success',
-    `对话完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 ${saved.htmlPath} / ${saved.jsonPath}`
+    `对话完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 ${saved.htmlPath} / ${saved.jsonPath}${shotTip}`
   );
   let submitBody = null;
   try {
@@ -120,6 +144,12 @@ async function executePlatformChat(ip, platform, prompt, log, startedAt = new Da
     sources: r.sources || [],
     htmlPath: saved.htmlPath,
     jsonPath: saved.jsonPath,
+    shotPath: saved.shotPath || null,
+    shotRawPath: saved.shotRawPath || null,
+    shotComparePath: saved.shotComparePath || null,
+    shotBytes: saved.shotBytes || 0,
+    shotRawBytes: saved.shotRawBytes || 0,
+    shotEngine: saved.shotEngine || 'none',
     submitBody,
   };
 }
@@ -341,6 +371,11 @@ function registerIpc() {
             sources: r.sources,
             htmlPath: r.htmlPath,
             jsonPath: r.jsonPath,
+            shotPath: r.shotPath,
+            hasShot: !!r.shotPath,
+            shotBytes: r.shotBytes || 0,
+            shotRawBytes: r.shotRawBytes || 0,
+            shotEngine: r.shotEngine || 'none',
           };
         })(),
         CHAT_TIMEOUT_MS,
@@ -454,6 +489,11 @@ function registerIpc() {
           sources: r.sources,
           htmlPath: r.htmlPath,
           jsonPath: r.jsonPath,
+          shotPath: r.shotPath,
+          hasShot: !!r.shotPath,
+          shotBytes: r.shotBytes || 0,
+          shotRawBytes: r.shotRawBytes || 0,
+          shotEngine: r.shotEngine || 'none',
           submit: submitRes,
         };
       } catch (err) {
@@ -510,6 +550,47 @@ function registerIpc() {
       });
       win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(buildJsonPreviewHtml(content)));
       return { ok: true, jsonPath: p.jsonPath };
+    } catch (err) {
+      return { ok: false, error: String((err && err.message) || err) };
+    }
+  });
+
+  // —— 预览：打开该 IP/平台最近一次对话截图（压缩前后对比） ——
+  ipcMain.handle('chat:preview-shot', async (_e, { ip, platform }) => {
+    const p = lastResults.get(`${ip}:${platform}`);
+    if (!p || !p.shotPath || !fs.existsSync(p.shotPath)) {
+      return { ok: false, error: '暂无对话截图，请先执行测试或拉取' };
+    }
+    try {
+      const win = new BrowserWindow({
+        width: 1280,
+        height: 900,
+        title: `截图压缩对比 · ${platform}`,
+        backgroundColor: '#0f172a',
+        webPreferences: { contextIsolation: true, nodeIntegration: false },
+      });
+      if (p.shotComparePath && fs.existsSync(p.shotComparePath)) {
+        await win.loadFile(p.shotComparePath);
+      } else {
+        await win.loadFile(p.shotPath);
+      }
+      let shotBytes = p.shotBytes || 0;
+      let shotRawBytes = p.shotRawBytes || 0;
+      try {
+        if (!shotBytes) shotBytes = fs.statSync(p.shotPath).size;
+        if (!shotRawBytes && p.shotRawPath && fs.existsSync(p.shotRawPath)) {
+          shotRawBytes = fs.statSync(p.shotRawPath).size;
+        }
+      } catch { /* ignore */ }
+      return {
+        ok: true,
+        shotPath: p.shotPath,
+        shotRawPath: p.shotRawPath || null,
+        shotComparePath: p.shotComparePath || null,
+        shotBytes,
+        shotRawBytes,
+        shotEngine: p.shotEngine || 'none',
+      };
     } catch (err) {
       return { ok: false, error: String((err && err.message) || err) };
     }
