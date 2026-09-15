@@ -3,7 +3,7 @@ import { get, post } from '../http';
 import type {
   MonitorQuery, QueryGroupResp, QueryStatusResp, RateTrendResp, FullRankingMatrixResp,
   AiRankingMatrixResp, ReputationDataResp, GetReferencesResp, SourceStatsResp, SnapshotItem,
-  CompetitorInsightResp, SourceTrendResp, EnginePreferenceResp, OwnTrendResp, PerspectiveResp,
+  SnapshotAnswerResp, CompetitorInsightResp, SourceTrendResp, EnginePreferenceResp, OwnTrendResp, PerspectiveResp,
 } from '../types';
 
 // 对标 geoapi.timus.cn：5 家引擎（含 qwen，顺序 = 对标）
@@ -49,6 +49,40 @@ export const monitorApi = {
   siTopics: () => get<{ query_id: number; name: string }[]>('/source_intelligence/topics'),
 
   // --- 快照 ---
-  snapshotList: (date: string, query_id: number, page = 1, query_type: 'industry' | 'brand' = 'industry') =>
-    post<{ list: SnapshotItem[] }>('/snapshot/export/list', { page, page_size: 10, start_date: date, query_id, query_type }),
+  snapshotList: (
+    date: string,
+    query_id: number,
+    page = 1,
+    query_type: 'industry' | 'brand' = 'industry',
+    platform = 'all',
+    page_size = 50,
+  ) =>
+    post<{ list: SnapshotItem[]; total: number; page: number; page_size: number }>(
+      '/snapshot/export/list',
+      { page, page_size, start_date: date, query_id, query_type, platform },
+    ),
+  snapshotAnswer: (snapshot_id: string) =>
+    post<SnapshotAnswerResp>('/snapshot/export/answer', { snapshot_id }),
+  /** 下载回答 CSV（绕过 JSON 解包） */
+  snapshotExportTextBlob: async (payload: {
+    start_date: string;
+    query_id: number;
+    query_type: 'industry' | 'brand';
+    platform?: string;
+  }) => {
+    const { useAuthStore } = await import('@/stores/auth');
+    const { API_BASE } = await import('../http');
+    const auth = useAuthStore();
+    const body = { ...payload, brand_id: auth.activeBrandId };
+    const resp = await fetch(`${API_BASE}/snapshot/export/text`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) throw new Error(`导出失败 HTTP ${resp.status}`);
+    return resp.blob();
+  },
 };

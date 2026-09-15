@@ -269,15 +269,17 @@ async function saveResult(dir, { ip, platform, platformName, prompt, answer, ans
   let shotBytes = 0;
   let shotRawBytes = 0;
   let shotEngine = 'none';
+  let shotExt = '';
 
   if (screenshot && screenshot.length) {
     const packed = await compressShot(screenshot);
     shotRawBytes = packed.rawBytes;
     shotBytes = packed.compressedBytes;
     shotEngine = packed.engine;
+    shotExt = packed.ext || 'webp';
 
     const rawName = `${platform}-${stamp}-raw.png`;
-    const cmpName = `${platform}-${stamp}.${packed.ext || 'webp'}`;
+    const cmpName = `${platform}-${stamp}.${shotExt}`;
     const compareName = `${platform}-${stamp}-compare.html`;
     shotRawPath = path.join(dir, rawName);
     shotPath = path.join(dir, cmpName);
@@ -308,6 +310,7 @@ async function saveResult(dir, { ip, platform, platformName, prompt, answer, ans
     shotBytes,
     shotRawBytes,
     shotEngine,
+    shotExt,
   };
 }
 

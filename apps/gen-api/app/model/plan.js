@@ -13,7 +13,7 @@ module.exports = app => {
     plan_code: { type: String, unique: true },  // starter_monthly/pro_monthly…
     plan_name: String,
     plan_type: String,
-    billing_cycle: { type: String, enum: ['monthly', 'quarterly', 'yearly'] },
+    billing_cycle: { type: String, enum: ['monthly', 'quarterly', 'yearly', 'permanent'] },
     price: Number,
     original_price: Number,
     duration_days: Number,

@@ -5,6 +5,7 @@ dist-ssr
 .DS_Store
 .env
 .env.local
+**/oss.local.json
 *.log
 .idea
 .vscode

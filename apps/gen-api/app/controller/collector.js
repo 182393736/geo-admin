@@ -209,6 +209,7 @@ class CollectorController extends Controller {
         { upsert: true },
       );
       slotUpdate.answer_id = answerId;
+      await this._upsertSnapshot(slot, b, answerId);
     } else if (status === 'empty') {
       // empty = 引擎无有效回答，但槽位有效（进指标分母）；有原文时也落 raw_answers 留证
       if (answerText) {
@@ -235,6 +236,9 @@ class CollectorController extends Controller {
           { upsert: true },
         );
         slotUpdate.answer_id = answerId;
+        await this._upsertSnapshot(slot, b, answerId);
+      } else if (b.photo_url || b.oss_key) {
+        await this._upsertSnapshot(slot, b, null);
       }
     } else { // fail：失败次数 +1，达上限即终态
       const error = String(b.error || '采集失败').slice(0, 500);
@@ -260,6 +264,48 @@ class CollectorController extends Controller {
       code: 200, msg: 'ok',
       data: { slot_id: slotId, status: nextStatus, attempts: attemptsAfter, answer_id: answerId },
     };
+  }
+
+  /**
+   * 采集端已直传 OSS 后，按 slot_id 落/覆盖 snapshots
+   */
+  async _upsertSnapshot(slot, body, answerId) {
+    const { ctx } = this;
+    const M = ctx.model;
+    const ossKey = typeof body.oss_key === 'string' ? body.oss_key.trim() : '';
+    const photoUrl = typeof body.photo_url === 'string' ? body.photo_url.trim() : '';
+    if (!ossKey && !photoUrl) return null;
+
+    const existing = await M.Snapshot.findOne({ slot_id: slot.slot_id }, { snapshot_id: 1 }).lean();
+    const snapshotId = (existing && existing.snapshot_id) || ctx.helper.uuid();
+    const size = Number(body.size);
+    const $set = {
+      snapshot_id: snapshotId,
+      slot_id: slot.slot_id,
+      brand_id: slot.brand_id,
+      query_id: slot.query_id,
+      platform: slot.platform,
+      exec_date: slot.date,
+      photo_url: photoUrl || undefined,
+      oss_key: ossKey || undefined,
+      size: Number.isFinite(size) && size > 0 ? size : undefined,
+    };
+    if (typeof body.oss_raw_key === 'string' && body.oss_raw_key.trim()) {
+      $set.oss_raw_key = body.oss_raw_key.trim();
+    }
+    if (typeof body.photo_raw_url === 'string' && body.photo_raw_url.trim()) {
+      $set.photo_raw_url = body.photo_raw_url.trim();
+    }
+    const sizeRaw = Number(body.size_raw);
+    if (Number.isFinite(sizeRaw) && sizeRaw > 0) $set.size_raw = sizeRaw;
+    if (answerId) $set.answer_id = answerId;
+
+    await M.Snapshot.updateOne(
+      { slot_id: slot.slot_id },
+      { $set },
+      { upsert: true },
+    );
+    return snapshotId;
   }
 
   /** 归一化信源清单：url 必填，title/index(兼容 rank)/snippet/site_name/domain/publish_time 可选，只写有值字段 */

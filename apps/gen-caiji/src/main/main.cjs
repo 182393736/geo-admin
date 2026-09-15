@@ -17,6 +17,7 @@ const { detectAuth, watchUsername } = require('./login-detect.cjs');
 const { runChat, saveResult, buildJsonPreviewHtml, buildSubmitJson } = require('./chat/index.cjs');
 const { captureConversationScreenshot } = require('./chat/common.cjs');
 const { pullSlot, submitSlot, getConfig: getCollectorConfig } = require('./collector-api.cjs');
+const { uploadShotPair, getOssConfig } = require('./oss/upload.cjs');
 
 const IP_LIST_URL = 'http://api.tupianseo.com/daili/daili_list';
 
@@ -150,6 +151,7 @@ async function executePlatformChat(ip, platform, prompt, log, startedAt = new Da
     shotBytes: saved.shotBytes || 0,
     shotRawBytes: saved.shotRawBytes || 0,
     shotEngine: saved.shotEngine || 'none',
+    shotExt: saved.shotExt || '',
     submitBody,
   };
 }
@@ -471,6 +473,52 @@ function registerIpc() {
           },
         };
 
+        // 截图直传 OSS（压缩图 + raw），同槽覆盖；失败不阻断提交，但记日志
+        if (r.shotPath) {
+          const ossCfg = getOssConfig();
+          if (!ossCfg.enabled) {
+            logPull('warn', `OSS 未配置，跳过上传（可复制 oss.local.example.json → oss.local.json）`);
+          } else {
+            try {
+              logPull('info', '上传截图到阿里云 OSS…');
+              const uploaded = await uploadShotPair({
+                brandId: slot.brand_id,
+                execDate: slot.date,
+                platform: slot.platform || platform,
+                slotId: slot.slot_id,
+                compressedPath: r.shotPath,
+                rawPath: r.shotRawPath,
+                compressedExt: r.shotExt,
+              });
+              if (uploaded) {
+                Object.assign(payload, {
+                  photo_url: uploaded.photo_url,
+                  oss_key: uploaded.oss_key,
+                  size: uploaded.size,
+                });
+                if (uploaded.oss_raw_key) {
+                  payload.photo_raw_url = uploaded.photo_raw_url;
+                  payload.oss_raw_key = uploaded.oss_raw_key;
+                  payload.size_raw = uploaded.size_raw;
+                  payload.model_meta = {
+                    ...payload.model_meta,
+                    oss_raw_key: uploaded.oss_raw_key,
+                    photo_raw_url: uploaded.photo_raw_url,
+                    size_raw: uploaded.size_raw,
+                  };
+                }
+                logPull(
+                  'success',
+                  `OSS 上传完成：${uploaded.oss_key}（${uploaded.size}B）` +
+                    (uploaded.oss_raw_key ? ` + raw ${uploaded.size_raw}B` : ''),
+                );
+              }
+            } catch (ossErr) {
+              logPull('warn', `OSS 上传失败（仍提交回答）：${(ossErr && ossErr.message) || ossErr}`);
+            }
+          }
+        }
+
         logPull('info', `提交结果到后台（status=${payload.status}）…`);
         const submitRes = await submitSlot(slot.slot_id, payload);
         logPull(
@@ -494,6 +542,8 @@ function registerIpc() {
           shotBytes: r.shotBytes || 0,
           shotRawBytes: r.shotRawBytes || 0,
           shotEngine: r.shotEngine || 'none',
+          photo_url: payload.photo_url || null,
+          oss_key: payload.oss_key || null,
           submit: submitRes,
         };
       } catch (err) {

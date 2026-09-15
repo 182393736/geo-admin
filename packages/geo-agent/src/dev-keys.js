@@ -15,11 +15,20 @@ const DEV_KEYS = {
   SILICONFLOW_BASE_URL: 'https://api.siliconflow.cn/v1',
   SILICONFLOW_MODEL: 'deepseek-ai/DeepSeek-V4-Flash',
   TAVILY_API_KEY: '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',
+  // 博查 Web Search（联网取证主引擎；生产用 BOCHA_API_KEY 覆盖）
+  // 文档：https://open.bochaai.com/  POST https://api.bochaai.com/v1/web-search  summary:true
+  // 未配置时 createWebSearch 自动退回 Tavily
+  BOCHA_API_KEY: 'sk-5f5e0bb1543d456ca54d0218a8a1d5d5',
+  // DeepSeek 官方（默认供应商；请用 DEEPSEEK_API_KEY 环境变量注入，勿把真实 key 提交进仓库）
+  // 文档：https://api-docs.deepseek.com/zh-cn/  base=https://api.deepseek.com  model=deepseek-flash
+  DEEPSEEK_API_KEY: '',
+  DEEPSEEK_BASE_URL: 'https://api.deepseek.com',
+  DEEPSEEK_MODEL: 'deepseek-flash',
   // Agnes AI（测试用 key，生产环境用 AGNES_API_KEY 环境变量覆盖）
   AGNES_API_KEY: 'sk-jMCSPHx7y8WRCltlLg187HomxaXCkG5YAMDtQ4hEDCJwQfir',
   AGNES_BASE_URL: 'https://apihub.agnes-ai.com/v1',
   AGNES_MODEL: 'agnes-3.0-flash',
-  // Mistral（ministral-3b-2512，多 key 轮询避速率限制；生产用 MISTRAL_API_KEYS 环境变量覆盖，
+  // Mistral（备用供应商；生产用 MISTRAL_API_KEYS 环境变量覆盖，
   //   支持逗号分隔或 JSON 数组字符串，如 MISTRAL_API_KEYS='["k1","k2"]'）
   MISTRAL_API_KEYS: [
     'Nt6BSqSRPKlFQz0pEHbKZqDn9n6lM7Mf',

@@ -157,37 +157,103 @@ async function main() {
   const sq = r3.traces.filter(t => t.kind === 'search_query');
   assert.ok(sq.length >= 2, '检索词留痕');
   assert.ok(sq.every(t => t.meta.engine === 'fake-serp'), '检索来源留痕');
+  assert.ok(sq.every(t => Array.isArray(t.meta.results) && t.meta.results[0]?.url), '检索结果进 meta 供管理后台');
+  const llmWeb = r3.traces.find(t => t.kind === 'llm_output' && t.meta && t.meta.step === 'web_research');
+  assert.ok(llmWeb && llmWeb.meta.input && llmWeb.meta.input.user, '联网步 LLM 输入留痕');
+  assert.ok(typeof llmWeb.meta.output === 'string' && llmWeb.meta.output.length > 0, '联网步 LLM 输出留痕');
+  const llmProf = r3.traces.find(t => t.kind === 'llm_output' && t.meta && t.meta.step === 'profile');
+  assert.ok(llmProf && llmProf.meta.input && llmProf.meta.input.user, '画像步 LLM 输入留痕');
+  assert.ok(typeof llmProf.meta.output === 'string', '画像步 LLM 输出字段');
+  assert.strictEqual(llmProf.meta.model, 'stub-offline', '模型名留痕');
   assert.ok(r3.usage.some(u => u.step === 'web_research'), '联网步记账');
 
-  // ===== Tavily 执行器契约：createWebSearch 走 Tavily 分支（content→snippet 截断）；未配 key 全部降级 null =====
+  // ===== 联网执行器：博查主 + Tavily 兜底；未配 key 全部降级 null =====
   const { createWebSearch, createSearchProvider } = require('../src/search');
+
+  // 仅 Tavily
   const tavilyFetch = async (url, init = {}) => {
     assert.strictEqual(url, 'https://api.tavily.com/search', 'Tavily 端点');
     assert.ok(String(init.headers.Authorization || '').startsWith('Bearer tvly-stub'), 'Bearer 鉴权');
     const body = JSON.parse(init.body);
     assert.ok(body.query && body.max_results >= 1, 'query/max_results 传参');
     assert.strictEqual(body.include_answer, false, '不要 Tavily 答案摘要（推理留给自家 LLM）');
-    return { ok: true, status: 200, json: async () => ({ results: [
-      { title: '结果A', url: 'https://example.com/a', content: 'A'.repeat(900) },
-      { title: '结果B', url: 'https://example.com/b', content: '正文B' },
-      { title: '无URL', url: '', content: '应被过滤' },
-    ] }) };
+    return {
+      ok: true, status: 200,
+      text: async () => '',
+      json: async () => ({ results: [
+        { title: '结果A', url: 'https://example.com/a', content: 'A'.repeat(900) },
+        { title: '结果B', url: 'https://example.com/b', content: '正文B' },
+        { title: '无URL', url: '', content: '应被过滤' },
+      ] }),
+    };
   };
-  const ws = createWebSearch({ tavilyKey: 'tvly-stub-key', fetchImpl: tavilyFetch });
-  assert.strictEqual(ws.name, 'tavily');
-  const tavilyResults = await ws.search('免费AI绘图工具哪个好用');
+  const wsTavily = createWebSearch({ tavilyKey: 'tvly-stub-key', bochaKey: '', fetchImpl: tavilyFetch });
+  assert.strictEqual(wsTavily.name, 'tavily');
+  const tavilyResults = await wsTavily.search('免费AI绘图工具哪个好用');
   assert.strictEqual(tavilyResults.length, 2, '空 url 过滤');
   assert.strictEqual(tavilyResults[0].snippet.length, 500, 'content 截断 500 字符为 snippet');
   assert.strictEqual(tavilyResults[1].snippet, '正文B');
-  assert.ok(tavilyResults.every(r => r.title && r.url), 'title/url 契约');
-  // 降级链：无 TAVILY_API_KEY → webSearch null；热度 Provider 现阶段恒 null（SerpAPI/Bing 已停用）
-  // dev-keys.js 内置了测试用 TAVILY_API_KEY，验证"无密钥降级"路径需显式关闭内置值
+  assert.strictEqual(wsTavily.lastEngine, 'tavily');
+  assert.strictEqual(wsTavily.lastFallback, false);
+
+  // 仅博查（summary:true，summary 优先于 snippet）
+  const bochaFetch = async (url, init = {}) => {
+    assert.strictEqual(url, 'https://api.bochaai.com/v1/web-search', '博查端点');
+    assert.ok(String(init.headers.Authorization || '').startsWith('Bearer sk-bocha'), '博查 Bearer');
+    const body = JSON.parse(init.body);
+    assert.strictEqual(body.summary, true, 'summary 必开');
+    assert.ok(body.count >= 1, 'count');
+    return {
+      ok: true, status: 200,
+      text: async () => JSON.stringify({
+        code: 200,
+        data: { webPages: { value: [
+          { name: '博查A', url: 'https://example.com/ba', snippet: '短', summary: 'S'.repeat(900) },
+          { name: '博查B', url: 'https://example.com/bb', snippet: '仅snippet' },
+          { name: '无URL', url: '', summary: '丢' },
+        ] } },
+      }),
+    };
+  };
+  const wsBocha = createWebSearch({ bochaKey: 'sk-bocha-stub', tavilyKey: '', fetchImpl: bochaFetch });
+  assert.strictEqual(wsBocha.name, 'bocha');
+  const bochaResults = await wsBocha.search('美的空调 品牌');
+  assert.strictEqual(bochaResults.length, 2);
+  assert.strictEqual(bochaResults[0].snippet.length, 500, 'summary 截断 500');
+  assert.strictEqual(bochaResults[1].snippet, '仅snippet');
+  assert.strictEqual(wsBocha.lastEngine, 'bocha');
+  assert.strictEqual(wsBocha.lastFallback, false);
+
+  // 博查出错 → Tavily 回退；lastEngine/lastFallback/lastError 供管理后台留痕
+  let hit = 0;
+  const fallbackFetch = async (url, init = {}) => {
+    hit++;
+    if (String(url).includes('bochaai')) {
+      return { ok: false, status: 500, text: async () => 'bocha down', json: async () => ({}) };
+    }
+    return tavilyFetch(url, init);
+  };
+  const wsFb = createWebSearch({
+    bochaKey: 'sk-bocha-stub', tavilyKey: 'tvly-stub-key', fetchImpl: fallbackFetch,
+  });
+  assert.strictEqual(wsFb.name, 'bocha', '有博查 key 时主名为 bocha');
+  const fbResults = await wsFb.search('海尔冰箱');
+  assert.ok(hit >= 2, '先博查后 Tavily');
+  assert.strictEqual(fbResults.length, 2);
+  assert.strictEqual(wsFb.lastEngine, 'tavily');
+  assert.strictEqual(wsFb.lastFallback, true);
+  assert.ok(/bocha/i.test(wsFb.lastError || ''), '保留主引擎错误');
+
+  // 降级链：无 BOCHA/TAVILY → null（关闭内置 dev-keys）
   process.env.GEO_DISABLE_DEV_KEYS = '1';
   const savedTavily = process.env.TAVILY_API_KEY;
+  const savedBocha = process.env.BOCHA_API_KEY;
   delete process.env.TAVILY_API_KEY;
-  assert.strictEqual(createWebSearch({ fetchImpl: tavilyFetch }), null, '未配 TAVILY_API_KEY → null 不联网');
+  delete process.env.BOCHA_API_KEY;
+  assert.strictEqual(createWebSearch({ fetchImpl: tavilyFetch }), null, '未配任何搜索 key → null 不联网');
   delete process.env.GEO_DISABLE_DEV_KEYS;
   if (savedTavily) process.env.TAVILY_API_KEY = savedTavily;
+  if (savedBocha) process.env.BOCHA_API_KEY = savedBocha;
   assert.strictEqual(createSearchProvider({ serpApiKey: 'x', bingKey: 'y' }), null, '热度 Provider 恒 null → 诚实 llm_estimate');
 
   // ===== 纠偏重试：第一轮不守中立约束 → 带被剔样本再要一轮 =====
@@ -238,7 +304,7 @@ async function main() {
   assert.strictEqual(dirty.candidates[0].query, '免费AI绘图工具哪个好用');
   assert.strictEqual(dirty.candidates[0].query_type, 'industry');
 
-  console.log('CONTRACT OK: 完整字段集 + 品牌中立闸门（剔除/重试/回传拦截）+ 联网工具循环 + Tavily 执行器全部通过');
+  console.log('CONTRACT OK: 完整字段集 + 品牌中立闸门 + 联网工具循环 + 博查/Tavily 执行器全部通过');
 }
 
 main().catch(e => { console.error('CONTRACT FAIL:', e); process.exit(1); });

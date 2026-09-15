@@ -3,35 +3,43 @@ const { resolveKey, resolveKeys } = require('@geo-admin/geo-agent');
 
 /**
  * 大模型供应商预设（OpenAI 兼容协议）
- * - 切换：环境变量 LLM_PROVIDER=mistral | siliconflow | agnes | deepseek（默认 mistral）
+ * - 切换：环境变量 LLM_PROVIDER=deepseek | mistral | siliconflow | agnes（默认 deepseek）
  * - 各供应商可再用 *_API_KEY(S) / *_BASE_URL / *_MODEL 环境变量覆盖
+ * - deepseek：官方 https://api.deepseek.com ，默认模型 deepseek-flash
  * - mistral：ministral-3b-2512，多 key 轮询（MISTRAL_API_KEYS 支持 JSON 数组或逗号分隔）
  * - agnes 默认关闭思考模式（enable_thinking:false，降延迟省 token），AGNES_ENABLE_THINKING=1 打开
  */
 const LLM_PROVIDERS = {
+  deepseek: {
+    apiKey: resolveKey('DEEPSEEK_API_KEY'),
+    baseURL: resolveKey('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com',
+    model: resolveKey('DEEPSEEK_MODEL') || 'deepseek-flash',
+    chatTemplateKwargs: null,
+    // 官方默认开 thinking，结构化抽取会浪费 token；DEEPSEEK_ENABLE_THINKING=1 可打开
+    extraBody: process.env.DEEPSEEK_ENABLE_THINKING === '1'
+      ? null
+      : { thinking: { type: 'disabled' } },
+  },
   mistral: {
     apiKeys: resolveKeys('MISTRAL_API_KEYS'),
     baseURL: resolveKey('MISTRAL_BASE_URL'),
     model: resolveKey('MISTRAL_MODEL'),
     chatTemplateKwargs: null,
+    extraBody: null,
   },
   siliconflow: {
     apiKey: resolveKey('SILICONFLOW_API_KEY'),
     baseURL: resolveKey('SILICONFLOW_BASE_URL'),
     model: resolveKey('SILICONFLOW_MODEL'),
     chatTemplateKwargs: null,
+    extraBody: null,
   },
   agnes: {
     apiKey: resolveKey('AGNES_API_KEY'),
     baseURL: resolveKey('AGNES_BASE_URL'),
     model: resolveKey('AGNES_MODEL'),
     chatTemplateKwargs: process.env.AGNES_ENABLE_THINKING === '1' ? null : { enable_thinking: false },
-  },
-  deepseek: {
-    apiKey: process.env.DEEPSEEK_API_KEY || '',
-    baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
-    model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
-    chatTemplateKwargs: null,
+    extraBody: null,
   },
 };
 
@@ -44,12 +52,13 @@ function normalizeProvider(p) {
     baseURL: p.baseURL || '',
     model: p.model || '',
     chatTemplateKwargs: p.chatTemplateKwargs ?? null,
+    extraBody: p.extraBody ?? null,
   };
 }
 
 module.exports = () => {
-  const rawProvider = process.env.LLM_PROVIDER || 'mistral';
-  const provider = LLM_PROVIDERS[rawProvider] ? rawProvider : 'mistral'; // 未知值兜底到默认 mistral
+  const rawProvider = process.env.LLM_PROVIDER || 'deepseek';
+  const provider = LLM_PROVIDERS[rawProvider] ? rawProvider : 'deepseek'; // 未知值兜底到默认 deepseek
   const active = normalizeProvider(LLM_PROVIDERS[provider]);
   return {
   mongoose: {
@@ -69,7 +78,9 @@ module.exports = () => {
     baseURL: active.baseURL,
     model: active.model,
     chatTemplateKwargs: active.chatTemplateKwargs,
+    extraBody: active.extraBody,
     // 显式 HTTP(S) 代理：本地开发走本机代理访问海外供应商；生产不设置 LLM_PROXY 即直连
+    // DeepSeek 国内可直连，仍可通过 LLM_PROXY 覆盖
     proxy: String(process.env.LLM_PROXY || '').trim(),
     providers: LLM_PROVIDERS,
   },
@@ -84,7 +95,8 @@ module.exports = () => {
     baseURL: LLM_PROVIDERS.deepseek.baseURL,
     model: LLM_PROVIDERS.deepseek.model,
   },
-  // 联网取证（Tavily）：同样支持 env 覆盖内置测试密钥，未配置则降级不联网
+  // 联网取证：主博查 Web Search（summary），出错回退 Tavily；均未配置则不联网
+  bocha: { apiKey: resolveKey('BOCHA_API_KEY') },
   tavily: { apiKey: resolveKey('TAVILY_API_KEY') },
   // 采集 worker 协议：服务级鉴权 key + 拉取/重试约束
   collector: {

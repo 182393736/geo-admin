@@ -75,7 +75,7 @@ export const adminApi = {
 
   // 首登
   onboardingTasks: (p: Record<string, any> = {}) => get<AdminPaged<AdminOnboardingTaskRow> & { funnel: { stage: string; n: number }[] }>(`/admin/onboarding/tasks${qs(p)}`),
-  onboardingTraces: (taskId: string) => get<{ list: AdminOnboardingTraceRow[]; total: number }>(`/admin/onboarding/traces${qs({ task_id: taskId })}`),
+  onboardingTraces: (taskId: string, brandId?: string) => get<{ list: AdminOnboardingTraceRow[]; total: number }>(`/admin/onboarding/traces${qs({ task_id: taskId, brand_id: brandId || undefined })}`),
 
   // 行为 / 诊断 / Agent / 消息 / 系统
   behavior: (p: Record<string, any> = {}) => get<AdminPaged<AdminBehaviorEventRow> & { top_pages: { source: string; n: number }[] }>(`/admin/behavior/events${qs(p)}`),

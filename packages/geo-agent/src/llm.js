@@ -5,7 +5,9 @@
  * 契约：chatJson 强制 JSON 输出（response_format json_object，400 时不带该参数自动降级重试）；
  *       chatStream 走 SSE(stream:true) 逐 token 回调，用于过程实况/长文生成。
  * 密钥解析：显式入参 > 环境变量 SILICONFLOW_API_KEY > src/dev-keys.js 内置测试密钥（私有仓库，生产用 env 覆盖）。
- * 供应商扩展：opts.chatTemplateKwargs（如 { enable_thinking:false }）随每个请求体下发，用于关闭推理模型的思考模式。
+ * 供应商扩展：
+ *   - opts.chatTemplateKwargs（如 Agnes { enable_thinking:false }）→ 请求体 chat_template_kwargs
+ *   - opts.extraBody（如 DeepSeek { thinking:{type:'disabled'} }）→ 顶层合并进请求体
  */
 
 const { resolveKey, resolveKeys } = require('./dev-keys');
@@ -37,17 +39,33 @@ function asText(content) {
 }
 
 function createSiliconFlowClient(opts = {}) {
-  // 多 key 轮询：opts.apiKeys（数组）优先；否则单 key（opts.apiKey / SILICONFLOW_API_KEY）
-  const apiKeys = resolveKeys('SILICONFLOW_API_KEY', opts.apiKeys);
-  const singleKey = resolveKey('SILICONFLOW_API_KEY', opts.apiKey);
-  const keys = apiKeys.length ? apiKeys : (singleKey ? [singleKey] : []);
+  // 显式入参优先；未传时才回退到 SILICONFLOW_* / 内置开发密钥
+  // （切 DeepSeek/Mistral/Agnes 时必须避免误用硅基流动的内置 key）
+  const explicitKeys = Array.isArray(opts.apiKeys) && opts.apiKeys.length
+    ? opts.apiKeys.map(s => String(s).trim()).filter(Boolean)
+    : (opts.apiKey ? [String(opts.apiKey).trim()].filter(Boolean) : []);
+  const keys = explicitKeys.length
+    ? explicitKeys
+    : (() => {
+      const fromEnv = resolveKeys('SILICONFLOW_API_KEY');
+      if (fromEnv.length) return fromEnv;
+      const single = resolveKey('SILICONFLOW_API_KEY');
+      return single ? [single] : [];
+    })();
   let keyCursor = 0;
   const pickKey = () => (keys.length ? keys[keyCursor++ % keys.length] : '');
-  const baseURL = resolveKey('SILICONFLOW_BASE_URL', opts.baseURL).replace(/\/+$/, '');
-  const model = resolveKey('SILICONFLOW_MODEL', opts.model);
+  const baseURL = (opts.baseURL
+    ? String(opts.baseURL)
+    : resolveKey('SILICONFLOW_BASE_URL')
+  ).replace(/\/+$/, '');
+  const model = opts.model
+    ? String(opts.model)
+    : resolveKey('SILICONFLOW_MODEL');
   const doFetch = opts.fetchImpl || globalThis.fetch;
   // 供应商扩展字段（如 Agnes 的 chat_template_kwargs: { enable_thinking:false }），随每个请求体一并下发
   const chatTemplateKwargs = opts.chatTemplateKwargs || null;
+  // 顶层扩展（如 DeepSeek 官方 thinking: { type: 'disabled' }）
+  const extraBody = (opts.extraBody && typeof opts.extraBody === 'object') ? opts.extraBody : null;
   if (!doFetch) throw new Error('geo-agent: 需要 Node>=20 的全局 fetch，或由宿主注入 fetchImpl');
 
   // 显式 HTTP(S) 代理：opts.proxy > 环境变量 LLM_PROXY（如 http://127.0.0.1:1087）。
@@ -72,7 +90,11 @@ function createSiliconFlowClient(opts = {}) {
 
   async function post(path, body, { timeoutMs = REQ_TIMEOUT_MS, stream = false, retries = 2 } = {}) {
     if (!keys.length) throw new Error('geo-agent: 缺少 LLM API Key（LLM_PROVIDER 对应的 *_API_KEY/_API_KEYS 环境变量未配置）');
-    const finalBody = chatTemplateKwargs ? { ...body, chat_template_kwargs: chatTemplateKwargs } : body;
+    const finalBody = {
+      ...body,
+      ...(extraBody || {}),
+      ...(chatTemplateKwargs ? { chat_template_kwargs: chatTemplateKwargs } : {}),
+    };
     let lastErr = null;
     for (let attempt = 0; attempt <= retries; attempt++) {
       const key = pickKey(); // 每次尝试轮询取 key：多 key 分摊速率限制，重试自动换下一个 key

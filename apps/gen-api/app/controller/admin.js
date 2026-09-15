@@ -942,8 +942,13 @@ class AdminController extends Controller {
     const { ctx } = this;
     const M = ctx.model;
     const taskId = ctx.query.task_id;
-    if (!taskId) { this._ok({ list: [], total: 0 }); return; }
-    const rows = await M.OnboardingTrace.find({ task_id: taskId }).sort({ created_at: 1 }).lean();
+    const brandId = ctx.query.brand_id;
+    if (!taskId && !brandId) { this._ok({ list: [], total: 0 }); return; }
+    // 优先 task_id；同时用 brand_id 兜底（历史确认未挂 task 的留痕）
+    const q = taskId && brandId
+      ? { $or: [{ task_id: taskId }, { brand_id: brandId }] }
+      : (taskId ? { task_id: taskId } : { brand_id: brandId });
+    const rows = await M.OnboardingTrace.find(q).sort({ created_at: 1 }).lean();
     this._ok({ list: rows.map(t => ({
       kind: t.kind, query: t.query, url: t.url, keyword: t.keyword, weight: t.weight,
       snapshot: t.snapshot, meta: t.meta, created_at: t.created_at,

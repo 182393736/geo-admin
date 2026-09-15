@@ -18,6 +18,10 @@ module.exports = app => {
     photo_url: String,  // OSS 公网（建议上线时改签名URL）
     oss_key: String,
     size: Number,
+    photo_raw_url: String,
+    oss_raw_key: String,
+    size_raw: Number,
+    answer_id: String,
   }, { collection: 'snapshots', versionKey: false, timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
   schema.index({ brand_id: 1, exec_date: 1, query_id: 1 });
   return app.mongoose.model('Snapshot', schema);

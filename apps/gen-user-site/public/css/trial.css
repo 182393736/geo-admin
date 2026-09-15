@@ -185,15 +185,29 @@
 
 /* Confirm panel cards */
 .trial-cp-title{font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.trial-cp-hint{font-size:12px;color:#b45309;margin:-2px 0 10px;line-height:1.45}
 .trial-bc{background:#fff;border:1.5px solid #ebebeb;border-radius:10px;padding:13px 15px;cursor:pointer;transition:border-color .18s,box-shadow .18s;margin-bottom:7px}
 .trial-bc:hover{border-color:#c4b5fd;box-shadow:0 1px 8px rgba(79,70,229,.08)}
 .trial-bc.sel{border-color:#4f46e5;background:#ede9fe}
-.trial-bc-name{font-size:13px;font-weight:700;color:#0d0d0d;margin-bottom:2px}
+.trial-bc.editing{cursor:default;border-color:#a5b4fc;background:#f5f3ff}
+.trial-bc-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:2px}
+.trial-bc-name{font-size:13px;font-weight:700;color:#0d0d0d;flex:1;min-width:0;line-height:1.45}
+.trial-bc-input{flex:1;min-width:0;font-size:13px;font-weight:600;font-family:inherit;color:#0d0d0d;line-height:1.45;padding:7px 10px;border:1.5px solid #4f46e5;border-radius:8px;outline:none;background:#fff}
+.trial-bc-btn{flex-shrink:0;padding:5px 10px;border-radius:7px;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s,color .15s;line-height:1.2}
+.trial-bc-btn-edit{background:#fff;color:#4f46e5;border:1px solid #c4b5fd}
+.trial-bc-btn-edit:hover{background:#ede9fe;border-color:#4f46e5}
+.trial-bc.sel .trial-bc-btn-edit{background:#fff;border-color:#a5b4fc}
+.trial-bc-btn-save{background:#4f46e5;color:#fff;border:1px solid #4f46e5}
+.trial-bc-btn-save:hover{background:#4338ca}
+.trial-bc-btn-cancel{background:transparent;color:#666;border:1px solid #d8d8d8}
+.trial-bc-btn-cancel:hover{border-color:#bbb;color:#0d0d0d}
 .trial-bc-url{font-size:11px;font-family:monospace;color:#4f46e5;margin-bottom:5px}
 .trial-bc-desc{font-size:12px;color:#666;line-height:1.55;margin-bottom:6px}
 .trial-bc-tags{display:flex;flex-wrap:wrap;gap:4px}
 .trial-bc-tag{font-size:10px;padding:2px 7px;background:#f3f4f6;border-radius:20px;color:#666}
 .trial-bc.sel .trial-bc-tag{background:#ddd6fe;color:#4f46e5}
+.trial-bc-tag-edit{background:#fef3c7;color:#b45309}
+.trial-bc.sel .trial-bc-tag-edit{background:#fde68a;color:#92400e}
 
 /* Topic cards */
 .trial-tc{display:flex;align-items:flex-start;gap:9px;background:#fff;border:1px solid #ebebeb;border-radius:10px;padding:11px 14px;margin-bottom:8px;transition:border-color .18s}

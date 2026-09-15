@@ -133,14 +133,42 @@ async function persistResult(models, opts) {
   }
 
   // ---- 过程留痕 + 确认留痕 ----
+  // 无 taskId 时自动建一条 OnboardingTask，保证管理后台「首登漏斗」能挂上留痕
+  let taskId = opts.taskId || undefined;
+  if (models.OnboardingTask) {
+    const taskFields = {
+      brand_id: brandId,
+      user_id: opts.userId,
+      input: {
+        brand_name: (result.brand && result.brand.name) || '',
+        website: (result.brand && result.brand.website) || '',
+        business_desc: (result.brand && result.brand.business_desc) || '',
+      },
+      stage: 'done',
+      keyword_gen_completed_at: new Date(),
+      keywords: result.keywords || [],
+      generated_question_list: (result.candidates || []).map(c => ({
+        query: c.query, weight: c.weight, is_golden: c.is_golden,
+      })),
+    };
+    if (taskId) {
+      await models.OnboardingTask.updateOne({ task_id: taskId }, { $set: taskFields }).catch(() => {});
+    } else {
+      try {
+        const doc = await models.OnboardingTask.create(taskFields);
+        taskId = doc.task_id;
+      } catch (e) { /* 任务表失败不阻断主流程 */ }
+    }
+  }
+
   const traceDocs = (result.traces || []).map(t => ({
-    task_id: opts.taskId || undefined, brand_id: brandId, user_id: opts.userId,
+    task_id: taskId, brand_id: brandId, user_id: opts.userId,
     kind: t.kind, query: t.query, url: t.url, snapshot: t.snapshot,
     keyword: t.keyword, weight: t.weight, meta: t.meta,
   })).filter(t => t.kind);
   if (opts.selectedQueries) {
     traceDocs.push({
-      task_id: opts.taskId || undefined, brand_id: brandId, user_id: opts.userId,
+      task_id: taskId, brand_id: brandId, user_id: opts.userId,
       kind: 'user_confirm', meta: { selected: selected.map(c => c.query), limit: opts.confirmLimit || null },
     });
   }
@@ -148,16 +176,7 @@ async function persistResult(models, opts) {
     await models.OnboardingTrace.insertMany(traceDocs, { ordered: false }).then(r => { counts.traces = r.length; }).catch(() => {});
   }
 
-  // ---- 任务状态机联动（可选） ----
-  if (opts.taskId && models.OnboardingTask) {
-    await models.OnboardingTask.updateOne({ task_id: opts.taskId }, { $set: {
-      stage: 'done', keyword_gen_completed_at: new Date(),
-      keywords: result.keywords || [],
-      generated_question_list: (result.candidates || []).map(c => ({ query: c.query, weight: c.weight, is_golden: c.is_golden })),
-    } }).catch(() => {});
-  }
-
-  return { brand_id: brandId, counts };
+  return { brand_id: brandId, task_id: taskId || null, counts };
 }
 
 module.exports = { persistResult };

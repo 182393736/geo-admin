@@ -67,6 +67,8 @@ module.exports = app => {
   router.post('/source_intelligence/perspective', jwtAuth, controller.source.perspective);
   router.get('/source_intelligence/topics', jwtAuth, controller.source.topics);
   router.post('/snapshot/export/list', jwtAuth, controller.source.snapshotList);
+  router.post('/snapshot/export/answer', jwtAuth, controller.source.snapshotAnswer);
+  router.post('/snapshot/export/text', jwtAuth, controller.source.snapshotExportText);
 
   // ============ 缺失补齐：问题分组 / 稿件 / 诊断（对标 geoapi.timus.cn） ============
   router.post('/query-group/list', jwtAuth, controller.query.queryGroupList);

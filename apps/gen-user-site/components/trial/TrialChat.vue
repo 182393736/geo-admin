@@ -113,26 +113,46 @@
             <span class="trial-cp-dismiss" @click="skipConfirm">暂不选择</span>
           </div>
           <div class="trial-cp-body">
-            <div class="trial-cp-title">AI 推荐 · 按搜索热度排序（均为不含品牌名的行业中立问法）</div>
+            <div class="trial-cp-title">AI 推荐 · 可勾选，也可点「修改」改写成你的说法（请保持行业中立、不含品牌名）</div>
+            <p v-if="editHint" class="trial-cp-hint">{{ editHint }}</p>
             <div
-              v-for="c in preview.candidates"
-              :key="c.query"
+              v-for="(c, i) in preview.candidates"
+              :key="candKey(c, i)"
               class="trial-bc"
-              :class="{ sel: selected.has(c.query) }"
-              @click="toggleSelect(c.query)"
+              :class="{ sel: selected.has(i), editing: editingIdx === i }"
+              @click="toggleSelect(i)"
             >
-              <div class="trial-bc-name">{{ c.is_golden ? '★ ' : '' }}{{ c.query }}</div>
-              <div v-if="c.query_description" class="trial-bc-url">{{ c.query_description }}</div>
-              <div class="trial-bc-desc">引擎发问口径：{{ c.question_list?.[0]?.platform_query || c.query }}</div>
+              <div class="trial-bc-top">
+                <template v-if="editingIdx === i">
+                  <input
+                    ref="editInputEl"
+                    v-model="editDraft"
+                    class="trial-bc-input"
+                    maxlength="80"
+                    @click.stop
+                    @keydown.enter.prevent="saveEdit(i)"
+                    @keydown.esc.prevent="cancelEdit"
+                  >
+                  <button type="button" class="trial-bc-btn trial-bc-btn-save" @click.stop="saveEdit(i)">保存</button>
+                  <button type="button" class="trial-bc-btn trial-bc-btn-cancel" @click.stop="cancelEdit">取消</button>
+                </template>
+                <template v-else>
+                  <div class="trial-bc-name">{{ c.is_golden ? '★ ' : '' }}{{ c.query }}</div>
+                  <button type="button" class="trial-bc-btn trial-bc-btn-edit" @click.stop="startEdit(i)">修改</button>
+                </template>
+              </div>
+              <div v-if="c.query_description && editingIdx !== i" class="trial-bc-url">{{ c.query_description }}</div>
+              <div v-if="editingIdx !== i" class="trial-bc-desc">引擎发问口径：{{ c.question_list?.[0]?.platform_query || c.query }}</div>
               <div class="trial-bc-tags">
                 <span class="trial-bc-tag">热度 {{ c.weight }}</span>
                 <span class="trial-bc-tag">行业排名</span>
                 <span v-if="c.is_golden" class="trial-bc-tag">金标</span>
+                <span v-if="isEdited(c)" class="trial-bc-tag trial-bc-tag-edit">已修改</span>
               </div>
             </div>
           </div>
           <div class="trial-cp-actions">
-            <button class="trial-cp-btn-ok" type="button" :disabled="selected.size === 0 || saving" @click="doConfirm">
+            <button class="trial-cp-btn-ok" type="button" :disabled="selected.size === 0 || saving || editingIdx != null" @click="doConfirm">
               {{ saving ? '保存中…' : `确认监控 ${selected.size} 个问题` }}
             </button>
             <button class="trial-cp-btn-skip" type="button" :disabled="saving" @click="skipConfirm">跳过</button>
@@ -176,12 +196,13 @@ const consoleUrl = String((config.public as Record<string, unknown>).consoleUrl 
 const savedBrandId = ref('')
 /** 「前往控制台」落地地址：#token= + 可选 brand_id= */
 const consoleLink = computed(() => {
-  const base = consoleUrl.split('#')[0]
+  const base = consoleUrl.split('#')[0].replace(/\/+$/, '')
   const tk = getToken()
-  if (!tk) return base
+  if (!tk) return `${base}/dashboard/overview`
   const parts = [`token=${encodeURIComponent(tk)}`]
   if (savedBrandId.value) parts.push(`brand_id=${encodeURIComponent(savedBrandId.value)}`)
-  return `${base}#${parts.join('&')}`
+  // 明确落到概览，避免仅打开根路径时被其它入口带走
+  return `${base}/dashboard/overview#${parts.join('&')}`
 })
 
 const QUICK = ['小鹏汽车', '完美日记', '格力空调', '维乐口腔']
@@ -195,8 +216,13 @@ const hint = ref('')
 const docHint = ref(false)
 const msgs = reactive<Msg[]>([])
 const preview = ref<any>(null)
-const selected = reactive(new Set<string>())
+/** 勾选用候选下标（改文案后仍稳定）；提交时映射成当前 query 文案 */
+const selected = reactive(new Set<number>())
 const saving = ref(false)
+const editingIdx = ref<number | null>(null)
+const editDraft = ref('')
+const editHint = ref('')
+const editInputEl = ref<HTMLInputElement | null>(null)
 const wrapEl = ref<HTMLElement | null>(null)
 const runningTip = ref('分析进行中…')
 const doneTip = computed(() => (
@@ -381,7 +407,7 @@ function onEvent(ev: string, data: any) {
     const st = data?.stage
     closeBlock()
     if (st === 'crawl' && form.website.trim()) openBlock('读取品牌资料', [{ name: `官网 ${form.website.trim()}`, status: 'run' }])
-    else if (st === 'web_research') openBlock('联网检索公开信息', [])
+    else if (st === 'web_research') { /* 联网检索仍在后端执行，前端不展示检索词/结果 */ }
     else if (st === 'analyze') openBlock('识别品牌与生成画像', [{ name: '解析品牌要素（行业/别名/竞品/卖点）', status: 'run' }])
     else if (st === 'queries') openBlock('生成候选监控问题', [{ name: '检索真实用户会问 AI 的问题', status: 'run' }])
     else if (st === 'weigh') openBlock('验证关键词热度', [])
@@ -392,36 +418,16 @@ function onEvent(ev: string, data: any) {
     if (data?.kind === 'page_read') {
       addItem(`已读 ${data.url || '官网'}${data.meta?.title ? `（${String(data.meta.title).slice(0, 24)}）` : ''}`)
     } else if (data?.kind === 'search_query') {
-      if (data?.meta?.phase === 'web_research') {
-        // 联网取证：展示检索词 + 检索到的公开信息（标题可点击、摘要随行）
-        addItem(`检索：${data.query}`)
-        if (Array.isArray(data.results) && data.results.length) {
-          data.results.forEach((r: any, i: number) => {
-            addItem(`${i + 1}. ${String(r.title || r.url || '（无标题）').slice(0, 60)}`, 'done', {
-              href: r.url || undefined,
-              detail: r.snippet || '',
-            })
-          })
-        } else {
-          addItem('未检索到公开信息', 'done')
-        }
-      } else {
-        addItem(`搜索：${data.query}`)
-      }
+      // 联网取证结果不在 /trial 展示（管理后台留痕仍有完整 I/O）
+      if (data?.meta?.phase === 'web_research') return
+      addItem(`搜索：${data.query}`)
     } else if (data?.kind === 'keyword_weight') {
       addItem(`「${String(data.keyword || '').slice(0, 22)}」 热度 ${data.weight}${data.meta?.source === 'real_search' ? ' · 搜索验证' : ''}`)
     }
     return
   }
   if (ev === 'evidence') {
-    closeBlock()
-    const searches = data?.searches || 0
-    const resultCount = data?.result_count || 0
-    const evidence = String(data?.evidence || '').trim()
-    const text = searches > 0
-      ? `已完成联网检索：${searches} 组关键词、${resultCount} 条公开信息。证据要点：${evidence || '（暂未提炼出有效要点）'}`
-      : '未配置联网检索，以下信息基于模型知识生成。'
-    push({ type: 'ai', text })
+    // 证据要点不在对话流展示
     return
   }
   if (ev === 'profile' && data?.brand) {
@@ -458,42 +464,122 @@ function onEvent(ev: string, data: any) {
   }
 }
 
-/** 默认预选金标（≤limit），用户可改 */
+/** 默认预选金标（≤limit），用户可改；按 index 勾选，便于改文案 */
 function preselect() {
   selected.clear()
-  for (const c of preview.value?.candidates || []) {
-    if (c.is_golden && selected.size < limit) selected.add(c.query)
+  editingIdx.value = null
+  editDraft.value = ''
+  editHint.value = ''
+  const list = preview.value?.candidates || []
+  // 记下原始问法，便于展示「已修改」
+  for (const c of list) {
+    if (c && c._original_query == null) c._original_query = String(c.query || '')
+  }
+  for (let i = 0; i < list.length; i++) {
+    if (list[i]?.is_golden && selected.size < limit) selected.add(i)
   }
   if (selected.size === 0) {
-    for (const c of (preview.value?.candidates || []).slice(0, limit)) selected.add(c.query)
+    for (let i = 0; i < Math.min(limit, list.length); i++) selected.add(i)
   }
 }
 
-function toggleSelect(q: string) {
-  if (selected.has(q)) selected.delete(q)
-  else if (selected.size < limit) selected.add(q)
+function candKey(c: any, i: number) {
+  return c?._original_query ? `o:${c._original_query}:${i}` : `i:${i}`
+}
+
+function isEdited(c: any) {
+  const orig = c?._original_query
+  return typeof orig === 'string' && orig.length > 0 && String(c.query || '') !== orig
+}
+
+function toggleSelect(i: number) {
+  if (editingIdx.value === i) return
+  if (selected.has(i)) selected.delete(i)
+  else if (selected.size < limit) selected.add(i)
   else {
-    // 达到上限：替换最早选择，保持交互顺滑
     const first = selected.values().next().value
-    if (first) selected.delete(first)
-    selected.add(q)
+    if (typeof first === 'number') selected.delete(first)
+    selected.add(i)
   }
+}
+
+function startEdit(i: number) {
+  const c = preview.value?.candidates?.[i]
+  if (!c) return
+  editHint.value = ''
+  editingIdx.value = i
+  editDraft.value = String(c.query || '')
+  nextTick(() => {
+    const el = Array.isArray(editInputEl.value) ? editInputEl.value[0] : editInputEl.value
+    el?.focus?.()
+    el?.select?.()
+  })
+}
+
+function cancelEdit() {
+  editingIdx.value = null
+  editDraft.value = ''
+  editHint.value = ''
+}
+
+function applyQueryEdit(c: any, next: string) {
+  c.query = next
+  c.platform_prompt = next
+  c.platform_query = next
+  c.user_friendly = next
+  if (!Array.isArray(c.question_list) || !c.question_list.length) {
+    c.question_list = [{ user_friendly: next, platform_query: next }]
+  } else {
+    c.question_list = c.question_list.map((q: any, qi: number) => (
+      qi === 0
+        ? { ...q, user_friendly: next, platform_query: next }
+        : q
+    ))
+  }
+}
+
+function saveEdit(i: number) {
+  const c = preview.value?.candidates?.[i]
+  const next = editDraft.value.trim().replace(/\s+/g, ' ')
+  if (!c || !next) return
+  if (next.length < 2) {
+    editHint.value = '问题至少 2 个字'
+    return
+  }
+  applyQueryEdit(c, next.slice(0, 80))
+  editingIdx.value = null
+  editDraft.value = ''
+  editHint.value = ''
+}
+
+function selectedQueries(): string[] {
+  const list = preview.value?.candidates || []
+  return [...selected]
+    .sort((a, b) => a - b)
+    .map(i => String(list[i]?.query || '').trim())
+    .filter(Boolean)
 }
 
 async function doConfirm() {
   if (!preview.value || selected.size === 0 || saving.value) return
+  if (editingIdx.value != null) {
+    editHint.value = '请先保存正在编辑的问题'
+    return
+  }
+  const queries = selectedQueries()
+  if (!queries.length) return
   saving.value = true
   try {
     const res = await apiPost<{ data?: { saved?: { brand_id: string, counts: Record<string, number> } } }>(
       '/agent/onboarding/confirm',
-      { preview: preview.value, selected_queries: [...selected] },
+      { preview: preview.value, selected_queries: queries },
     )
     const saved = res?.data?.saved
     if (saved?.brand_id) savedBrandId.value = saved.brand_id
     phase.value = 'done'
     push({
       type: 'ai',
-      text: `已开启监控：${[...selected].join('、')}。竞品与别名档案同步建立。`,
+      text: `已开启监控：${queries.join('、')}。竞品与别名档案同步建立。`,
     })
     push({
       type: 'report',
@@ -502,7 +588,7 @@ async function doConfirm() {
         industry: preview.value.brand?.industry || preview.value.profile?.industry?.[0] || '',
         aliases: saved?.counts?.aliases ?? preview.value.aliases?.length ?? 0,
         competitors: saved?.counts?.competitors ?? preview.value.competitors?.length ?? 0,
-        queries: saved?.counts?.queries ?? selected.size,
+        queries: saved?.counts?.queries ?? queries.length,
       },
     })
   } catch (e) {
@@ -532,6 +618,9 @@ function reset() {
   msgs.splice(0, msgs.length)
   preview.value = null
   selected.clear()
+  editingIdx.value = null
+  editDraft.value = ''
+  editHint.value = ''
   form.text = ''
   form.website = ''
   showLink.value = false

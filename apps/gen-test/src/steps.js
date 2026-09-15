@@ -124,7 +124,8 @@ async function goConsoleFromReport(page, dash) {
       (d) => {
         const u = location.href;
         if (!u.includes(d) || u.includes('/login')) return false;
-        return u.includes('/dashboard') || (location.pathname === '/' || location.pathname === '');
+        // 优先概览；兼容旧链接落到其它 /dashboard 页
+        return u.includes('/dashboard');
       },
       dash,
       { timeout: 45_000 },
@@ -135,6 +136,10 @@ async function goConsoleFromReport(page, dash) {
   await page.waitForFunction(() => !location.hash.includes('token='), null, { timeout: 15_000 }).catch(() => undefined);
   const hasTok = await page.evaluate(() => !!localStorage.getItem('geo_token'));
   if (!hasTok) throw new Error(`后台未吸收 token（url=${page.url()}）`);
+  // 若落到非概览，再拉一次概览，保证后续「品牌卡/采集状态」步骤起点一致
+  if (!/\/dashboard\/overview/.test(page.url())) {
+    await page.goto(`${dash}/dashboard/overview`, { waitUntil: 'domcontentloaded' });
+  }
   return href;
 }
 
@@ -331,21 +336,37 @@ const steps = [
   {
     name: '概览页（品牌卡 / 采集状态）',
     async run(page, ctx) {
-      await page.goto(`${ctx.deps.DASH}/dashboard/overview`, { waitUntil: 'domcontentloaded' });
+      const target = `${ctx.deps.DASH}/dashboard/overview`;
+      await page.goto(target, { waitUntil: 'domcontentloaded' });
+      // SPA 偶发停在其它页（如品牌库）；强制确认落地概览
+      if (!/\/dashboard\/overview\/?(\?|#|$)/.test(page.url())) {
+        await page.goto(target, { waitUntil: 'networkidle' }).catch(() => undefined);
+      }
+      await page.waitForURL(/\/dashboard\/overview\/?/, { timeout: 20_000 }).catch(() => undefined);
+      if (!/\/dashboard\/overview/.test(page.url())) {
+        return { status: 'fail', detail: `未进入概览页，当前 ${page.url()}` };
+      }
+      // 不要用 childNodes[0]：Vue 常在品牌名前插入空白文本节点，导致一直判失败
       await page.waitForFunction(() => {
-        const el = document.querySelector('.ov2-brand');
+        const el = document.querySelector('.ov2-brand, [data-testid="ov2-brand"]');
         if (!el) return false;
-        const name = (el.childNodes[0]?.textContent || el.textContent || '').replace(/\s+/g, ' ').trim();
+        const clone = el.cloneNode(true);
+        clone.querySelectorAll('.ov2-live').forEach(n => n.remove());
+        const name = (clone.textContent || '').replace(/\s+/g, ' ').trim();
         return name.length >= 2 && name !== '—';
       }, null, { timeout: 45_000 });
-      const shown = (await page.locator('.ov2-brand').innerText()).split('\n')[0].trim();
-      if (shown && shown !== '—') ctx.brandName = shown.replace(/等待首次采集|采集正常/g, '').trim() || ctx.brandName;
+      const shown = await page.locator('.ov2-brand, [data-testid="ov2-brand"]').innerText();
+      const nameOnly = shown
+        .replace(/等待首次采集|采集正常/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (nameOnly && nameOnly !== '—') ctx.brandName = nameOnly || ctx.brandName;
       const body = await page.locator('body').innerText();
       const pending = body.includes('等待') || body.includes('首次') || body.includes('采集');
       const ok = !!(ctx.brandName && body.includes(ctx.brandName));
       return {
         status: ok ? 'ok' : 'fail',
-        detail: `品牌卡=${shown}，断言名=${ctx.brandName}，采集状态区存在=${pending}`,
+        detail: `品牌卡=${nameOnly || shown}，断言名=${ctx.brandName}，采集状态区存在=${pending}，url=${page.url()}`,
       };
     },
   },

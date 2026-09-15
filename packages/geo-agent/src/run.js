@@ -5,6 +5,10 @@
  *   crawl(page_read) → profile(llm_output) → queries(llm_output)
  *   → reweight(keyword_weight + search_query) → library(llm_output) → done
  * 库不 import egg/mongoose；模型由 persist.js 侧注入。
+ *
+ * 留痕 meta 约定（供管理后台回放 I/O）：
+ *   search_query.meta：{ engine, fallback?, primary_error?, results[], result_count }
+ *   llm_output.meta：{ step, model?, input:{system,user,schemaHint?}, output, usage? }
  */
 
 const { crawlPage } = require('./crawl');
@@ -12,6 +16,8 @@ const { profilePrompts, queriesPrompts, libraryPrompts } = require('./prompts');
 const { normalizeProfile, normalizeCandidates, normalizeLibraryDoc } = require('./normalize');
 const { buildBrandTokens } = require('./neutral');
 const { reweightBySearch } = require('./search');
+
+const clip = (s, n) => (typeof s === 'string' ? s.slice(0, n) : '');
 
 /**
  * @param {object} deps   { llm, searchProvider?, crawl?:boolean, fetchImpl?, logger? }
@@ -22,6 +28,7 @@ async function runOnboarding(deps, input, onEvent) {
   if (!deps || !deps.llm) throw new Error('geo-agent: deps.llm 必填');
   const traces = [];
   const usage = [];
+  const llmModel = deps.llm.model || null;
   const push = (kind, fields, meta) => {
     const t = { kind, ...fields, meta: meta || undefined };
     traces.push(t);
@@ -29,6 +36,20 @@ async function runOnboarding(deps, input, onEvent) {
     return t;
   };
   const stage = name => { if (onEvent) onEvent({ type: 'stage', stage: name }); };
+  const pushLlm = (step, { system, user, schemaHint, output, usage: u, extra } = {}) => {
+    push('llm_output', {}, {
+      step,
+      model: llmModel,
+      input: {
+        system: clip(system, 2000),
+        user: clip(user, 4000),
+        ...(schemaHint ? { schemaHint: clip(schemaHint, 800) } : {}),
+      },
+      output: clip(output, 4000),
+      usage: u || undefined,
+      ...(extra || {}),
+    });
+  };
 
   // ---- 1. crawl（可选，失败不阻断） ----
   stage('crawl');
@@ -43,9 +64,11 @@ async function runOnboarding(deps, input, onEvent) {
   let evidence = '';
   if (deps.webSearch) {
     stage('web_research');
+    const researchSys = '你是检索助手。目标：为一个品牌收集公开信息（官网定位、产品能力、竞品、行业玩家）。可多次调用 web_search（每次给不同角度的中文查询词，2~4 次为宜），然后输出 150~300 字的证据要点汇总（含来源 URL）。';
+    const researchUser = `品牌：${input.brand_name || '未知'}\n官网：${input.website || '未提供'}\n介绍：${input.business_desc || '未提供'}`;
     const research = await deps.llm.chatToolLoop({
-      system: '你是检索助手。目标：为一个品牌收集公开信息（官网定位、产品能力、竞品、行业玩家）。可多次调用 web_search（每次给不同角度的中文查询词，2~4 次为宜），然后输出 150~300 字的证据要点汇总（含来源 URL）。',
-      user: `品牌：${input.brand_name || '未知'}\n官网：${input.website || '未提供'}\n介绍：${input.business_desc || '未提供'}`,
+      system: researchSys,
+      user: researchUser,
       tools: [ { type: 'function', function: {
         name: 'web_search',
         description: '搜索互联网，返回结果列表（title/url/snippet）',
@@ -55,17 +78,20 @@ async function runOnboarding(deps, input, onEvent) {
         web_search: async ({ query }) => {
           const q = String(query || '');
           const results = await deps.webSearch.search(q);
-          // 检索词 + 结果一并推给前端（SSE 实况），结果摘要截断控制体积；
-          // 落库映射（persist.js）不含 results 字段，自动只留 query/meta，避免 trace 膨胀
-          push('search_query', {
-            query: q,
+          // 检索 I/O 全部进 meta（persist 只落 query/meta，results 必须挂在 meta 才能进库）
+          const engine = deps.webSearch.lastEngine || deps.webSearch.name;
+          push('search_query', { query: q }, {
+            engine,
+            fallback: !!deps.webSearch.lastFallback,
+            primary_error: deps.webSearch.lastError || undefined,
+            phase: 'web_research',
             result_count: results.length,
             results: results.slice(0, 5).map(r => ({
-              title: String(r.title || '').slice(0, 100),
+              title: clip(r.title, 100),
               url: r.url || '',
-              snippet: String(r.snippet || '').slice(0, 180),
+              snippet: clip(r.snippet, 300),
             })),
-          }, { engine: deps.webSearch.name, phase: 'web_research' });
+          });
           return { results };
         },
       },
@@ -73,7 +99,19 @@ async function runOnboarding(deps, input, onEvent) {
     });
     evidence = (typeof research.content === 'string' ? research.content : '').trim();
     usage.push({ step: 'web_research', usage: research.usage });
-    push('llm_output', {}, { step: 'web_research', tool_calls: research.calls.length, degraded: !!research.degraded });
+    pushLlm('web_research', {
+      system: researchSys,
+      user: researchUser,
+      output: evidence,
+      usage: research.usage,
+      extra: {
+        tool_calls: research.calls.length,
+        degraded: !!research.degraded,
+        tool_queries: research.calls
+          .filter(c => c.tool === 'web_search')
+          .map(c => String((c.args && c.args.query) || '').slice(0, 120)),
+      },
+    });
     if (onEvent) {
       const resultCount = research.calls.reduce((n, c) => n + (Array.isArray(c.result && c.result.results) ? c.result.results.length : 0), 0);
       onEvent({ type: 'evidence', evidence, searches: research.calls.length, result_count: resultCount });
@@ -85,7 +123,10 @@ async function runOnboarding(deps, input, onEvent) {
   const p = profilePrompts(input, site, evidence);
   const prof = await deps.llm.chatJson({ system: p.sys, user: p.user, schemaHint: p.schemaHint });
   usage.push({ step: 'profile', usage: prof.usage });
-  push('llm_output', {}, { step: 'profile', input_chars: p.user.length, raw_chars: (prof.content || '').length });
+  pushLlm('profile', {
+    system: p.sys, user: p.user, schemaHint: p.schemaHint,
+    output: prof.content, usage: prof.usage,
+  });
   const profile = normalizeProfile(prof.data, input);
   if (onEvent) onEvent({ type: 'profile', brand: profile.brand, competitors: profile.competitors.length, aliases: profile.aliases });
 
@@ -107,7 +148,10 @@ async function runOnboarding(deps, input, onEvent) {
     if (evidence) qp.user += `\n\n联网检索证据要点：\n${evidence.slice(0, 1500)}`;
     const qr = await deps.llm.chatJson({ system: qp.sys, user: qp.user, schemaHint: qp.schemaHint });
     usage.push({ step: 'queries', usage: qr.usage });
-    push('llm_output', {}, { step: 'queries', input_chars: qp.user.length, raw_chars: (qr.content || '').length });
+    pushLlm('queries', {
+      system: qp.sys, user: qp.user, schemaHint: qp.schemaHint,
+      output: qr.content, usage: qr.usage,
+    });
     return normalizeCandidates(qr.data, {
       limit, brandTokens,
       onDrop: (c, token) => drops.push({ query: c.query, token }),
@@ -119,11 +163,11 @@ async function runOnboarding(deps, input, onEvent) {
     const firstRoundDrops = drops.length;
     const retryNote = `\n\n【上一轮不合格的问法（含品牌信息，禁止再出现同类写法）】${drops.slice(0, 5).map(d => d.query).join('；')}\n请全部改写为不含品牌名的行业中立问法。`;
     candidates = await genOnce(retryNote, ask);
-    push('llm_output', {}, { step: 'queries_retry', dropped_first_round: firstRoundDrops, kept_after: candidates.length });
+    push('llm_output', {}, { step: 'queries_retry', model: llmModel, dropped_first_round: firstRoundDrops, kept_after: candidates.length });
   }
   if (drops.length) {
     push('llm_output', {}, {
-      step: 'queries_brand_filter', kept: candidates.length, dropped_total: drops.length,
+      step: 'queries_brand_filter', model: llmModel, kept: candidates.length, dropped_total: drops.length,
       dropped: drops.slice(0, 10).map(d => ({ query: String(d.query || '').slice(0, 120), hit: d.token })),
     });
   }
@@ -145,7 +189,10 @@ async function runOnboarding(deps, input, onEvent) {
     { jsonMode: false, temperature: 0.5, maxTokens: 2000 },
   ).then(r => {
     usage.push({ step: 'library', usage: r.usage });
-    push('llm_output', {}, { step: 'library', raw_chars: (r.content || '').length });
+    pushLlm('library', {
+      system: lp.sys, user: lp.user,
+      output: r.content, usage: r.usage,
+    });
     return normalizeLibraryDoc(r.content, profile);
   });
   if (onEvent) onEvent({ type: 'library', slug: lib.slug, word_count: lib.word_count });
@@ -160,7 +207,7 @@ async function runOnboarding(deps, input, onEvent) {
     search_grounded: !!evidence,   // true=画像/候选经联网证据佐证（DeepSeek 经 function calling 主动调了 web_search）
     traces,
     usage,
-    llm_model: deps.llm.model || null,
+    llm_model: llmModel,
     generated_at: new Date().toISOString(),
   };
   if (onEvent) onEvent({ type: 'done', counts: {

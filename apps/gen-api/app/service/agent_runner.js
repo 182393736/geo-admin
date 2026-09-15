@@ -1,7 +1,7 @@
 'use strict';
 /**
  * AgentRunner：@geo-admin/geo-agent 的 Egg 薄适配层
- * 职责：注入 LLM 供应商配置（config.llm 统一入口，OpenAI 兼容，可切 siliconflow/agnes/deepseek）、
+ * 职责：注入 LLM 供应商配置（config.llm 统一入口，OpenAI 兼容，默认 deepseek，可切 mistral/siliconflow/agnes）、
  *       搜索 Provider/mongoose models/nextSeq，其余编排全在库里。
  * 另：首登各步 usage 写入 llm_call_logs（geo-agent 自带客户端，不经 deepseek 服务）。
  */
@@ -30,10 +30,16 @@ class AgentRunnerService extends Service {
     const llm = createSiliconFlowClient({
       apiKey: cfg.apiKey, apiKeys: cfg.apiKeys, baseURL: cfg.baseURL, model: cfg.model,
       chatTemplateKwargs: cfg.chatTemplateKwargs,
+      extraBody: cfg.extraBody,
       proxy: cfg.proxy || undefined,
     });
+    const bochaKey = (app.config.bocha || {}).apiKey || '';
     const tavilyKey = (app.config.tavily || {}).apiKey || '';
-    return { llm, searchProvider: createSearchProvider({}), webSearch: createWebSearch({ tavilyKey }) };
+    return {
+      llm,
+      searchProvider: createSearchProvider({}),
+      webSearch: createWebSearch({ bochaKey, tavilyKey }),
+    };
   }
 
   /** 将 geo-agent result.usage 写入 llm_call_logs */

@@ -20,13 +20,19 @@ if (process.env.NODE_ENV === 'production') {
   process.exit(1);
 }
 
-// ---- LLM 代理（仅本地开发）----
-// 海外 LLM 供应商（如 Mistral）在大陆直连会 fetch failed；本地开发默认走本机 HTTP 代理。
-//   LLM_PROXY 未设置 → 注入 http://localhost:1087；LLM_PROXY=xxx → 用 xxx；LLM_PROXY=（空）→ 强制直连。
-//   生产环境不经过本脚本（且 NODE_ENV=production 会被上方拦截），完全不受影响。
-if (process.env.LLM_PROXY === undefined) {
+// ---- LLM 供应商 / 代理（仅本地开发）----
+// 默认 deepseek（国内可直连，不强制代理）。切 mistral/agnes 等海外供应商时，
+// 未设 LLM_PROXY 则注入 http://localhost:1087；LLM_PROXY= 空串强制直连；LLM_PROXY=xxx 自定义。
+if (!process.env.LLM_PROVIDER) {
+  process.env.LLM_PROVIDER = 'deepseek';
+}
+const needsOverseasProxy = !['deepseek', 'siliconflow'].includes(String(process.env.LLM_PROVIDER));
+if (process.env.LLM_PROXY === undefined && needsOverseasProxy) {
   process.env.LLM_PROXY = 'http://localhost:1087';
-  console.log('[dev:all] ℹ️  本地 LLM 默认走本机代理 http://localhost:1087（LLM_PROXY= 留空强制直连，LLM_PROXY=xxx 自定义）');
+  console.log(`[dev:all] ℹ️  ${process.env.LLM_PROVIDER} 走本机代理 http://localhost:1087（LLM_PROXY= 留空强制直连）`);
+} else if (process.env.LLM_PROXY === undefined) {
+  process.env.LLM_PROXY = '';
+  console.log(`[dev:all] ℹ️  LLM_PROVIDER=${process.env.LLM_PROVIDER} 直连（不经代理）`);
 }
 
 const ROOT = path.join(__dirname, '..');

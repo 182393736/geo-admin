@@ -291,4 +291,31 @@ export interface DiagnosisTaskItem {
 }
 
 // ---- 快照 ----
-export interface SnapshotItem { id: number; platform: string; photo_url: string; exec_date: string; query_id: number }
+export interface SnapshotItem {
+  id: string;
+  snapshot_id?: string;
+  slot_id?: string | null;
+  platform: string;
+  end?: string;
+  photo_url: string | null;
+  oss_key?: string | null;
+  exec_date: string;
+  query_id: number;
+  query?: string;
+  size?: number | null;
+  size_label?: string;
+  rank_value?: string;
+  has_answer?: boolean;
+  answer_preview?: string;
+}
+
+export interface SnapshotAnswerResp {
+  snapshot_id: string;
+  platform: string;
+  exec_date: string;
+  query_id: number;
+  query: string;
+  photo_url: string | null;
+  answer_text: string;
+  cited_urls: Array<Record<string, unknown>>;
+}

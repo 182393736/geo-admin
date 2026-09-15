@@ -44,8 +44,9 @@ class DeepseekService extends Service {
     return {
       apiKeys: keys,
       baseURL: (llm.baseURL || (this.config.deepseek || {}).baseURL || 'https://api.deepseek.com').replace(/\/+$/, ''),
-      model: llm.model || (this.config.deepseek || {}).model || 'deepseek-chat',
+      model: llm.model || (this.config.deepseek || {}).model || 'deepseek-flash',
       chatTemplateKwargs: llm.chatTemplateKwargs || null,
+      extraBody: llm.extraBody || null,
       proxy: String(llm.proxy || process.env.LLM_PROXY || '').trim() || '',
     };
   }
@@ -60,6 +61,7 @@ class DeepseekService extends Service {
         baseURL: c.baseURL,
         model: c.model,
         chatTemplateKwargs: c.chatTemplateKwargs || null,
+        extraBody: c.extraBody || null,
         proxy: c.proxy || undefined,
       });
       if (!transportLogged) {

@@ -20,7 +20,7 @@
         <div class="ov2-hero-top">
           <div class="ov2-mark">{{ brandMark }}</div>
           <div class="ov2-hero-id">
-            <div class="ov2-brand">
+            <div class="ov2-brand" data-testid="ov2-brand">
               {{ brandName }}
               <span v-if="pendingCollection" class="ov2-live wait" title="首次采集将于次日 00:30 自动进行"><i></i>等待首次采集</span>
               <span v-else class="ov2-live normal" :title="`采集槽位 ${ovStats?.actual_slots ?? 0}/${ovStats?.expected_slots ?? 0}，完整度 ${ovStats?.completeness_rate ?? 0}%`"><i></i>采集正常</span>

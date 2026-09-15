@@ -6,7 +6,9 @@ const Controller = require('egg').Controller;
  *  - POST /reference_source/stats            信源被引统计列表（含权威度字段）
  *  - POST /source_intelligence/source_trend / engine_preference / own_trend / perspective
  *  - GET  /source_intelligence/topics
- *  - POST /snapshot/export/list              快照（暂空）
+ *  - POST /snapshot/export/list              搜索快照列表（含排行/回答摘要）
+ *  - POST /snapshot/export/answer            查看单条原始回答
+ *  - POST /snapshot/export/text              导出回答 CSV
  * 数据源：source_daily_stats / canonical_sources / media_channels / citation_edges
  *
  * 对标响应形状（2026-09-11 抓包 geoapi.timus.cn）：
@@ -348,30 +350,238 @@ class SourceController extends Controller {
   async snapshotList() {
     const { ctx } = this;
     const b = ctx.request.body || {};
-    // 对标请求：{ page, page_size, start_date, query_id, query_type }；query_type 决定话题类型，query_id 已唯一到具体问题
-    void b.query_type;
     const empty = { list: [], total: 0, page: 1, page_size: 10 };
-    const userId = ctx.state.user.id;
     const brand = await this._requireBrand(b.brand_id);
     if (!brand) return;
+
     const page = Math.max(1, parseInt(b.page, 10) || 1);
     const size = Math.min(50, Math.max(1, parseInt(b.page_size, 10) || 10));
-    const q = { brand_id: brand.brand_id };
+    const queryType = b.query_type === 'brand' ? 'brand' : 'industry';
     const start = String(b.start_date || '').slice(0, 10);
-    if (start) q.exec_date = start;
+    const platform = String(b.platform || '').trim().toLowerCase();
     const qid = parseInt(b.query_id, 10);
-    if (Number.isFinite(qid) && qid > 0) q.query_id = qid;
+
+    // query_type → 限定该品牌下对应类型的 query_id 集合
+    const typeQueries = await ctx.model.MonitorQuery.find(
+      { brand_id: brand.brand_id, query_type: queryType },
+      { query_id: 1, query: 1 },
+    ).lean();
+    const typeQids = typeQueries.map(q => q.query_id).filter(n => Number.isFinite(n));
+    const queryNameById = {};
+    for (const q of typeQueries) queryNameById[q.query_id] = q.query || '';
+
+    if (!typeQids.length) {
+      ctx.body = { code: 200, msg: 'ok', data: { ...empty, page, page_size: size } };
+      return;
+    }
+
+    const q = { brand_id: brand.brand_id, query_id: { $in: typeQids } };
+    if (start) q.exec_date = start;
+    if (Number.isFinite(qid) && qid > 0) {
+      if (!typeQids.includes(qid)) {
+        ctx.body = { code: 200, msg: 'ok', data: { ...empty, page, page_size: size } };
+        return;
+      }
+      q.query_id = qid;
+    }
+    if (platform && platform !== 'all') q.platform = platform;
+
     const [rows, total] = await Promise.all([
       ctx.model.Snapshot.find(q).sort({ created_at: -1 }).skip((page - 1) * size).limit(size).lean(),
       ctx.model.Snapshot.countDocuments(q),
     ]);
-    ctx.body = { code: 200, msg: 'ok', data: {
-      list: rows.map(r => ({
-        id: r.snapshot_id, platform: r.platform, photo_url: r.photo_url || null,
-        exec_date: r.exec_date, query_id: r.query_id, size: r.size || null,
-      })),
-      total, page, page_size: size,
-    } };
+
+    const slotIds = rows.map(r => r.slot_id).filter(Boolean);
+    const answerIds = rows.map(r => r.answer_id).filter(Boolean);
+    const [answersBySlot, answersById, targetMentions, metricRows] = await Promise.all([
+      slotIds.length
+        ? ctx.model.RawAnswer.find(
+          { slot_id: { $in: slotIds } },
+          { slot_id: 1, answer_id: 1, answer_text: 1, question_sent: 1 },
+        ).lean()
+        : [],
+      answerIds.length
+        ? ctx.model.RawAnswer.find(
+          { answer_id: { $in: answerIds } },
+          { slot_id: 1, answer_id: 1, answer_text: 1, question_sent: 1 },
+        ).lean()
+        : [],
+      slotIds.length
+        ? ctx.model.BrandMention.find(
+          { slot_id: { $in: slotIds }, is_target: true },
+          { slot_id: 1, position: 1 },
+        ).lean()
+        : [],
+      rows.length
+        ? ctx.model.DailyMetricQuery.find({
+          brand_id: brand.brand_id,
+          date: { $in: [...new Set(rows.map(r => r.exec_date).filter(Boolean))] },
+          query_id: { $in: [...new Set(rows.map(r => r.query_id))] },
+          platform: { $in: [...new Set(rows.map(r => r.platform))] },
+        }, { query_id: 1, platform: 1, date: 1, rank_value: 1 }).lean()
+        : [],
+    ]);
+
+    const ansSlot = {};
+    for (const a of answersBySlot) ansSlot[a.slot_id] = a;
+    const ansId = {};
+    for (const a of answersById) ansId[a.answer_id] = a;
+    const rankBySlot = {};
+    for (const m of targetMentions) {
+      if (rankBySlot[m.slot_id] == null || m.position < rankBySlot[m.slot_id]) {
+        rankBySlot[m.slot_id] = m.position;
+      }
+    }
+    const rankByMetric = {};
+    for (const m of metricRows) {
+      rankByMetric[`${m.query_id}|${m.platform}|${m.date}`] = m.rank_value || '未提及';
+    }
+
+    ctx.body = {
+      code: 200, msg: 'ok', data: {
+        list: rows.map(r => {
+          const ans = (r.slot_id && ansSlot[r.slot_id]) || (r.answer_id && ansId[r.answer_id]) || null;
+          const answerText = ans && ans.answer_text ? String(ans.answer_text) : '';
+          let rank = '未提及';
+          if (r.slot_id && rankBySlot[r.slot_id] != null) rank = String(rankBySlot[r.slot_id]);
+          else {
+            const mk = `${r.query_id}|${r.platform}|${r.exec_date}`;
+            if (rankByMetric[mk]) rank = String(rankByMetric[mk]);
+          }
+          const queryName = queryNameById[r.query_id]
+            || (ans && ans.question_sent)
+            || '';
+          return {
+            id: r.snapshot_id,
+            snapshot_id: r.snapshot_id,
+            slot_id: r.slot_id || null,
+            platform: r.platform,
+            end: 'web',
+            photo_url: r.photo_url || null,
+            oss_key: r.oss_key || null,
+            exec_date: r.exec_date,
+            query_id: r.query_id,
+            query: queryName,
+            size: r.size || null,
+            size_label: this._formatBytes(r.size),
+            rank_value: rank,
+            has_answer: !!answerText,
+            answer_preview: answerText ? answerText.slice(0, 160) : '',
+          };
+        }),
+        total, page, page_size: size,
+      },
+    };
+  }
+
+  /** 查看单条快照对应的原始回答 */
+  async snapshotAnswer() {
+    const { ctx } = this;
+    const b = ctx.request.body || {};
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
+    const snapshotId = String(b.snapshot_id || b.id || '').trim();
+    if (!snapshotId) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '缺少 snapshot_id' };
+      return;
+    }
+    const snap = await ctx.model.Snapshot.findOne({
+      snapshot_id: snapshotId,
+      brand_id: brand.brand_id,
+    }).lean();
+    if (!snap) {
+      ctx.status = 404;
+      ctx.body = { code: 404, msg: '快照不存在' };
+      return;
+    }
+    let ans = null;
+    if (snap.slot_id) {
+      ans = await ctx.model.RawAnswer.findOne({ slot_id: snap.slot_id }).lean();
+    }
+    if (!ans && snap.answer_id) {
+      ans = await ctx.model.RawAnswer.findOne({ answer_id: snap.answer_id }).lean();
+    }
+    const mq = await ctx.model.MonitorQuery.findOne(
+      { brand_id: brand.brand_id, query_id: snap.query_id },
+      { query: 1 },
+    ).lean();
+    ctx.body = {
+      code: 200, msg: 'ok', data: {
+        snapshot_id: snap.snapshot_id,
+        platform: snap.platform,
+        exec_date: snap.exec_date,
+        query_id: snap.query_id,
+        query: (mq && mq.query) || (ans && ans.question_sent) || '',
+        photo_url: snap.photo_url || null,
+        answer_text: (ans && ans.answer_text) || '',
+        cited_urls: (ans && ans.cited_urls) || [],
+      },
+    };
+  }
+
+  /** 批量导出回答文本（Excel 友好 CSV） */
+  async snapshotExportText() {
+    const { ctx } = this;
+    const b = ctx.request.body || {};
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
+
+    const queryType = b.query_type === 'brand' ? 'brand' : 'industry';
+    const start = String(b.start_date || '').slice(0, 10);
+    const platform = String(b.platform || '').trim().toLowerCase();
+    const qid = parseInt(b.query_id, 10);
+
+    const typeQueries = await ctx.model.MonitorQuery.find(
+      { brand_id: brand.brand_id, query_type: queryType },
+      { query_id: 1, query: 1 },
+    ).lean();
+    const typeQids = typeQueries.map(q => q.query_id).filter(n => Number.isFinite(n));
+    const queryNameById = {};
+    for (const q of typeQueries) queryNameById[q.query_id] = q.query || '';
+
+    const q = { brand_id: brand.brand_id, query_id: { $in: typeQids.length ? typeQids : [-1] } };
+    if (start) q.exec_date = start;
+    if (Number.isFinite(qid) && qid > 0) q.query_id = qid;
+    if (platform && platform !== 'all') q.platform = platform;
+
+    const rows = await ctx.model.Snapshot.find(q).sort({ created_at: -1 }).limit(200).lean();
+    const slotIds = rows.map(r => r.slot_id).filter(Boolean);
+    const answers = slotIds.length
+      ? await ctx.model.RawAnswer.find({ slot_id: { $in: slotIds } }).lean()
+      : [];
+    const ansBySlot = {};
+    for (const a of answers) ansBySlot[a.slot_id] = a;
+
+    const PLATFORM_NAME = {
+      doubao: '豆包', deepseek: 'DeepSeek', wenxin: '文心一言', qwen: '通义千问', yuanbao: '元宝',
+    };
+    const lines = [['日期', '平台', '问题', '排行', '回答']];
+    for (const r of rows) {
+      const ans = (r.slot_id && ansBySlot[r.slot_id]) || null;
+      lines.push([
+        r.exec_date || '',
+        PLATFORM_NAME[r.platform] || r.platform || '',
+        queryNameById[r.query_id] || (ans && ans.question_sent) || '',
+        '',
+        (ans && ans.answer_text) || '',
+      ]);
+    }
+    const csv = `\uFEFF${lines.map(row => row.map(c => {
+      const s = String(c == null ? '' : c).replace(/"/g, '""');
+      return `"${s}"`;
+    }).join(',')).join('\n')}`;
+    ctx.set('Content-Type', 'text/csv; charset=utf-8');
+    ctx.set('Content-Disposition', `attachment; filename="snapshot-answers-${start || 'export'}.csv"`);
+    ctx.body = csv;
+  }
+
+  _formatBytes(bytes) {
+    const n = Number(bytes) || 0;
+    if (n <= 0) return '—';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(2)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(2)} MB`;
   }
 }
 

@@ -1,0 +1,9 @@
+{
+  "bucket": "citiogeo",
+  "region": "oss-cn-beijing",
+  "endpoint": "oss-cn-beijing.aliyuncs.com",
+  "accessKeyId": "YOUR_ACCESS_KEY_ID",
+  "accessKeySecret": "YOUR_ACCESS_KEY_SECRET",
+  "publicBaseUrl": "https://citiogeo.oss-cn-beijing.aliyuncs.com",
+  "keyPrefix": "screenshots"
+}
