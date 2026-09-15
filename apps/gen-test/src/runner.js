@@ -11,28 +11,61 @@ const { getTask, updateTask, appendStep, connect, ensureTestUser } = require('./
 const { decodeJwtPayload } = require('@geo-admin/contracts');
 
 /**
- * Cursor Agent shell 会注入 PLAYWRIGHT_BROWSERS_PATH → sandbox 缓存，
- * 且常缺完整 Chromium。强制回落到本机 ms-playwright。
+ * Cursor Agent / 部分 IDE shell 会注入 PLAYWRIGHT_BROWSERS_PATH → sandbox 缓存，
+ * 且常缺完整 Chromium。始终优先本机 ~/Library/Caches/ms-playwright（或显式可执行文件）。
  */
+function localMsPlaywrightDir() {
+  return path.join(os.homedir(), 'Library/Caches/ms-playwright');
+}
+
+function findChromiumBinary(browsersDir) {
+  if (!browsersDir || !fs.existsSync(browsersDir)) return '';
+  let dirs = [];
+  try {
+    dirs = fs.readdirSync(browsersDir).filter(d => /^chromium-\d+$/.test(d));
+  } catch {
+    return '';
+  }
+  // 版本号高的优先（与较新 playwright 匹配）
+  dirs.sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1]));
+  for (const d of dirs) {
+    const base = path.join(browsersDir, d);
+    const candidates = [
+      path.join(base, 'chrome-mac-arm64', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing'),
+      path.join(base, 'chrome-mac', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing'),
+      path.join(base, 'chrome-linux', 'chrome'),
+      path.join(base, 'chrome-win64', 'chrome.exe'),
+    ];
+    for (const c of candidates) {
+      if (fs.existsSync(c)) return c;
+    }
+  }
+  return '';
+}
+
 function ensurePlaywrightBrowsers() {
   const cur = process.env.PLAYWRIGHT_BROWSERS_PATH || '';
-  const homeCache = path.join(os.homedir(), 'Library/Caches/ms-playwright');
-  if (cur.includes('cursor-sandbox-cache')) {
+  const homeCache = localMsPlaywrightDir();
+  // 丢弃无效 / sandbox 路径，避免 chromium.executablePath() 指到空壳
+  if (!cur || cur.includes('cursor-sandbox-cache') || !fs.existsSync(cur)) {
     delete process.env.PLAYWRIGHT_BROWSERS_PATH;
+    if (fs.existsSync(homeCache)) process.env.PLAYWRIGHT_BROWSERS_PATH = homeCache;
   }
-  let exe = '';
-  try {
-    exe = chromium.executablePath();
-  } catch {
-    exe = '';
+
+  let exe = findChromiumBinary(process.env.PLAYWRIGHT_BROWSERS_PATH || homeCache);
+  if (!exe) {
+    try {
+      const guessed = chromium.executablePath();
+      if (guessed && fs.existsSync(guessed) && !guessed.includes('cursor-sandbox-cache')) {
+        exe = guessed;
+      }
+    } catch {
+      /* ignore */
+    }
   }
-  if ((!exe || !fs.existsSync(exe)) && fs.existsSync(homeCache)) {
-    process.env.PLAYWRIGHT_BROWSERS_PATH = homeCache;
-    exe = chromium.executablePath();
-  }
-  if (!exe || !fs.existsSync(exe)) {
+  if (!exe) {
     throw new Error(
-      `Playwright Chromium 不存在: ${exe || '(unknown)'}\n请在本机执行: cd apps/gen-test && npx playwright install chromium`,
+      `Playwright Chromium 不存在（已避开 cursor-sandbox-cache）。\n请在本机执行: cd apps/gen-test && npx playwright install chromium\n当前 PLAYWRIGHT_BROWSERS_PATH=${process.env.PLAYWRIGHT_BROWSERS_PATH || '(unset)'}`,
     );
   }
   return exe;

@@ -45,6 +45,9 @@ export default defineConfig({
       '/query': { target: 'http://127.0.0.1:7001', changeOrigin: true },
       '/article': { target: 'http://127.0.0.1:7001', changeOrigin: true },
       '/diagnosis': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/export': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/agent': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/query-group': { target: 'http://127.0.0.1:7001', changeOrigin: true },
     },
   },
   css: {

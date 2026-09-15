@@ -3,8 +3,21 @@
  * gen-test 服务：测试任务列表 + 添加任务 + 执行（Playwright）+ 删除任务数据。
  * 端口 PORT（默认 8787），网页在 /（public/index.html），API 前缀 /api。
  */
-const express = require('express');
+const os = require('node:os');
 const path = require('node:path');
+const fs = require('node:fs');
+
+// 尽早清掉 Cursor sandbox 注入的浏览器路径，否则有头模式会找不到 Chromium
+(() => {
+  const cur = process.env.PLAYWRIGHT_BROWSERS_PATH || '';
+  const home = path.join(os.homedir(), 'Library/Caches/ms-playwright');
+  if (!cur || cur.includes('cursor-sandbox-cache') || !fs.existsSync(cur)) {
+    delete process.env.PLAYWRIGHT_BROWSERS_PATH;
+    if (fs.existsSync(home)) process.env.PLAYWRIGHT_BROWSERS_PATH = home;
+  }
+})();
+
+const express = require('express');
 const { listTasks, getTask, createTask, ensureTestUser, connect } = require('./db');
 const { tryStartTask, isRunning, checkDeps, ARTIFACTS } = require('./runner');
 const { deleteTask } = require('./cleanup');

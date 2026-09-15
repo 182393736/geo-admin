@@ -86,5 +86,7 @@ export async function request<T = any>(url: string, opts: ReqOpts = {}): Promise
 export const get = <T>(url: string, opts?: ReqOpts) => request<T>(url, { method: 'GET', ...opts });
 export const post = <T>(url: string, body?: any, opts?: ReqOpts) =>
   request<T>(url, { method: 'POST', body: body ?? {}, ...opts });
+export const put = <T>(url: string, body?: any, opts?: ReqOpts) =>
+  request<T>(url, { method: 'PUT', body: body ?? {}, ...opts });
 export const patch = <T>(url: string, body?: any, opts?: ReqOpts) =>
   request<T>(url, { method: 'PATCH', body: body ?? {}, ...opts });

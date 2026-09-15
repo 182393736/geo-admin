@@ -75,7 +75,11 @@ class BrandController extends Controller {
           specs: p.specs || null, price_range: p.price_range || '',
         })),
         competitors: competitors.map(c => ({
-          name: c.name, compet_point: c.compet_point || '', source: c.source,
+          id: String(c._id),
+          name: c.name,
+          compet_point: c.compet_point || '',
+          source: c.source,
+          aliases: Array.isArray(c.aliases) ? c.aliases.filter(Boolean) : [],
         })),
         queries: {
           industry: industryQueries.map(toQuery),
@@ -213,6 +217,203 @@ class BrandController extends Controller {
         aliases: rows.map(a => ({ alias: a.alias, source: a.source, enabled: !!a.enabled })),
       },
     };
+  }
+
+  _normalizeAliases(raw, excludeName) {
+    const exclude = String(excludeName || '').trim().toLowerCase();
+    const seen = new Set();
+    const next = [];
+    const list = Array.isArray(raw) ? raw : [];
+    for (const item of list) {
+      const alias = String(item || '').trim();
+      if (!alias || alias.length > 60) continue;
+      const key = alias.toLowerCase();
+      if (exclude && key === exclude) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      next.push(alias);
+    }
+    return next.slice(0, 50);
+  }
+
+  _competitorPayload(row) {
+    return {
+      id: String(row._id),
+      name: row.name || '',
+      compet_point: row.compet_point || '',
+      source: row.source || '用户登记',
+      aliases: Array.isArray(row.aliases) ? row.aliases.filter(Boolean) : [],
+      enabled: !!row.enabled,
+    };
+  }
+
+  /** POST /api/brand/competitors  新增竞品 */
+  async createCompetitor() {
+    const { ctx } = this;
+    const body = ctx.request.body || {};
+    const brand = await this._requireBrand(body.brand_id || ctx.query.brand_id);
+    if (!brand) return;
+
+    const name = String(body.name || '').trim();
+    if (!name) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '竞品名不能为空' };
+      return;
+    }
+    if (name.length > 60) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '竞品名过长（最多 60 字）' };
+      return;
+    }
+    if (name.toLowerCase() === String(brand.name || '').trim().toLowerCase()) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '竞品名不能与本品牌相同' };
+      return;
+    }
+
+    const aliases = this._normalizeAliases(body.aliases, name);
+    const compet_point = String(body.compet_point || '').trim().slice(0, 500);
+
+    const existing = await ctx.model.CompetitorRegister.findOne({
+      brand_id: brand.brand_id,
+      name,
+    }).lean();
+    if (existing && existing.enabled) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '该竞品已存在' };
+      return;
+    }
+
+    const row = existing
+      ? await ctx.model.CompetitorRegister.findOneAndUpdate(
+        { _id: existing._id },
+        {
+          $set: {
+            name,
+            compet_point,
+            aliases,
+            source: '用户登记',
+            enabled: true,
+          },
+        },
+        { new: true },
+      ).lean()
+      : (await ctx.model.CompetitorRegister.create({
+        brand_id: brand.brand_id,
+        name,
+        compet_point,
+        aliases,
+        source: '用户登记',
+        enabled: true,
+      })).toObject();
+
+    ctx.body = { code: 200, msg: 'ok', data: this._competitorPayload(row) };
+  }
+
+  /** PUT /api/brand/competitors  更新竞品（名称 / 竞争点 / 别名） */
+  async updateCompetitor() {
+    const { ctx } = this;
+    const body = ctx.request.body || {};
+    const brand = await this._requireBrand(body.brand_id || ctx.query.brand_id);
+    if (!brand) return;
+
+    const id = String(body.id || body.competitor_id || '').trim();
+    if (!id) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '缺少竞品 id' };
+      return;
+    }
+
+    const current = await ctx.model.CompetitorRegister.findOne({
+      _id: id,
+      brand_id: brand.brand_id,
+      enabled: true,
+    }).lean();
+    if (!current) {
+      ctx.status = 404;
+      ctx.body = { code: 404, msg: '竞品不存在' };
+      return;
+    }
+
+    const patch = {};
+    if (Object.prototype.hasOwnProperty.call(body, 'name')) {
+      const name = String(body.name || '').trim();
+      if (!name) {
+        ctx.status = 400;
+        ctx.body = { code: 400, msg: '竞品名不能为空' };
+        return;
+      }
+      if (name.length > 60) {
+        ctx.status = 400;
+        ctx.body = { code: 400, msg: '竞品名过长（最多 60 字）' };
+        return;
+      }
+      if (name.toLowerCase() === String(brand.name || '').trim().toLowerCase()) {
+        ctx.status = 400;
+        ctx.body = { code: 400, msg: '竞品名不能与本品牌相同' };
+        return;
+      }
+      const clash = await ctx.model.CompetitorRegister.findOne({
+        brand_id: brand.brand_id,
+        name,
+        enabled: true,
+        _id: { $ne: current._id },
+      }).lean();
+      if (clash) {
+        ctx.status = 400;
+        ctx.body = { code: 400, msg: '该竞品名已存在' };
+        return;
+      }
+      patch.name = name;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'compet_point')) {
+      patch.compet_point = String(body.compet_point || '').trim().slice(0, 500);
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'aliases')) {
+      const nextName = patch.name || current.name;
+      patch.aliases = this._normalizeAliases(body.aliases, nextName);
+    }
+
+    if (!Object.keys(patch).length) {
+      ctx.body = { code: 200, msg: 'ok', data: this._competitorPayload(current) };
+      return;
+    }
+
+    const row = await ctx.model.CompetitorRegister.findOneAndUpdate(
+      { _id: current._id, brand_id: brand.brand_id },
+      { $set: patch },
+      { new: true },
+    ).lean();
+
+    ctx.body = { code: 200, msg: 'ok', data: this._competitorPayload(row) };
+  }
+
+  /** DELETE /api/brand/competitors  删除竞品（软删） */
+  async deleteCompetitor() {
+    const { ctx } = this;
+    const body = ctx.request.body || {};
+    const brand = await this._requireBrand(body.brand_id || ctx.query.brand_id);
+    if (!brand) return;
+
+    const id = String(body.id || body.competitor_id || '').trim();
+    if (!id) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '缺少竞品 id' };
+      return;
+    }
+
+    const row = await ctx.model.CompetitorRegister.findOneAndUpdate(
+      { _id: id, brand_id: brand.brand_id, enabled: true },
+      { $set: { enabled: false } },
+      { new: true },
+    ).lean();
+    if (!row) {
+      ctx.status = 404;
+      ctx.body = { code: 404, msg: '竞品不存在' };
+      return;
+    }
+
+    ctx.body = { code: 200, msg: 'ok', data: { id } };
   }
 }
 

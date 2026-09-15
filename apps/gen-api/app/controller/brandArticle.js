@@ -157,8 +157,15 @@ class BrandArticleController extends Controller {
     const { ctx } = this;
     const brand = await this._requireBrand(ctx.query.brand_id);
     if (!brand) return;
-    const rows = await ctx.model.CompetitorRegister.find({ brand_id: brand.brand_id, enabled: true }).lean();
-    ctx.body = rows.map(c => ({ name: c.name }));
+    const rows = await ctx.model.CompetitorRegister.find({ brand_id: brand.brand_id, enabled: true })
+      .sort({ created_at: 1 }).lean();
+    ctx.body = rows.map(c => ({
+      id: String(c._id),
+      name: c.name,
+      compet_point: c.compet_point || '',
+      aliases: Array.isArray(c.aliases) ? c.aliases.filter(Boolean) : [],
+      source: c.source || '',
+    }));
   }
 
   async products() {
@@ -212,15 +219,70 @@ class BrandArticleController extends Controller {
     if (!brand) return;
     const uid = ctx.query.uid || ctx.state.user.id;
     const brandId = brand.brand_id;
+    const kind = String(ctx.query.kind || 'writing').trim() || 'writing';
     const limit = Math.min(500, Math.max(1, parseInt(ctx.query.limit, 10) || 200));
     const q = { uid, brand_id: brandId };
 
-    const [jobs, articles] = await Promise.all([
-      ctx.model.WritingJob.find(q).lean(),
+    const [jobs, histories, articles] = await Promise.all([
+      ctx.model.WritingJob.find(q).sort({ updated_at: -1 }).limit(limit).lean(),
+      kind === 'writing'
+        ? ctx.model.AgentHistory.find({ ...q, kind: 'writing' }).sort({ updated_at: -1 }).limit(limit).lean()
+        : Promise.resolve([]),
       ctx.model.ArticleGenerated.find(q).sort({ updated_at: -1 }).limit(limit).lean(),
     ]);
-    const counters = { starting: 0, running: 0, awaiting_user: 0, completed: 0, failed: 0, cancelled: 0, all: jobs.length };
-    for (const j of jobs) if (counters[j.status] != null) counters[j.status] += 1;
+
+    const itemsMap = new Map();
+    for (const j of jobs) {
+      const progress = j.status === 'completed' ? 100
+        : j.status === 'awaiting_user' ? 5
+          : j.status === 'running' ? 45
+            : j.status === 'starting' ? 10
+              : 0;
+      itemsMap.set(j.job_id, {
+        run_id: j.job_id,
+        job_id: j.job_id,
+        title: j.topic || '',
+        topic: j.topic || '',
+        slug: null,
+        status: j.status || 'starting',
+        progress_percent: progress,
+        generate_mode: (j.evidence_ids && j.evidence_ids.length) ? 'evidence' : null,
+        updated_at: j.updated_at,
+        created_at: j.created_at,
+        source: 'writing_job',
+      });
+    }
+    for (const h of histories) {
+      const payload = h.payload || {};
+      const sid = h.session_id;
+      if (!sid || itemsMap.has(sid)) continue;
+      const status = payload.ended ? 'completed'
+        : (payload.status === 'completed' ? 'completed'
+          : (payload.status === 'running' ? 'running' : 'awaiting_user'));
+      itemsMap.set(sid, {
+        run_id: sid,
+        job_id: sid,
+        title: payload.title || payload.prompt || '',
+        topic: payload.prompt || '',
+        slug: null,
+        status,
+        progress_percent: payload.progress != null ? payload.progress : (status === 'completed' ? 100 : 5),
+        generate_mode: null,
+        updated_at: h.updated_at,
+        created_at: h.created_at,
+        source: 'agent_history',
+      });
+    }
+
+    const items = Array.from(itemsMap.values())
+      .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))
+      .slice(0, limit);
+
+    const counters = { starting: 0, running: 0, awaiting_user: 0, completed: 0, failed: 0, cancelled: 0, all: items.length };
+    for (const it of items) {
+      if (counters[it.status] != null) counters[it.status] += 1;
+    }
+
     const list = articles.map(a => ({
       article_id: a.article_id, job_id: a.job_id || null, title: a.title || '',
       word_count: a.word_count || 0, status: a.status,
@@ -228,12 +290,42 @@ class BrandArticleController extends Controller {
       publish_order_nos: a.publish_order_nos || [],
       created_at: a.created_at, updated_at: a.updated_at,
     }));
+
     ctx.body = {
-      uid, brand_id: brandId || null, total: list.length,
+      uid, brand_id: brandId || null, kind,
+      total: items.length,
       counters,
-      pagination: { page: 1, page_size: limit, total: list.length },
+      pagination: { page: 1, page_size: limit, total: items.length },
+      items,
       list,
     };
+  }
+
+  /** DELETE /api/articles/:run_id — 删除写作会话 / 稿件 */
+  async deleteArticle() {
+    const { ctx } = this;
+    const brand = await this._requireBrand(ctx.query.brand_id || (ctx.request.body || {}).brand_id);
+    if (!brand) return;
+    const uid = ctx.state.user.id;
+    const runId = String(ctx.params.run_id || '').trim();
+    if (!runId) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: 'run_id required' };
+      return;
+    }
+    const brandId = brand.brand_id;
+    const [jobDel, histDel, artDel] = await Promise.all([
+      ctx.model.WritingJob.deleteMany({ uid, brand_id: brandId, job_id: runId }),
+      ctx.model.AgentHistory.deleteMany({ uid, brand_id: brandId, session_id: runId }),
+      ctx.model.ArticleGenerated.deleteMany({ uid, brand_id: brandId, $or: [{ job_id: runId }, { article_id: runId }] }),
+    ]);
+    const deleted = (jobDel.deletedCount || 0) + (histDel.deletedCount || 0) + (artDel.deletedCount || 0);
+    if (!deleted) {
+      ctx.status = 404;
+      ctx.body = { code: 404, msg: 'not found' };
+      return;
+    }
+    ctx.body = { ok: true, run_id: runId, deleted };
   }
 }
 

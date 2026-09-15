@@ -10,6 +10,7 @@ module.exports = app => {
   const { Schema } = app.mongoose;
   const schema = new Schema({
     article_id: { type: String, unique: true },
+    brand_id: { type: String, index: true },
     canonical_url: { type: String, unique: true },
     url: String,
     title: String,
@@ -17,7 +18,10 @@ module.exports = app => {
     publish_date: String,
     first_cited_at: String,
     last_cited_at: String,
+    registered_at: String,  // 登记/导入时间（稿件追踪）
     is_brand_published: { type: Boolean, default: false },  // 是否自家发稿（URL 命中 publish_orders.published_url）
+    source_kind: { type: String, enum: [ 'own', 'publish' ], default: undefined },
+    content_type: { type: String, enum: [ 'graphic', 'video' ], default: 'graphic' },
   }, { collection: 'cited_articles', versionKey: false, timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
   return app.mongoose.model('CitedArticle', schema);

@@ -1,37 +1,150 @@
 <template>
-  <div class="spark" :style="{ height: height + 'px' }">
+  <div
+    ref="root"
+    class="spark"
+    :style="{ height: height + 'px' }"
+    @mousemove="onMove"
+    @mouseleave="onLeave"
+  >
     <svg
-      :viewBox="`0 0 ${W} ${H}`"
-      preserveAspectRatio="none"
+      :viewBox="`0 0 ${vbW} ${vbH}`"
       class="spark-svg"
-      :style="{ height: height + 'px' }"
+      :style="{ height: chartH + 'px' }"
+      preserveAspectRatio="none"
     >
       <defs>
         <linearGradient :id="gid" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" :stop-color="color" stop-opacity="0.22" />
-          <stop offset="100%" :stop-color="color" stop-opacity="0" />
+          <stop :offset="interactive ? '5%' : '0%'" :stop-color="color" :stop-opacity="interactive ? 0.15 : 0.22" />
+          <stop :offset="interactive ? '95%' : '100%'" :stop-color="color" stop-opacity="0" />
         </linearGradient>
+        <clipPath v-if="interactive" :id="clipId">
+          <rect :x="ML" :y="MT" :width="plotW" :height="plotH" />
+        </clipPath>
       </defs>
-      <!-- 网格线 -->
-      <line v-for="g in 3" :key="'g' + g" :x1="0" :x2="W" :y1="(H - PAD) / 3 * g" :y2="(H - PAD) / 3 * g" stroke="#eef0f5" stroke-width="1" />
-      <!-- 面积 -->
-      <path v-if="pts.length > 1" :d="areaPath" :fill="`url(#${gid})`" />
-      <!-- 折线 -->
-      <path v-if="pts.length > 1" :d="linePath" fill="none" :stroke="color" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
-      <!-- 数据点 -->
-      <circle v-for="(p, i) in pts" :key="'p' + i" :cx="x(i)" :cy="y(p)" r="2.6" :fill="color" />
-      <!-- 最新值标签 -->
-      <text v-if="pts.length" :x="x(pts.length - 1)" :y="y(pts[pts.length - 1]) - 9" text-anchor="end" class="spark-v">{{ fmt(pts[pts.length - 1]) }}</text>
+
+      <!-- 网格 -->
+      <template v-if="interactive">
+        <line
+          v-for="(tick, i) in yTicks"
+          :key="'yg' + i"
+          :x1="ML"
+          :x2="ML + plotW"
+          :y1="yOfValue(tick)"
+          :y2="yOfValue(tick)"
+          stroke="#f1f5f9"
+          stroke-width="1"
+          stroke-dasharray="3 3"
+        />
+        <text
+          v-for="(tick, i) in yTicks"
+          :key="'yl' + i"
+          :x="ML - 6"
+          :y="yOfValue(tick) + 3"
+          text-anchor="end"
+          class="spark-axis-label"
+        >{{ tick }}</text>
+      </template>
+      <template v-else>
+        <line
+          v-for="g in 3"
+          :key="'g' + g"
+          :x1="0"
+          :x2="vbW"
+          :y1="(vbH - PAD) / 3 * g"
+          :y2="(vbH - PAD) / 3 * g"
+          stroke="#eef0f5"
+          stroke-width="1"
+        />
+      </template>
+
+      <g :clip-path="interactive ? `url(#${clipId})` : undefined">
+        <path v-if="pts.length > 1" :d="areaPath" :fill="`url(#${gid})`" />
+      </g>
+      <!-- stroke 不裁剪，避免 0%/低值水平线贴底被 clip 掉 -->
+      <path
+        v-if="pts.length > 1"
+        :d="linePath"
+        fill="none"
+        :stroke="color"
+        stroke-width="2"
+        stroke-linejoin="round"
+        stroke-linecap="round"
+      />
+
+      <template v-if="!interactive">
+        <circle
+          v-for="(p, i) in pts"
+          :key="'p' + i"
+          :cx="xOf(i)"
+          :cy="yNorm(p)"
+          r="2.6"
+          :fill="color"
+        />
+          <text
+          v-if="pts.length"
+          :x="xOf(pts.length - 1)"
+          :y="yNorm(pts[pts.length - 1]) - 9"
+          text-anchor="end"
+          class="spark-v"
+        >{{ fmt(drawPoints[pts.length - 1]) }}</text>
+      </template>
+
+      <template v-if="interactive && hoverIdx != null">
+        <line
+          :x1="xOf(hoverIdx)"
+          :x2="xOf(hoverIdx)"
+          :y1="MT"
+          :y2="MT + plotH"
+          stroke="#94a3b8"
+          stroke-width="1"
+          stroke-dasharray="4 4"
+        />
+        <circle
+          :cx="xOf(hoverIdx)"
+          :cy="yNorm(pts[hoverIdx])"
+          r="4"
+          :fill="color"
+          stroke="#fff"
+          stroke-width="2"
+        />
+      </template>
     </svg>
-    <div v-if="labels && labels.length" class="spark-axis">
-      <span>{{ labels[0] }}</span>
-      <span>{{ labels[labels.length - 1] }}</span>
+
+    <div v-if="interactive && axisLabels.length" class="spark-x-axis">
+      <span v-for="(lb, i) in axisLabels" :key="'x' + i" class="spark-x-tick">{{ lb }}</span>
+    </div>
+    <div v-else-if="axisLabels.length" class="spark-axis">
+      <span>{{ axisLabels[0] }}</span>
+      <span>{{ axisLabels[axisLabels.length - 1] }}</span>
+    </div>
+
+    <div
+      v-if="interactive && hoverIdx != null && tip"
+      class="spark-tip"
+      :style="tipStyle"
+    >
+      <p class="mb-1 font-bold text-gray-900">{{ tip.date }}</p>
+      <div class="flex justify-between gap-3">
+        <span class="text-gray-500">{{ rateLabel }}:</span>
+        <span class="font-bold" :class="valueClass">{{ tip.rateText }}</span>
+      </div>
+      <div class="flex justify-between gap-3">
+        <span class="text-gray-500">分子 / 分母:</span>
+        <span class="font-bold text-gray-900">{{ tip.num }} / {{ tip.den }}</span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
+
+export type SparkSeriesPoint = {
+  date?: string;
+  rate: number;
+  numerator?: number;
+  denominator?: number;
+};
 
 const props = withDefaults(defineProps<{
   points: number[];
@@ -40,49 +153,235 @@ const props = withDefaults(defineProps<{
   height?: number;
   unit?: string;
   digits?: number;
+  interactive?: boolean;
+  rateLabel?: string;
+  valueClass?: string;
+  series?: SparkSeriesPoint[];
 }>(), {
   labels: () => [],
-  color: '#4f46e5',
+  color: '#3B82F6',
   height: 120,
   unit: '',
   digits: 1,
+  interactive: false,
+  rateLabel: '提及率',
+  valueClass: 'text-blue-600',
+  series: () => [],
 });
 
-const W = 600;
-const H = 160;
 const PAD = 26;
+const ML = 40;
+const MR = 5;
+const MT = 5;
+const MB = 10;
+
+const vbW = computed(() => (props.interactive ? 323 : 600));
+const vbH = computed(() => (props.interactive ? 100 : 160));
+const plotW = computed(() => vbW.value - ML - MR);
+const plotH = computed(() => vbH.value - MT - MB);
 
 const gid = `spark-${Math.random().toString(36).slice(2, 9)}`;
+const clipId = `clip-${Math.random().toString(36).slice(2, 9)}`;
 
-const pts = computed(() => {
-  const arr = props.points || [];
+const root = ref<HTMLElement | null>(null);
+const hoverIdx = ref<number | null>(null);
+
+const chartH = computed(() => (props.interactive ? Math.max(90, props.height - 18) : props.height));
+const yTicks = [0, 25, 50, 75, 100];
+
+const rawPoints = computed(() => {
+  const fromSeries = (props.series || []).map(s => Number(s.rate) || 0);
+  const fromPoints = props.points || [];
+  // series 优先；但若 series 全 0 而 points 有值，用 points（避免单日贴底假 0 线）
+  if (fromSeries.length) {
+    const seriesAllZero = fromSeries.every(v => v === 0);
+    const pointsHasValue = fromPoints.some(v => Number(v) > 0);
+    if (seriesAllZero && pointsHasValue && fromPoints.length === fromSeries.length) {
+      return fromPoints.map(v => Number(v) || 0);
+    }
+    return fromSeries;
+  }
+  return fromPoints;
+});
+
+/** 仅 1 天时复制为起止两点，曲线横向拉满（与「两天同值」一致，按真实 rate 高度画水平线） */
+const drawPoints = computed(() => {
+  const arr = rawPoints.value;
+  if (arr.length === 1) return [arr[0], arr[0]];
+  return arr;
+});
+
+const drawSeries = computed(() => {
+  const s = props.series || [];
+  if (s.length === 1) return [s[0], s[0]];
+  return s;
+});
+
+const axisLabels = computed(() => {
+  const lbs = props.labels?.length
+    ? [...props.labels]
+    : (props.series || []).map(s => s.date || '');
+  if (lbs.length === 1) return [lbs[0], lbs[0]];
+  return lbs;
+});
+
+const yDomain = computed(() => {
+  if (props.interactive) return { min: 0, max: 100 };
+  const arr = drawPoints.value;
+  if (!arr.length) return { min: 0, max: 1 };
   const min = Math.min(...arr, 0);
   const max = Math.max(...arr, 0);
-  if (max === min) return arr.map(() => 0.5); // 平坦线居中
-  return arr.map(v => (v - min) / (max - min));
+  if (max === min) return { min: min - 1, max: max + 1 };
+  return { min, max };
 });
 
-const x = (i: number) => (pts.value.length <= 1 ? 0 : (i / (pts.value.length - 1)) * W);
-const y = (p: number) => H - PAD - p * (H - PAD * 2);
+const pts = computed(() => {
+  const { min, max } = yDomain.value;
+  const span = max - min || 1;
+  if (props.interactive) {
+    return drawPoints.value.map(v => (v - min) / span);
+  }
+  // 简易模式：平坦线居中
+  if (max === min || Math.max(...drawPoints.value, 0) === Math.min(...drawPoints.value, 0)) {
+    return drawPoints.value.map(() => 0.5);
+  }
+  return drawPoints.value.map(v => (v - min) / span);
+});
+
+function xOf(i: number) {
+  const n = pts.value.length;
+  if (props.interactive) {
+    // 至少两点时铺满；单点兜底居中（drawPoints 已保证 ≥2）
+    if (n <= 1) return ML + plotW.value / 2;
+    return ML + (i / (n - 1)) * plotW.value;
+  }
+  if (n <= 1) return 0;
+  return (i / (n - 1)) * vbW.value;
+}
+
+function yNorm(p: number) {
+  if (props.interactive) return MT + plotH.value - p * plotH.value;
+  return vbH.value - PAD - p * (vbH.value - PAD * 2);
+}
+
+function yOfValue(v: number) {
+  const { min, max } = yDomain.value;
+  const span = max - min || 1;
+  return yNorm((v - min) / span);
+}
 
 const linePath = computed(() =>
-  pts.value.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p).toFixed(1)}`).join(' '),
+  pts.value.map((p, i) => `${i === 0 ? 'M' : 'L'}${xOf(i).toFixed(1)},${yNorm(p).toFixed(1)}`).join(' '),
 );
+
 const areaPath = computed(() => {
   if (!pts.value.length) return '';
-  return `${linePath.value} L${x(pts.value.length - 1).toFixed(1)},${H - PAD} L${x(0).toFixed(1)},${H - PAD} Z`;
+  const base = props.interactive ? MT + plotH.value : vbH.value - PAD;
+  return `${linePath.value} L${xOf(pts.value.length - 1).toFixed(1)},${base} L${xOf(0).toFixed(1)},${base} Z`;
 });
 
-const fmt = (v: number) => {
-  const d = props.digits;
-  const s = Number.isFinite(v) ? v.toFixed(d) : '0';
+const tip = computed(() => {
+  if (hoverIdx.value == null) return null;
+  const i = hoverIdx.value;
+  const s = drawSeries.value[i] || drawSeries.value[0];
+  const rate = s ? Number(s.rate) || 0 : drawPoints.value[i] || 0;
+  return {
+    date: s?.date || axisLabels.value[i] || axisLabels.value[0] || '',
+    rateText: `${Number(rate).toFixed(props.digits)}%`,
+    num: s?.numerator ?? 0,
+    den: s?.denominator ?? 0,
+  };
+});
+
+const tipStyle = computed(() => {
+  if (hoverIdx.value == null || !root.value) return {};
+  const el = root.value;
+  const w = el.clientWidth || 1;
+  const n = Math.max(1, pts.value.length - 1);
+  const ratio = hoverIdx.value / n;
+  const leftPx = ((ML + ratio * plotW.value) / vbW.value) * w;
+  const tipW = 148;
+  let left = leftPx + 12;
+  if (left + tipW > w) left = leftPx - tipW - 8;
+  if (left < 0) left = 4;
+  return { left: `${left}px`, top: '4px' };
+});
+
+function onMove(ev: MouseEvent) {
+  if (!props.interactive || !root.value || !pts.value.length) return;
+  const rect = root.value.getBoundingClientRect();
+  const relX = ((ev.clientX - rect.left) / rect.width) * vbW.value;
+  const n = pts.value.length;
+  if (n <= 1) {
+    hoverIdx.value = 0;
+    return;
+  }
+  const t = (relX - ML) / plotW.value;
+  hoverIdx.value = Math.round(Math.max(0, Math.min(1, t)) * (n - 1));
+}
+
+function onLeave() {
+  hoverIdx.value = null;
+}
+
+function fmt(v: number) {
+  const s = Number.isFinite(v) ? v.toFixed(props.digits) : '0';
   return `${s}${props.unit}`;
-};
+}
 </script>
 
 <style scoped>
-.spark { position: relative; width: 100%; }
-.spark-svg { width: 100%; display: block; }
-.spark-v { font-size: 12px; font-weight: 700; fill: #374151; }
-.spark-axis { display: flex; justify-content: space-between; font-size: 11px; color: #9ca3af; padding: 4px 2px 0; }
+.spark {
+  position: relative;
+  width: 100%;
+  cursor: default;
+}
+.spark-svg {
+  width: 100%;
+  display: block;
+}
+.spark-v {
+  font-size: 12px;
+  font-weight: 700;
+  fill: #374151;
+}
+.spark-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #9ca3af;
+  padding: 4px 2px 0;
+}
+.spark-axis-label {
+  font-size: 9px;
+  fill: #94a3b8;
+}
+.spark-x-axis {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 5px 0 40px;
+  margin-top: -2px;
+}
+.spark-x-tick {
+  font-size: 9px;
+  color: #94a3b8;
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+.spark-x-tick:first-child { text-align: left; }
+.spark-x-tick:last-child { text-align: right; }
+.spark-tip {
+  position: absolute;
+  z-index: 20;
+  pointer-events: none;
+  background: #fff;
+  padding: 0.5rem;
+  border: 1px solid #f3f4f6;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  min-width: 132px;
+}
 </style>

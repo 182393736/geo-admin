@@ -56,14 +56,48 @@ class AggregateService extends Service {
           { upsert: true },
         );
       }
-      /* ---- 3) 信源日统计（含自有归因） ---- */
+      /* ---- 3) 信源日统计（含自有归因；按 query_type 分流，避免排名/口碑混算） ---- */
+      // 旧唯一索引无 query_type，会挡住 industry/brand 分行写入
+      try {
+        await ctx.model.SourceDailyStat.collection.dropIndex('brand_id_1_source_id_1_platform_1_date_1');
+      } catch (_) { /* already dropped or never existed */ }
       await ctx.model.CitationEdge.aggregate([
         { $match: { brand_id: b.brand_id, date: targetDate } },
-        { $group: { _id: { s: '$source_id', p: '$platform' }, ref_count: { $sum: 1 },
-                    articles: { $addToSet: '$article_id' }, queries: { $addToSet: '$query_id' }, own: { $sum: { $cond: ['$is_own', 1, 0] } } } },
-      ]).then(rows => ctx.model.SourceDailyStat.bulkWrite(rows.map(r => ({
-        updateOne: { filter: { brand_id: b.brand_id, source_id: r._id.s, platform: r._id.p, date: targetDate },
-          update: { $set: { ref_count: r.ref_count, article_count: r.articles.length, query_count: r.queries.length, own_article_count: r.own } }, upsert: true } }))));
+        { $group: {
+          _id: {
+            s: '$source_id',
+            p: '$platform',
+            qt: { $ifNull: ['$query_type', 'industry'] },
+          },
+          ref_count: { $sum: 1 },
+          articles: { $addToSet: '$article_id' },
+          queries: { $addToSet: '$query_id' },
+          own: { $sum: { $cond: ['$is_own', 1, 0] } },
+        } },
+      ]).then(rows => {
+        if (!rows.length) return null;
+        return ctx.model.SourceDailyStat.bulkWrite(rows.map(r => ({
+          updateOne: {
+            filter: {
+              brand_id: b.brand_id,
+              source_id: r._id.s,
+              platform: r._id.p,
+              date: targetDate,
+              query_type: r._id.qt === 'brand' ? 'brand' : 'industry',
+            },
+            update: {
+              $set: {
+                ref_count: r.ref_count,
+                article_count: r.articles.length,
+                query_count: r.queries.length,
+                own_article_count: r.own,
+                query_type: r._id.qt === 'brand' ? 'brand' : 'industry',
+              },
+            },
+            upsert: true,
+          },
+        })));
+      });
       /* ---- 4) 榜单快照 ---- */
       const qids = await ctx.model.MonitorQuery.distinct('query_id', { brand_id: b.brand_id, query_type: 'industry', query_status: true });
       for (const qid of qids) {

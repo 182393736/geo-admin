@@ -8,19 +8,25 @@ GEO 首登分析 Agent：**品牌名 + 官网（可选）→ 完整字段集**�
 
 ## 配置（密钥）
 
-解析优先级：**显式入参 > 环境变量 > `src/dev-keys.js` 内置测试密钥**。
-本仓库为私有仓库，`src/dev-keys.js` 里内置了一组**仅供开发/联调**的测试密钥，开箱即用；
-生产环境只需在部署环境里设置同名环境变量即可自动覆盖（内置值不会生效）。
-需要验证"无密钥降级"行为时设 `GEO_DISABLE_DEV_KEYS=1` 屏蔽内置值。
+解析优先级：**显式入参 > 环境变量 > 仓库根 `.local-secrets/keys.json` > `src/dev-keys.js` 内置测试密钥**。
+本仓库为私有仓库，`src/dev-keys.js` 里内置了一组**仅供开发/联调**的测试密钥；
+易被 GitHub 拦截的 key（如 DeepSeek）请放到 `.local-secrets/`（已 gitignore）：
 
-> ⚠️ 上生产前请把 `src/dev-keys.js` 的值清空或替换，并确保运行环境注入了真实密钥。
+```bash
+cp -R .local-secrets.example .local-secrets
+# 编辑 .local-secrets/keys.json
+```
+
+生产环境只需在部署环境里设置同名环境变量即可自动覆盖。
+需要验证"无密钥降级"行为时设 `GEO_DISABLE_DEV_KEYS=1` 屏蔽本地密钥与内置值。
 
 | 变量 | 必填 | 说明 |
 |---|---|---|
 | `SILICONFLOW_API_KEY` | ✅ | 硅基流动密钥（dev-keys.js 已内置测试值，生产用 env 覆盖） |
 | `SILICONFLOW_BASE_URL` | | 默认 `https://api.siliconflow.cn/v1` |
 | `SILICONFLOW_MODEL` | | 默认 `deepseek-ai/DeepSeek-V4-Flash` |
-| `GEO_DISABLE_DEV_KEYS` | | 设为 `1` 时忽略 `src/dev-keys.js` 内置密钥（测试降级路径用） |
+| `DEEPSEEK_API_KEY` | ✅（默认供应商） | 放 `.local-secrets/keys.json` 或环境变量；勿提交进仓库 |
+| `GEO_DISABLE_DEV_KEYS` | | 设为 `1` 时忽略本地密钥与 `src/dev-keys.js`（测试降级路径用） |
 | `TAVILY_API_KEY` | | 联网取证兜底。主引擎博查出错时回退 Tavily；仅配 Tavily 时直接用 Tavily |
 | `BOCHA_API_KEY` | | 联网取证主引擎（博查 Web Search，`summary:true`）。两家皆未配置则不联网、诚实标 `llm_estimate` |
 

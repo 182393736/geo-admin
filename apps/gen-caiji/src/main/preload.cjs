@@ -17,8 +17,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closePlatform: (ip, platform) => ipcRenderer.invoke('platform:close', { ip, platform }),
   /** 对话测试：在对应平台 tab 上执行一次对话 */
   runChat: (ip, platform, prompt) => ipcRenderer.invoke('chat:run', { ip, platform, prompt }),
-  /** 测试拉取：向 gen-api 领取指定平台的一条槽位，在本 IP 对应 tab 采集后提交 */
-  pullAndRun: (ip, platform) => ipcRenderer.invoke('collector:pull-run', { ip, platform }),
+  /** 测试拉取：向 gen-api 领取指定平台的一条槽位，在本 IP 对应 tab 采集后提交
+   *  opts.requireOpenTab：自动调度时传 true，tab 未开则不请求后台 */
+  pullAndRun: (ip, platform, opts = {}) =>
+    ipcRenderer.invoke('collector:pull-run', {
+      ip,
+      platform,
+      requireOpenTab: !!(opts && opts.requireOpenTab),
+    }),
   /** 预览：打开最近一次对话结果 HTML */
   previewChat: (ip, platform) => ipcRenderer.invoke('chat:preview', { ip, platform }),
   /** 预览：打开最近一次模拟提交 JSON */
@@ -30,6 +36,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_e, data) => { try { cb(data); } catch { /* ignore */ } };
     ipcRenderer.on('platform-auth-changed', handler);
     return () => ipcRenderer.removeListener('platform-auth-changed', handler);
+  },
+  /** 订阅平台 tab 关闭（用户点浏览器 X / UI 关闭），渲染层清 openedPlatforms */
+  onPlatformClosed: cb => {
+    const handler = (_e, data) => { try { cb(data); } catch { /* ignore */ } };
+    ipcRenderer.on('platform-closed', handler);
+    return () => ipcRenderer.removeListener('platform-closed', handler);
   },
   /** 订阅对话测试日志（主进程推送 { ip, platform, level, message, time }） */
   onChatLog: cb => {

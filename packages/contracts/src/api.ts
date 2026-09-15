@@ -44,7 +44,7 @@ export interface BrandSummary {
   profile: { description: string; slogan: string; tone: unknown; scripts: string[] } | null;
   aliases: { alias: string; source: string; enabled: boolean }[];
   products: { name: string; category: string; specs: unknown; price_range: string }[];
-  competitors: { name: string; compet_point: string; source: string }[];
+  competitors: { id?: string; name: string; compet_point: string; source: string; aliases?: string[] }[];
   queries: {
     industry: MonitorQuery[];
     brand: MonitorQuery[];
@@ -288,6 +288,7 @@ export interface DiagnosisTaskItem {
   diagnosis_id: string; status: string; target_brand_input: Record<string, any> | null;
   aliases: string[]; ends: string[]; credit_cost: number | null; order_no: string | null;
   result: Record<string, any> | null; share_token: string | null; created_at: string; updated_at: string;
+  topic_count?: number | null; progress?: number | null; platforms?: any[];
 }
 
 // ---- 快照 ----

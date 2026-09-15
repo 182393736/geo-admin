@@ -80,6 +80,7 @@ async function executePlatformChat(ip, platform, prompt, log, startedAt = new Da
   if (!page || page.isClosed()) {
     page = await s.context.newPage();
     s.pages.set(platform, page);
+    bindPlatformPageClose(ip, platform, page);
     openedPlatform = true;
   }
   log('info', `打开新对话：${cfg.url}`);
@@ -255,6 +256,25 @@ function friendlyErr(err) {
   return msg;
 }
 
+/** 该 IP 会话上某平台 tab 是否真实存在且未关闭 */
+function isPlatformTabOpen(ip, platform) {
+  const s = sessions.get(ip);
+  if (!s) return false;
+  const page = s.pages.get(platform);
+  return !!(page && !page.isClosed());
+}
+
+/** tab 被关（UI 关闭 / 用户点浏览器 X）时清理 map 并通知渲染层，避免定时器仍去拉该平台任务 */
+function bindPlatformPageClose(ip, platform, page) {
+  page.once('close', () => {
+    const s = sessions.get(ip);
+    if (s && s.pages.get(platform) === page) s.pages.delete(platform);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('platform-closed', { ip, platform });
+    }
+  });
+}
+
 function registerIpc() {
   // —— 拉取 IP 列表 ——
   ipcMain.handle('ip-list:fetch', async () => {
@@ -299,6 +319,7 @@ function registerIpc() {
       if (!page || page.isClosed()) {
         page = await s.context.newPage();
         s.pages.set(platform, page);
+        bindPlatformPageClose(ip, platform, page);
         // 打开即检测：先挂 response 监听兜底（覆盖导航期接口），再 goto，再读凭证判定
         const watch = watchUsername(page, platform);
         await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
@@ -394,7 +415,8 @@ function registerIpc() {
   });
 
   // —— 测试拉取：向 gen-api 领「指定平台」一条槽位 → 本机 IP 对应 tab 采集 → 提交 ——
-  ipcMain.handle('collector:pull-run', async (_e, { ip, platform } = {}) => {
+  // requireOpenTab=true（自动调度）：tab 未打开则不请求后台，避免空拉占槽
+  ipcMain.handle('collector:pull-run', async (_e, { ip, platform, requireOpenTab = false } = {}) => {
     if (!ip) return { ok: false, error: '缺少 IP' };
     if (!platform) return { ok: false, error: '缺少平台' };
     const cfg = PLATFORMS.find(p => p.key === platform);
@@ -403,6 +425,16 @@ function registerIpc() {
     const pullKey = `${ip}:${platform}`;
     if (runningPulls.has(pullKey)) return { ok: false, error: `${cfg.name} 正在拉取采集中，请稍候` };
     if (runningChats.has(pullKey)) return { ok: false, error: `${cfg.name} 正在对话中，请稍候` };
+
+    if (requireOpenTab && !isPlatformTabOpen(ip, platform)) {
+      return {
+        ok: true,
+        skipped: true,
+        empty: false,
+        message: `${cfg.name} 标签页未打开，跳过拉取`,
+        platform,
+      };
+    }
 
     const apiCfg = getCollectorConfig();
     const logPull = (level, message) => {

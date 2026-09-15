@@ -224,12 +224,47 @@ class ReportService extends Service {
   }
 
   /* ================= 信源 ================= */
-  /** 本期信源列表 + 环比增减 + 可投放渠道（命中 media_channels） */
+  /** 本期信源列表 + 环比增减 + 可投放渠道（命中 media_channels）；仅统计排名问题(industry)引用 */
   async sourceSummary(brandId, range) {
     const { ctx } = this;
-    const [curRows, cmpRows, sources, channels] = await Promise.all([
-      ctx.model.SourceDailyStat.find({ brand_id: brandId, date: { $gte: range.start, $lte: range.end } }).lean().catch(() => []),
-      ctx.model.SourceDailyStat.find({ brand_id: brandId, date: { $gte: range.cmpStart, $lte: range.cmpEnd } }).lean().catch(() => []),
+    const load = async (start, end) => {
+      const edges = await ctx.model.CitationEdge.find({
+        brand_id: brandId,
+        date: { $gte: start, $lte: end },
+      }).select('source_id platform query_id query_type is_own article_id').lean().catch(() => []);
+      const missing = [...new Set(edges.filter(e => !e.query_type).map(e => e.query_id))];
+      const qtMap = {};
+      if (missing.length) {
+        const mqs = await ctx.model.MonitorQuery.find({ query_id: { $in: missing } }).select('query_id query_type').lean();
+        for (const m of mqs) qtMap[m.query_id] = m.query_type;
+      }
+      const a = {};
+      for (const r of edges) {
+        const qt = r.query_type || qtMap[r.query_id] || 'industry';
+        if (qt !== 'industry') continue;
+        const x = (a[r.source_id] ||= { ref_count: 0, article_ids: new Set(), query_ids: new Set(), own_article_count: 0, platforms: {} });
+        x.ref_count += 1;
+        if (r.article_id) x.article_ids.add(r.article_id);
+        if (r.query_id != null) x.query_ids.add(r.query_id);
+        if (r.is_own) x.own_article_count += 1;
+        x.platforms[r.platform] = (x.platforms[r.platform] || 0) + 1;
+      }
+      const out = {};
+      for (const [sid, v] of Object.entries(a)) {
+        out[sid] = {
+          ref_count: v.ref_count,
+          article_count: v.article_ids.size,
+          query_count: v.query_ids.size,
+          own_article_count: v.own_article_count,
+          platforms: v.platforms,
+        };
+      }
+      return out;
+    };
+
+    const [cur, cmp, sources, channels] = await Promise.all([
+      load(range.start, range.end),
+      load(range.cmpStart, range.cmpEnd),
       ctx.model.CanonicalSource.find({}).lean().catch(() => []),
       ctx.model.MediaChannel.find({}).select('media_key name type ref_count article_count cost_per_citation sell_price').lean().catch(() => []),
     ]);
@@ -237,21 +272,6 @@ class ReportService extends Service {
     for (const s of sources) srcMap[s.source_id] = s;
     const chByName = {};
     for (const c of channels) chByName[c.name] = c;
-
-    const agg = rows => {
-      const a = {};
-      for (const r of rows) {
-        const x = (a[r.source_id] ||= { ref_count: 0, article_count: 0, query_count: 0, own_article_count: 0, platforms: {} });
-        x.ref_count += r.ref_count || 0;
-        x.article_count += r.article_count || 0;
-        x.query_count += r.query_count || 0;
-        x.own_article_count += r.own_article_count || 0;
-        x.platforms[r.platform] = (x.platforms[r.platform] || 0) + (r.ref_count || 0);
-      }
-      return a;
-    };
-    const cur = agg(curRows);
-    const cmp = agg(cmpRows);
 
     const list = Object.entries(cur).map(([sourceId, v]) => {
       const meta = srcMap[sourceId] || {};
@@ -352,14 +372,21 @@ class ReportService extends Service {
     };
   }
 
-  /* ================= 终端（各 AI 引擎采集/引用汇总） ================= */
+  /* ================= 终端（各 AI 引擎采集/引用汇总；引用数仅计排名问题） ================= */
   async terminals(brandId, range) {
     const { ctx } = this;
     const [slots, answers, refs] = await Promise.all([
       ctx.model.CollectSlot.find({ brand_id: brandId, date: { $gte: range.start, $lte: range.end } }).lean().catch(() => []),
       ctx.model.RawAnswer.find({ brand_id: brandId, date: { $gte: range.start, $lte: range.end } }).lean().catch(() => []),
-      ctx.model.CitationEdge.find({ brand_id: brandId, date: { $gte: range.start, $lte: range.end } }).lean().catch(() => []),
+      ctx.model.CitationEdge.find({ brand_id: brandId, date: { $gte: range.start, $lte: range.end } })
+        .select('platform query_id query_type').lean().catch(() => []),
     ]);
+    const missing = [...new Set((refs || []).filter(e => !e.query_type).map(e => e.query_id))];
+    const qtMap = {};
+    if (missing.length) {
+      const mqs = await ctx.model.MonitorQuery.find({ query_id: { $in: missing } }).select('query_id query_type').lean();
+      for (const m of mqs) qtMap[m.query_id] = m.query_type;
+    }
     const byP = {};
     const ensure = p => (byP[p] ||= { slots: 0, ok: 0, empty: 0, fail: 0, answers: 0, refs: 0 });
     for (const s of slots) {
@@ -370,21 +397,43 @@ class ReportService extends Service {
       else if (s.status === 'fail') a.fail += 1;
     }
     for (const r of answers) ensure(r.platform).answers += 1;
-    for (const e of refs) ensure(e.platform).refs += 1;
+    for (const e of refs || []) {
+      const qt = e.query_type || qtMap[e.query_id] || 'industry';
+      if (qt !== 'industry') continue;
+      ensure(e.platform).refs += 1;
+    }
     return PLATFORM_KEYS.map(p => {
       const a = byP[p] || { slots: 0, ok: 0, empty: 0, fail: 0, answers: 0, refs: 0 };
       return { key: p, name: PLATFORM_NAMES[p], ...a };
     });
   }
 
-  /* ================= 快捷卡片（对齐 OverviewStats 契约） ================= */
+  /* ================= 快捷卡片（对齐 OverviewStats 契约；引用源仅计排名问题） ================= */
   async overviewStats(brandId, range) {
     const { ctx } = this;
     const dayjs = this.app.dayjs;
+    const edgeSrcIds = async () => {
+      const edges = await ctx.model.CitationEdge.find({
+        brand_id: brandId,
+        date: { $gte: range.start, $lte: range.end },
+      }).select('source_id query_id query_type').lean().catch(() => []);
+      const missing = [...new Set(edges.filter(e => !e.query_type).map(e => e.query_id))];
+      const qtMap = {};
+      if (missing.length) {
+        const mqs = await ctx.model.MonitorQuery.find({ query_id: { $in: missing } }).select('query_id query_type').lean();
+        for (const m of mqs) qtMap[m.query_id] = m.query_type;
+      }
+      const set = new Set();
+      for (const e of edges) {
+        const qt = e.query_type || qtMap[e.query_id] || 'industry';
+        if (qt === 'industry' && e.source_id) set.add(e.source_id);
+      }
+      return [...set];
+    };
     const [brand, monitored, srcIds, published, aliases, competitors, slots, collected, latest] = await Promise.all([
       ctx.model.Brand.findOne({ brand_id: brandId }).lean().catch(() => null),
-      ctx.model.MonitorQuery.countDocuments({ brand_id: brandId, query_status: true }).catch(() => 0),
-      ctx.model.SourceDailyStat.distinct('source_id', { brand_id: brandId, date: { $gte: range.start, $lte: range.end } }).catch(() => []),
+      ctx.model.MonitorQuery.countDocuments({ brand_id: brandId, query_status: true, query_type: 'industry' }).catch(() => 0),
+      edgeSrcIds(),
       ctx.model.PublishOrder.countDocuments({ brand_id: brandId, status: 'ok' }).catch(() => 0),
       ctx.model.BrandAlias.countDocuments({ brand_id: brandId, enabled: true }).catch(() => 0),
       ctx.model.CompetitorRegister.countDocuments({ brand_id: brandId, enabled: true }).catch(() => 0),

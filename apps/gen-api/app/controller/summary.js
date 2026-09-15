@@ -99,15 +99,22 @@ class SummaryController extends Controller {
   /* ---------- 三率趋势 ---------- */
   async _rateTrend(key) {
     const { ctx } = this;
-    const userId = ctx.state.user.id;
     const b = ctx.request.body || {};
     const brand = await this._requireBrand(b.brand_id);
     const empty = { start_date: '', end_date: '', summary: { all: { denominator: 0, numerator: 0, rate: 0 } }, trend: [] };
     if (!brand) return;
     const start = String(b.start_date || '').slice(0, 10);
     const end = String(b.end_date || '').slice(0, 10);
+    const platFilter = Array.isArray(b.platforms)
+      ? b.platforms.map(String).filter(p => PLATFORMS.includes(p))
+      : [];
+    const activePlatforms = platFilter.length ? platFilter : PLATFORMS;
+    const qids = (Array.isArray(b.query_id) ? b.query_id : (b.query_id != null ? [b.query_id] : []))
+      .map(Number).filter(n => Number.isFinite(n) && n > 0);
     const q = { brand_id: brand.brand_id };
     if (start && end) q.date = { $gte: start, $lte: end };
+    if (qids.length) q.query_id = { $in: qids };
+    if (activePlatforms.length < PLATFORMS.length) q.platform = { $in: activePlatforms };
     const rows = await ctx.model.DailyMetricQuery.find(q).lean();
     const byDate = {};
     for (const r of rows) (byDate[r.date] ||= []).push(r);
@@ -126,7 +133,7 @@ class SummaryController extends Controller {
     });
     const totalD = trend.reduce((s, t) => s + t.denominator, 0);
     const totalN = trend.reduce((s, t) => s + t.numerator, 0);
-    // 对标 summary：all + 各引擎分项
+    // 对标 summary：all + 各引擎分项（all = 当前筛选后的合计）
     const summary = { all: { denominator: totalD, numerator: totalN, rate: totalD ? this._n(totalN / totalD * 100) : 0 } };
     for (const p of PLATFORMS) {
       const d = trend.reduce((s, t) => s + (t.platforms[p] ? t.platforms[p].denominator : 0), 0);
@@ -194,8 +201,10 @@ class SummaryController extends Controller {
     const query_id = Number(b.query_id) || null;
     const start_date = String(b.start_date || '').slice(0, 10);
     const end_date = String(b.end_date || '').slice(0, 10);
+    const platform = String(b.platform || 'all').trim().toLowerCase();
     const q = { brand_id: brand.brand_id };
     if (query_id) q.query_id = query_id;
+    if (platform && platform !== 'all') q.platform = platform;
     if (start_date || end_date) {
       q.date = {};
       if (start_date) q.date.$gte = start_date;
@@ -228,12 +237,13 @@ class SummaryController extends Controller {
     analysis.ratio.positive = this._n(opinions.filter(o => o.polarity === 'positive').length / total, 4);
     analysis.ratio.neutral = this._n(opinions.filter(o => o.polarity === 'neutral').length / total, 4);
     analysis.ratio.negative = this._n(opinions.filter(o => o.polarity === 'negative').length / total, 4);
-    // score_result：platform=all 的每日口碑分（两段小数，对标形状）
+    // score_result：每日口碑分（两段小数，对标形状）；platform 透传筛选口径
     const scoreDates = [...new Set(opinions.map(o => o.date))].sort();
+    const scorePlatform = platform && platform !== 'all' ? platform : 'all';
     const score_result = scoreDates.map(date => ({
       date_day: date,
       score: String(this._repScore(opinions.filter(o => o.date === date), 2)),
-      platform: 'all',
+      platform: scorePlatform,
       query_id: query_id || 0,
     }));
     // valid_data_date_list：有采集指标/观点的日期并集，降序（对标形状）
@@ -244,7 +254,7 @@ class SummaryController extends Controller {
       code: 200, msg: 'ok',
       data: {
         query_dict: queryDict, query_id,
-        result: [{ id: 0, query_id: query_id || 0, date_day: latestDate, platform: 'all', reputation_analysis: analysis }],
+        result: [{ id: 0, query_id: query_id || 0, date_day: latestDate, platform: scorePlatform, reputation_analysis: analysis }],
         score_result,
         valid_data_date_list: validDates.slice(0, 7),
         user_data_status: scoreDates.length > 0,
@@ -287,8 +297,14 @@ class SummaryController extends Controller {
       return Object.values(acc).sort((x, y) => y.score - x.score);
     };
     const curAgg = agg(boards);
-    const prevBoards = prevDate && (!b.query_id || b.query_id === '')
-      ? await ctx.model.LeaderboardDaily.find({ brand_id: brand.brand_id, date: prevDate }).lean()
+    const prevBoards = prevDate
+      ? await ctx.model.LeaderboardDaily.find({
+        brand_id: brand.brand_id,
+        date: prevDate,
+        ...(b.query_id != null && b.query_id !== ''
+          ? { query_id: Number(b.query_id) || String(b.query_id) }
+          : {}),
+      }).lean()
       : [];
     const prevAgg = agg(prevBoards);
     const prevRankMap = {};
@@ -317,10 +333,14 @@ class SummaryController extends Controller {
     const mqs = await ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_id: { $in: qids } }).lean();
     const queryDict = {}; for (const mq of mqs) queryDict[mq.query_id] = mq.query;
 
-    // 目标品牌位次/得分趋势（覆盖 valid_data_date_list 每一天）
+    // 目标品牌位次/得分趋势（覆盖 valid_data_date_list 每一天；可按 query_id 过滤）
     const visAll = [];
     for (const date of validList) {
-      const dayBoards = await ctx.model.LeaderboardDaily.find({ brand_id: brand.brand_id, date }).lean();
+      const dayQ = { brand_id: brand.brand_id, date };
+      if (b.query_id != null && b.query_id !== '') {
+        dayQ.query_id = Number(b.query_id) || String(b.query_id);
+      }
+      const dayBoards = await ctx.model.LeaderboardDaily.find(dayQ).lean();
       let bestRank = null; let scoreSum = 0; let scoreCnt = 0;
       for (const lb of dayBoards) {
         const t = (lb.entries || []).find(e => e.is_target);
@@ -360,7 +380,10 @@ class SummaryController extends Controller {
     };
     if (!brand) return;
 
-    const [mentions, queries, metrics, boards, competitorTotal] = await Promise.all([
+    const startReq = String(b.start_date || '').slice(0, 10);
+    const endReq = String(b.end_date || b.start_date || '').slice(0, 10);
+
+    const [mentionsAll, queries, metrics, boards, competitorTotal] = await Promise.all([
       ctx.model.BrandMention.find({ brand_id: brand.brand_id }).lean(),
       ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_type: 'industry' }).lean(),
       ctx.model.DailyMetricQuery.find({ brand_id: brand.brand_id }).lean(),
@@ -373,14 +396,20 @@ class SummaryController extends Controller {
     const allDenom = keywordCount * engineCount; // 综合分母（对标 25）
     const engDenom = keywordCount;            // 单引擎分母（对标 5）
 
-    // 对标：按最新有效日期聚合（start_date=end_date=当日）；有效数据日期近 7 日降序
+    // 对标：有日期区间则按区间；否则按最新有效日期聚合；有效数据日期近 7 日降序
     const dates = [...new Set(metrics.map(m => m.date))].sort().reverse().slice(0, 7);
     const latestDate = dates[0] || this.ctx.app.dayjs().format('YYYY-MM-DD');
+    const rangeStart = startReq || latestDate;
+    const rangeEnd = endReq || latestDate;
+    const inRange = (d) => {
+      if (!d) return false;
+      return d >= rangeStart && d <= rangeEnd;
+    };
+    const mentions = mentionsAll.filter(m => inRange(m.date));
 
     const tgt = { freq: 0, top3: 0, first: 0, platforms: {} };
     const byEntity = {};
     for (const m of mentions) {
-      if (m.date && m.date !== latestDate) continue;
       const label = ENGINE_LABELS[m.platform] || m.platform;
       if (m.is_target) {
         tgt.freq += 1;
@@ -456,15 +485,17 @@ class SummaryController extends Controller {
     });
     competitor_compare_list.sort((x, y) => y.frequency - x.frequency);
 
-    // keyword_details：每问题的目标位次 + 当日榜单
+    // keyword_details：每问题的目标位次 + 当日/区间末日榜单
+    const detailDate = rangeEnd;
     const metricByQuery = {};
     for (const m of metrics) (metricByQuery[m.query_id] ||= []).push(m);
     const boardLatest = {};
     for (const lb of boards) {
+      if (!inRange(lb.date)) continue;
       if (!boardLatest[lb.query_id] || lb.date > boardLatest[lb.query_id].date) boardLatest[lb.query_id] = lb;
     }
     const keyword_details = queries.map(q => {
-      const rows = (metricByQuery[q.query_id] || []).filter(r => r.date === latestDate);
+      const rows = (metricByQuery[q.query_id] || []).filter(r => r.date === detailDate);
       const platform_ranks = {};
       let best = null;
       for (const e of ENGINE_ORDER) {
@@ -486,10 +517,81 @@ class SummaryController extends Controller {
     ctx.body = {
       code: 200, msg: 'ok',
       data: {
-        brand: brand.name, date: latestDate, start_date: latestDate, end_date: latestDate,
+        brand: brand.name, date: detailDate, start_date: rangeStart, end_date: rangeEnd,
         keyword_count: keywordCount, competitor_count: competitorTotal || competitor_compare_list.length,
         target_mention_summary, valid_data_date_list: dates, keyword_details, competitor_compare_list,
       },
+    };
+  }
+
+  /** GET /competitor/name-corrections */
+  async nameCorrections() {
+    const { ctx } = this;
+    const brand = await this._requireBrand(ctx.query.brand_id || (ctx.request.body || {}).brand_id);
+    if (!brand) return;
+    const date = String(ctx.query.date || '').slice(0, 10);
+    const q = { brand_id: brand.brand_id, is_target: { $ne: true } };
+    if (date) q.date = date;
+    const mentions = await ctx.model.BrandMention.find(q).select('entity_name').lean();
+    const names = [...new Set(mentions.map(m => String(m.entity_name || '').trim()).filter(Boolean))];
+    ctx.body = {
+      code: 200, msg: 'ok',
+      data: {
+        brand: brand.name,
+        items: names.map(source_name => ({
+          source_name,
+          assignment_type: 'pending',
+          target_name: null,
+        })),
+      },
+    };
+  }
+
+  /** PUT /competitor/name-corrections */
+  async saveNameCorrections() {
+    const { ctx } = this;
+    const b = ctx.request.body || {};
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
+    const corrections = Array.isArray(b.corrections) ? b.corrections : [];
+    let updated = 0;
+    const aliasSet = new Set(
+      (await ctx.model.BrandAlias.find({ brand_id: brand.brand_id }).lean()).map(a => a.alias),
+    );
+
+    for (const c of corrections) {
+      const src = String(c.source_name || '').trim();
+      if (!src) continue;
+      const type = c.assignment_type;
+      if (type === 'brand') {
+        if (src.toLowerCase() === String(brand.name || '').toLowerCase()) continue;
+        await ctx.model.BrandAlias.updateOne(
+          { brand_id: brand.brand_id, alias: src },
+          { $set: { alias: src, source: 'manual', enabled: true, updated_at: new Date() }, $setOnInsert: { created_at: new Date() } },
+          { upsert: true },
+        );
+        aliasSet.add(src);
+        updated += 1;
+      } else if (type === 'competitor' && c.target_name) {
+        const name = String(c.target_name).trim();
+        if (!name) continue;
+        await ctx.model.CompetitorRegister.updateOne(
+          { brand_id: brand.brand_id, name },
+          {
+            $set: { name, source: '名称修正', enabled: true, updated_at: new Date() },
+            $setOnInsert: { created_at: new Date(), note: '', compet_point: '' },
+          },
+          { upsert: true },
+        );
+        updated += 1;
+      } else if (type === 'ignore' || type === 'pending') {
+        updated += 1;
+      }
+    }
+
+    ctx.body = {
+      code: 200, msg: 'ok',
+      data: { aliases: [...aliasSet], updated },
     };
   }
 }

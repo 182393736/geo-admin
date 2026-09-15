@@ -18,6 +18,8 @@ module.exports = app => {
     source: { type: String, default: '用户登记' },
     // 实测契约"主要竞争点"：AI 一句话竞争定位，如 "电商AI设计工具 · 阿里旗下电商 AI 设计工具，电商场景强"
     compet_point: String,
+    // 监控识别管理「相似名称 / 别名」：同一竞品的其它写法，合并识别用
+    aliases: { type: [String], default: [] },
     enabled: { type: Boolean, default: true },
   }, { collection: 'competitor_registers', versionKey: false, timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 

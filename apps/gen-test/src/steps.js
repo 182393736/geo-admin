@@ -371,17 +371,17 @@ const steps = [
     },
   },
   {
-    name: '套餐页（免费体验版 / 4 档套餐）',
+    name: '套餐页（免费体验版 / 5 档套餐）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/plan-upgrade`, { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => {
         const el = document.querySelector('.pp-current-name');
-        return !!el && el.innerText.includes('免费体验版');
+        return !!el && /免费/.test(el.innerText || '');
       }, null, { timeout: 30_000 });
       const planName = (await page.locator('.pp-current-name').innerText()).trim();
       const cards = await page.locator('.pp-plan-name').count();
-      const ok = planName.includes('免费体验版') && cards === 4;
-      return { status: ok ? 'ok' : 'fail', detail: `当前=${planName}，卡片数=${cards}（应 4）` };
+      const ok = /免费/.test(planName) && cards === 5;
+      return { status: ok ? 'ok' : 'fail', detail: `当前=${planName}，卡片数=${cards}（应 5：免费/入门/基础/专业/定制）` };
     },
   },
   {
@@ -400,12 +400,17 @@ const steps = [
     name: '口碑·监控问题管理（建档生成 ≥2 个口碑词）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/topic-management?type=brand`, { waitUntil: 'domcontentloaded' });
+      // 列表会异步拉取；与 count() 用同一套 DOM 查询，等到稳定 ≥2 再断言（避免重绘瞬间读到 0）
       await page.waitForFunction(
-        () => document.querySelectorAll('.qm-row').length >= 1,
+        () => document.querySelectorAll('.qm-row .qm-question-text').length >= 2,
         null, { timeout: 90_000 },
       );
-      const rows = await page.locator('.qm-row').count();
-      const first = (await page.locator('.qm-question-text').first().innerText()).slice(0, 30);
+      const { rows, first } = await page.evaluate(() => {
+        const texts = [...document.querySelectorAll('.qm-row .qm-question-text')]
+          .map(el => (el.textContent || '').trim())
+          .filter(Boolean);
+        return { rows: texts.length, first: (texts[0] || '').slice(0, 30) };
+      });
       return { status: rows >= 2 ? 'ok' : 'fail', detail: `行数=${rows}，首条=${first}（建档生成口碑词，应 ≥2）` };
     },
   },
@@ -413,8 +418,9 @@ const steps = [
     name: '口碑·识别管理（品牌名）',
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/monitor-recognition?type=brand`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('input.rm-brand-input', { timeout: 30_000 });
-      const brand = await page.locator('input.rm-brand-input').inputValue();
+      // BrandIdentityFields：只读识别词 input.bi-input-ro（旧 class 为 rm-brand-input）
+      await page.waitForSelector('input.bi-input-ro, input.rm-brand-input', { timeout: 30_000 });
+      const brand = await page.locator('input.bi-input-ro, input.rm-brand-input').first().inputValue();
       return { status: brand.includes(ctx.brandName) ? 'ok' : 'fail', detail: `品牌名=${brand}` };
     },
   },
@@ -423,11 +429,15 @@ const steps = [
     async run(page, ctx) {
       await page.goto(`${ctx.deps.DASH}/dashboard/topic-management`, { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(
-        () => document.querySelectorAll('.qm-row').length >= 1,
+        () => document.querySelectorAll('.qm-row .qm-question-text').length >= 2,
         null, { timeout: 90_000 },
       );
-      const rows = await page.locator('.qm-row').count();
-      const first = (await page.locator('.qm-question-text').first().innerText()).slice(0, 30);
+      const { rows, first } = await page.evaluate(() => {
+        const texts = [...document.querySelectorAll('.qm-row .qm-question-text')]
+          .map(el => (el.textContent || '').trim())
+          .filter(Boolean);
+        return { rows: texts.length, first: (texts[0] || '').slice(0, 30) };
+      });
       return { status: rows >= 2 ? 'ok' : 'fail', detail: `行数=${rows}，首条=${first}` };
     },
   },
@@ -480,19 +490,41 @@ const steps = [
         await adminPage.fill('input[placeholder="管理员账号"]', '123456');
         await adminPage.fill('input[placeholder="密码"]', '123456');
         await adminPage.click('button.submit');
-        await adminPage.waitForFunction(() => location.href.includes('/overview'), null, { timeout: 30_000 });
+        await adminPage.waitForURL(/\/overview/, { timeout: 30_000 });
+        // 等驾驶舱首屏就绪后，用侧栏菜单切到采集监控（避免 page.goto 与 SPA router 抢导航 → ERR_ABORTED）
+        await adminPage.waitForSelector('.page-title, .card-title, h2', { timeout: 15_000 }).catch(() => {});
+        await adminPage.locator('.arco-menu-item', { hasText: '采集监控' }).click({ timeout: 10_000 });
+        try {
+          await adminPage.waitForURL(/\/collect/, { timeout: 15_000 });
+        } catch {
+          // 菜单点击失败时再 fallback 到 document 导航，并重试 ERR_ABORTED
+          const collectUrl = `${ctx.deps.ADMIN}/collect`;
+          let navigated = false;
+          for (let i = 0; i < 4 && !navigated; i++) {
+            try {
+              await adminPage.goto(collectUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+              navigated = true;
+            } catch (e) {
+              const msg = String((e && e.message) || e);
+              if (!/ERR_ABORTED|interrupted|Navigation/.test(msg) || i === 3) throw e;
+              await adminPage.waitForTimeout(500 * (i + 1));
+            }
+          }
+        }
 
-        await adminPage.goto(`${ctx.deps.ADMIN}/collect`, { waitUntil: 'domcontentloaded' });
+        // 等表格行就绪：品牌 + 日期 +「应采/已采/失败」未采形态（避免仅品牌先渲染的竞态）
         await adminPage.waitForFunction(
           ({ brand, dates }) => {
             const t = document.body.innerText || '';
-            return t.includes(brand) && dates.every(d => t.includes(d));
+            if (!(t.includes(brand) && dates.every(d => t.includes(d)))) return false;
+            // 行内状态 created|running，且应采>0 / 已采0 / 失败0（允许空格）
+            return /\b(created|running)\b/.test(t) && /[1-9]\d*\s*\/\s*0\s*\/\s*0/.test(t);
           },
           { brand, dates },
-          { timeout: 30_000 },
+          { timeout: 45_000 },
         );
         const body = await adminPage.locator('body').innerText();
-        const notCollected = /(created|running)/.test(body) && /[1-9]\d*\/0\/0/.test(body);
+        const notCollected = /\b(created|running)\b/.test(body) && /[1-9]\d*\s*\/\s*0\s*\/\s*0/.test(body);
         return { status: notCollected ? 'ok' : 'fail', detail: `采集监控可见品牌=${brand} 日期=${dates.join('、')}；未采集形态=${notCollected}` };
       } finally {
         await adminPage.close().catch(() => {});

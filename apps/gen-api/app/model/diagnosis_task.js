@@ -14,9 +14,17 @@ module.exports = app => {
     target_brand_input: Schema.Types.Mixed,  // 名字/链接/文档
     aliases: [String],
     ends: { type: [String], default: ['web', 'mobile'] },  // 网页端+APP端
-    status: { type: String, enum: ['pending', 'running', 'done', 'fail'], default: 'pending' },
+    platforms: [Schema.Types.Mixed],  // [{ engine, end }]
+    topic_count: Number,
+    status: {
+      type: String,
+      enum: ['pending', 'pending_pay', 'queued', 'crawling', 'generating', 'running', 'done', 'partial', 'failed', 'fail', 'cancelled'],
+      default: 'queued',
+      index: true,
+    },
     credit_cost: Number,
     order_no: String,
+    progress: { type: Number, default: 0 },
     result: Schema.Types.Mixed,  // 可见性/排名/引用源/竞品对比
     share_token: String,  // /r/:token
   }, { collection: 'diagnosis_tasks', versionKey: false, timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });

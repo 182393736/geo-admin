@@ -10,9 +10,10 @@
  * 用法：pnpm dev:all        （Ctrl+C 一键停止全部）
  *       DEV_ALL_NO_OPEN=1 pnpm dev:all   （不自动打开浏览器）
  */
-const { spawn } = require('node:child_process');
+const { spawn, execSync } = require('node:child_process');
 const net = require('node:net');
 const path = require('node:path');
+const { MongoClient } = require('mongodb');
 
 // ---- 仅限本地：生产环境直接拒绝 ----
 if (process.env.NODE_ENV === 'production') {
@@ -136,6 +137,31 @@ function run(name, cmd, args, { cwd = ROOT, env = {}, waitFor = null, waitTimeou
   });
 }
 
+function killPortListeners(port) {
+  try {
+    const out = execSync(`lsof -tiTCP:${port} -sTCP:LISTEN 2>/dev/null`, { encoding: 'utf8' }).trim();
+    if (!out) return false;
+    for (const pid of out.split(/\s+/).filter(Boolean)) {
+      try { process.kill(Number(pid), 'SIGTERM'); } catch { /* 已退出 */ }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function countPlans() {
+  const client = new MongoClient(MONGO_URL, { serverSelectionTimeoutMS: 3000 });
+  try {
+    await client.connect();
+    return await client.db().collection('plans').countDocuments({ on_sale: true });
+  } catch {
+    return -1;
+  } finally {
+    try { await client.close(); } catch { /* ignore */ }
+  }
+}
+
 async function startIfFree(name, start) {
   const svc = SERVICES[name];
   if (await portInUse(svc.port, svc.host)) {
@@ -165,6 +191,17 @@ async function startIfFree(name, start) {
       console.error('[mongo] ❌ ' + e.message);
       process.exit(1);
     }
+  }
+
+  // 内存库被复用但数据已空时：旧 gen-api 占着 7001 会跳过启动 → 套餐种子不跑 → 测试第 19 步只剩 2 张卡。
+  // 发现套餐为空时强制重启 api，让 seed.js 重新写入 19 档价目。
+  const planCount = await countPlans();
+  if (planCount === 0 && await portInUse(SERVICES.api.port, SERVICES.api.host)) {
+    console.log('[api] ⚠️  套餐价目为空（plans=0），强制重启 gen-api 以重新 seed…');
+    killPortListeners(SERVICES.api.port);
+    await new Promise(r => setTimeout(r, 1200));
+  } else if (planCount > 0) {
+    console.log(`[mongo] 套餐价目已有 ${planCount} 档`);
   }
 
   // 2) 其余服务（各自等待就绪标记）

@@ -312,6 +312,8 @@ export interface SourceDailyStat {
   brand_id: string;
   source_id: string;
   platform?: string;
+  /** industry=排名问题引用 / brand=口碑问题引用 */
+  query_type?: 'industry' | 'brand';
   ref_count?: number;
   article_count?: number;
   query_count?: number;

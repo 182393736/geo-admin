@@ -114,6 +114,12 @@ const routes = [
         meta: { title: 'AGENT' },
       },
       {
+        path: '/dashboard/writing/:id',
+        name: 'AgentWriting',
+        component: () => import('@/views/agent/writing.vue'),
+        meta: { title: 'AGENT 对话' },
+      },
+      {
         path: '/dashboard/new-agent/knowledge',
         name: 'AgentKnowledge',
         component: () => import('@/views/agent/knowledge.vue'),

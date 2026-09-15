@@ -159,7 +159,7 @@
       </template>
     </el-table>
 
-    <p class="hint">提示：点「开始采集」后每 2 秒调度——遍历已打开的浏览器，按平台在「该平台 tab 已打开、非进行中、该 tab 距上次结束 &gt;10s」里选上次执行最久的一个拉取；无槽位/失败/提交完成都会释放该 tab。手动「拉取」仍可用。</p>
+    <p class="hint">提示：点「开始采集」后每 2 秒调度——只对已打开的平台 tab 拉取；未打开的平台不会通知后台。选「该平台 tab 已打开、非进行中、该 tab 距上次结束 &gt;10s」里上次执行最久的一个；无槽位/失败/提交完成都会释放该 tab。手动「拉取」仍可用。</p>
 
     <div class="log-panel">
       <div class="log-hd">
@@ -462,7 +462,7 @@ async function doPreviewShot(row, p) {
 
 /**
  * 拉取槽位并采集提交。
- * fromAuto=true：自动调度触发，空任务只写日志不弹 toast；无论空/失败/完成都释放进行中。
+ * fromAuto=true：自动调度触发；tab 未打开则不请求后台；空任务只写日志不弹 toast。
  */
 async function runPull(ip, platformKey, { fromAuto = false } = {}) {
   if (!isElectron) return;
@@ -470,9 +470,18 @@ async function runPull(ip, platformKey, { fromAuto = false } = {}) {
   const name = p ? p.name : platformKey;
   const key = `${ip}:${platformKey}`;
   if (pulling[key] || running[key]) return;
+  // 定时调度：未打开的平台 tab 不通知后台拉任务（手动「拉取」仍可走原逻辑）
+  if (fromAuto && (!isBrowserOpen(ip) || !isPlatformOpen(ip, platformKey))) return;
   pulling[key] = true;
+  let skipped = false;
   try {
-    const r = await window.electronAPI.pullAndRun(ip, platformKey);
+    const r = await window.electronAPI.pullAndRun(ip, platformKey, { requireOpenTab: fromAuto });
+    if (r && r.skipped) {
+      // 主进程复核：tab 已关 → 同步渲染态，静默跳过（避免 2s 刷日志）
+      openedPlatforms.value[key] = false;
+      skipped = true;
+      return;
+    }
     if (r && r.empty) {
       if (fromAuto) {
         pushLog({
@@ -518,8 +527,8 @@ async function runPull(ip, platformKey, { fromAuto = false } = {}) {
       ElMessage.error(`${name} 拉取采集失败：${err}`);
     }
   } finally {
-    // 无槽位 / 失败 / 完成：一律释放进行中，并记录上次执行时间供冷却
-    lastExecAt[key] = Date.now();
+    // 无槽位 / 失败 / 完成：一律释放进行中，并记录上次执行时间供冷却（跳过拉取不占冷却）
+    if (!skipped) lastExecAt[key] = Date.now();
     delete pulling[key];
   }
 }
@@ -550,13 +559,12 @@ function pickOldestIdleTab(platformKey) {
   return bestIp;
 }
 
-/** 2s 调度：总控开启时，按平台各挑一个「该平台 tab」最久未跑的去拉取 */
+/** 2s 调度：总控开启时，仅对「已打开的平台 tab」按平台各挑一个最久未跑的去拉取 */
 function collectTick() {
   if (!collecting.value || !isElectron) return;
   for (const p of platforms) {
     const ip = pickOldestIdleTab(p.key);
-    if (!ip) continue;
-    // 先占坑（pulling[ip:platform]）再异步拉，避免同 tick / 下一 tick 重复选中同一 tab
+    if (!ip) continue; // 该平台没有任何已打开且空闲的 tab → 不通知后台
     void runPull(ip, p.key, { fromAuto: true });
   }
 }
@@ -597,6 +605,15 @@ onMounted(() => {
   if (isElectron && window.electronAPI.onPlatformAuth) {
     window.electronAPI.onPlatformAuth(({ ip, platform, loggedIn, username }) => {
       authStates[`${ip}:${platform}`] = { loggedIn: !!loggedIn, username: username || '' };
+    });
+  }
+  // 用户在浏览器里关掉 tab / 主进程关闭 → 清 UI 态，定时器不再为该平台拉任务
+  if (isElectron && window.electronAPI.onPlatformClosed) {
+    window.electronAPI.onPlatformClosed(({ ip, platform }) => {
+      const key = `${ip}:${platform}`;
+      openedPlatforms.value[key] = false;
+      delete authStates[key];
+      delete pulling[key];
     });
   }
   // 订阅主进程推送的对话测试日志（页面下方日志区）

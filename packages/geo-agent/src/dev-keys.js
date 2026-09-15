@@ -3,12 +3,19 @@
  * 开发/测试用内置密钥（私有仓库专用）
  * ------------------------------------------------------------------
  * ⚠️ 这里的 key 仅供本地开发与联调，**上生产前必须替换为环境变量注入**。
- * 优先级：显式入参 > 环境变量 > 本文件内置值。
+ * 优先级：显式入参 > 环境变量 > 仓库根 `.local-secrets/keys.json` > 本文件内置值。
  * 生产部署只需在环境里设置 SILICONFLOW_API_KEY / TAVILY_API_KEY，即可自动覆盖。
  *
- * 想临时禁用内置值（例如跑"未配置密钥时降级"的契约测试）：
+ * 易被 GitHub push protection 拦截的 key（如 DeepSeek）请放进 `.local-secrets/`：
+ *   cp -R .local-secrets.example .local-secrets
+ * 该目录已 gitignore，不会提交。
+ *
+ * 想临时禁用内置值与本地密钥（例如跑"未配置密钥时降级"的契约测试）：
  *   GEO_DISABLE_DEV_KEYS=1
  */
+
+const fs = require('node:fs');
+const path = require('node:path');
 
 const DEV_KEYS = {
   SILICONFLOW_API_KEY: 'sk-vmdlmwnfurvrfvjuqcsisskczmfovyfihngaouocaqbhjole',
@@ -19,7 +26,7 @@ const DEV_KEYS = {
   // 文档：https://open.bochaai.com/  POST https://api.bochaai.com/v1/web-search  summary:true
   // 未配置时 createWebSearch 自动退回 Tavily
   BOCHA_API_KEY: 'sk-5f5e0bb1543d456ca54d0218a8a1d5d5',
-  // DeepSeek 官方（默认供应商；请用 DEEPSEEK_API_KEY 环境变量注入，勿把真实 key 提交进仓库）
+  // DeepSeek 官方（默认供应商）。真实 key 放仓库根 `.local-secrets/keys.json`，勿提交。
   // 文档：https://api-docs.deepseek.com/zh-cn/  base=https://api.deepseek.com  model=deepseek-flash
   DEEPSEEK_API_KEY: '',
   DEEPSEEK_BASE_URL: 'https://api.deepseek.com',
@@ -48,23 +55,65 @@ const DEV_KEYS = {
   COLLECTOR_API_KEY: 'collector-dev-key-8f3a1c2e9d7b4a5f',
 };
 
+/** @type {Record<string, any>|null|undefined} */
+let localSecretsCache;
+
+function repoRoot() {
+  // packages/geo-agent/src → 仓库根
+  return path.resolve(__dirname, '../../..');
+}
+
+function localSecretsPath() {
+  const override = String(process.env.GEO_LOCAL_SECRETS_PATH || '').trim();
+  if (override) return path.resolve(override);
+  return path.join(repoRoot(), '.local-secrets', 'keys.json');
+}
+
+/**
+ * 读取仓库根 `.local-secrets/keys.json`（gitignore）。不存在或非法则 {}。
+ * @returns {Record<string, any>}
+ */
+function loadLocalSecrets() {
+  if (localSecretsCache !== undefined) return localSecretsCache || {};
+  const file = localSecretsPath();
+  try {
+    const raw = fs.readFileSync(file, 'utf8');
+    const parsed = JSON.parse(raw);
+    localSecretsCache = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    localSecretsCache = null;
+  }
+  return localSecretsCache || {};
+}
+
 function devKeysEnabled() {
   return !/^(1|true|yes)$/i.test(String(process.env.GEO_DISABLE_DEV_KEYS || ''));
 }
 
+function fromLocalOrDev(name) {
+  if (!devKeysEnabled()) return undefined;
+  const local = loadLocalSecrets();
+  if (Object.prototype.hasOwnProperty.call(local, name) && local[name] != null && local[name] !== '') {
+    return local[name];
+  }
+  return DEV_KEYS[name];
+}
+
 /**
- * 解析一个密钥/配置项：显式入参 > 环境变量 > 内置开发值
+ * 解析一个密钥/配置项：显式入参 > 环境变量 > `.local-secrets/keys.json` > 内置开发值
  * @param {string} name  DEV_KEYS 中的键名，同时也是环境变量名
  * @param {string} [explicit] 调用方显式传入的值（空串/undefined 视为未传）
  */
 function resolveKey(name, explicit) {
   if (explicit) return explicit;
   if (process.env[name]) return process.env[name];
-  return devKeysEnabled() ? DEV_KEYS[name] || '' : '';
+  const v = fromLocalOrDev(name);
+  if (v == null) return '';
+  return Array.isArray(v) ? '' : String(v);
 }
 
 /**
- * 解析一组密钥（多 key 轮询用）：显式入参 > 环境变量 > 内置开发值。
+ * 解析一组密钥（多 key 轮询用）：显式入参 > 环境变量 > 本地密钥 > 内置开发值。
  * 环境变量支持 JSON 数组字符串或逗号分隔；返回去空后的数组。
  * @param {string} name  DEV_KEYS 中的键名，同时也是环境变量名
  * @param {string[]} [explicit] 调用方显式传入的数组（空数组/undefined 视为未传）
@@ -79,9 +128,16 @@ function resolveKeys(name, explicit) {
     } catch { /* 不是 JSON，按逗号分隔处理 */ }
     return env.split(',').map(s => s.trim()).filter(Boolean);
   }
-  const dev = devKeysEnabled() ? DEV_KEYS[name] : null;
+  const dev = fromLocalOrDev(name);
   if (Array.isArray(dev)) return dev.filter(Boolean);
-  return dev ? [dev] : [];
+  return dev ? [String(dev)] : [];
 }
 
-module.exports = { DEV_KEYS, resolveKey, resolveKeys, devKeysEnabled };
+module.exports = {
+  DEV_KEYS,
+  resolveKey,
+  resolveKeys,
+  devKeysEnabled,
+  loadLocalSecrets,
+  localSecretsPath,
+};

@@ -21,15 +21,29 @@ module.exports = app => {
   router.post('/agent/onboarding/stream', jwtAuth, controller.agent.stream);
   router.post('/agent/onboarding/confirm', jwtAuth, controller.agent.confirm);
 
+  // ============ AGENT 新建对话 / 会话流（对标 /dashboard/new-agent → /dashboard/writing/:id） ============
+  router.post('/agent/chat/start', jwtAuth, controller.agentChat.start);
+  router.get('/agent/chat/list', jwtAuth, controller.agentChat.list);
+  router.get('/agent/chat/:session_id', jwtAuth, controller.agentChat.detail);
+  router.post('/agent/chat/:session_id/message', jwtAuth, controller.agentChat.message);
+  router.post('/agent/chat/:session_id/end', jwtAuth, controller.agentChat.end);
+
   // ============ 品牌档案展示（建档结果页 / 概览页品牌卡 / 名片） ============
   router.get('/api/brand/summary', jwtAuth, controller.brand.summary);
   router.post('/api/brand/rename', jwtAuth, controller.brand.rename);
   router.post('/api/brand/aliases', jwtAuth, controller.brand.updateAliases);
+  router.post('/api/brand/competitors', jwtAuth, controller.brand.createCompetitor);
+  router.put('/api/brand/competitors', jwtAuth, controller.brand.updateCompetitor);
+  router.delete('/api/brand/competitors', jwtAuth, controller.brand.deleteCompetitor);
 
   // ============ 监控问题 / 采集状态（概览页采集状态卡 · 排名/口碑问题列表） ============
   // 对标 geoapi.timus.cn：/query/list（无 /api 前缀）；保留 /api/query/list 兼容旧前端
   router.get('/query/list', jwtAuth, controller.query.list);
   router.get('/api/query/list', jwtAuth, controller.query.list);
+  router.post('/query/add', jwtAuth, controller.query.add);
+  router.post('/query/update', jwtAuth, controller.query.update);
+  router.post('/query/delete', jwtAuth, controller.query.delete);
+  router.post('/query/sort', jwtAuth, controller.query.sort);
   router.get('/user/get_query_status', jwtAuth, controller.query.status);
   router.post('/user/generate_today', jwtAuth, controller.query.generateToday);
 
@@ -37,12 +51,21 @@ module.exports = app => {
   router.get('/payment/plans/grouped', jwtAuth, controller.payment.plansGrouped);
   router.get('/payment/subscription/current', jwtAuth, controller.payment.subscriptionCurrent);
   router.get('/payment/orders', jwtAuth, controller.payment.orders);
+  router.post('/payment/order/create', jwtAuth, controller.payment.orderCreate);
+  router.get('/payment/order/:order_no', jwtAuth, controller.payment.orderGet);
+  router.post('/payment/order/:order_no/mock-pay', jwtAuth, controller.payment.orderMockPay);
   router.get('/credit/account', jwtAuth, controller.credit.account);
+  router.get('/credit/transactions', jwtAuth, controller.credit.transactions);
+  router.get('/credit/recharge/packs', jwtAuth, controller.credit.rechargePacks);
+  router.post('/credit/recharge/create', jwtAuth, controller.credit.rechargeCreate);
 
   // ============ 发稿渠道库（采集前真实展示：信源库页） ============
   router.post('/publish/media/facets', jwtAuth, controller.publish.mediaFacets);
   router.post('/publish/media/list', jwtAuth, controller.publish.mediaList);
+  router.post('/publish/media/fav', jwtAuth, controller.publish.mediaFav);
   router.post('/publish/orders', jwtAuth, controller.publish.orders);
+  router.post('/publish/order/republish', jwtAuth, controller.publish.orderRepublish);
+  router.post('/publish/order/cites', jwtAuth, controller.publish.orderCites);
 
   // ============ 报告（概览页周报/月报 6 模块） ============
   router.get('/report/cycle', jwtAuth, controller.report.cycle);
@@ -58,9 +81,16 @@ module.exports = app => {
   router.post('/summary/reputation_data', jwtAuth, controller.summary.reputationData);
   router.post('/summary/get_references', jwtAuth, controller.summary.getReferences);
   router.post('/competitor/insight', jwtAuth, controller.summary.competitorInsight);
+  router.get('/competitor/name-corrections', jwtAuth, controller.summary.nameCorrections);
+  router.put('/competitor/name-corrections', jwtAuth, controller.summary.saveNameCorrections);
 
   // ============ 信源（引用源统计 / 信源洞察 / 快照） ============
   router.post('/reference_source/stats', jwtAuth, controller.source.stats);
+  router.post('/reference_source/articles', jwtAuth, controller.source.articles);
+  router.post('/reference_source/analyze', jwtAuth, controller.source.analyze);
+  router.post('/reference_source/media_accounts', jwtAuth, controller.source.mediaAccounts);
+  router.post('/summary/reference_source/tag_own_article', jwtAuth, controller.source.tagOwnArticle);
+  router.post('/article/library/import', jwtAuth, controller.source.importOwnArticles);
   router.post('/source_intelligence/source_trend', jwtAuth, controller.source.sourceTrend);
   router.post('/source_intelligence/engine_preference', jwtAuth, controller.source.enginePreference);
   router.post('/source_intelligence/own_trend', jwtAuth, controller.source.ownTrend);
@@ -70,11 +100,26 @@ module.exports = app => {
   router.post('/snapshot/export/answer', jwtAuth, controller.source.snapshotAnswer);
   router.post('/snapshot/export/text', jwtAuth, controller.source.snapshotExportText);
 
+  // ============ 导出族（对标 /export/*） ============
+  router.post('/export/competitor_report', jwtAuth, controller.export.competitorReport);
+  router.post('/export/ranking_matrix', jwtAuth, controller.export.rankingMatrix);
+  router.post('/export/competitor_xlsx', jwtAuth, controller.export.competitorXlsx);
+  router.post('/export/reference_source', jwtAuth, controller.export.referenceSource);
+
   // ============ 缺失补齐：问题分组 / 稿件 / 诊断（对标 geoapi.timus.cn） ============
   router.post('/query-group/list', jwtAuth, controller.query.queryGroupList);
+  router.post('/query-group/save', jwtAuth, controller.query.queryGroupSave);
+  router.post('/query-group/move_query', jwtAuth, controller.query.queryGroupMove);
+  router.post('/query-group/delete', jwtAuth, controller.query.queryGroupDelete);
   router.post('/publish/article/drafts', jwtAuth, controller.publish.articleDrafts);
+  router.post('/publish/article/save_draft', jwtAuth, controller.publish.articleSaveDraft);
+  router.post('/publish/estimate', jwtAuth, controller.publish.estimate);
+  router.post('/publish/submit', jwtAuth, controller.publish.submit);
   router.post('/article/library', jwtAuth, controller.publish.articleLibrary);
+  router.post('/article/library/cites', jwtAuth, controller.publish.articleCites);
   router.get('/diagnosis/tasks', jwtAuth, controller.diagnosis.list);
+  router.post('/diagnosis/order/create', jwtAuth, controller.diagnosis.create);
+  router.post('/diagnosis/order/cancel', jwtAuth, controller.diagnosis.cancel);
 
   // ============ 品牌·内容域（geoarticle 无壳 raw，带 /api 前缀） ============
   router.get('/api/brand/intro', jwtAuth, controller.brandArticle.intro);
@@ -87,6 +132,7 @@ module.exports = app => {
   router.get('/api/brand/library/docs', jwtAuth, controller.brandArticle.libraryDocs);
   router.get('/api/brand/wiki/tree', jwtAuth, controller.brandArticle.wikiTree);
   router.get('/api/articles', jwtAuth, controller.brandArticle.articles);
+  router.delete('/api/articles/:run_id', jwtAuth, controller.brandArticle.deleteArticle);
 
   // ============ 采集 worker 协议（机器对机器，服务级鉴权） ============
   const collectorAuth = middleware.collectorAuth();

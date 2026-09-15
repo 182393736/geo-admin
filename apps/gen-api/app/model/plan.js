@@ -16,8 +16,11 @@ module.exports = app => {
     billing_cycle: { type: String, enum: ['monthly', 'quarterly', 'yearly', 'permanent'] },
     price: Number,
     original_price: Number,
+    credit_price: Number,
     duration_days: Number,
     query_limit: Number,  // 监控问题额度（入门版=8）
+    platform_list: [String],
+    platform_scope: { type: String, default: 'pc' }, // pc | app | both
     features: Schema.Types.Mixed,  // 菜单权限/诊断折扣等
     sort: Number,
     on_sale: { type: Boolean, default: true },

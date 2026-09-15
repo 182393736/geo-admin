@@ -108,7 +108,7 @@ class BrandScopeService extends Service {
       vip_level: 'free',
       start_date: start,
       expire_date: expire,
-      query_limit: free ? (free.query_limit || 8) : 8,
+      query_limit: free ? (free.query_limit || 3) : 3,
       query_count: 0,
       platform_list: free ? platforms.slice(0, 3) : platforms,
       status: 'active',

@@ -9,29 +9,68 @@
         <div class="geo-page-header__actions flex flex-wrap items-center justify-end gap-3">
           <div class="flex items-center gap-2">
             <div class="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase tracking-wider shrink-0 select-none">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
               <span>周期:</span>
             </div>
             <span class="text-xs text-gray-400">开始</span>
-            <input v-model="rangeStart" type="date" min="2026-08-11" max="2026-09-11" class="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-700 hover:border-indigo-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 transition-all shadow-sm" />
+            <DashDateInput
+              v-model="rangeStart"
+              :min="rangeEnd ? addDays(rangeEnd, -MAX_DAYS) : undefined"
+              :max="rangeEnd || today"
+              class="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-700 hover:border-indigo-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 transition-all shadow-sm"
+              @change="onStartChange"
+            />
             <span class="text-xs text-gray-400">至</span>
             <span class="text-xs text-gray-400">结束</span>
-            <input v-model="rangeEnd" type="date" min="2026-09-11" max="2026-09-11" class="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-700 hover:border-indigo-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 transition-all shadow-sm" />
-            <button class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">查询</button>
+            <DashDateInput
+              v-model="rangeEnd"
+              :min="rangeStart || undefined"
+              :max="rangeStart ? minDate(addDays(rangeStart, MAX_DAYS), today) : today"
+              class="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-700 hover:border-indigo-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 transition-all shadow-sm"
+              @change="onEndChange"
+            />
+            <button
+              type="button"
+              class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              :disabled="!canQuery"
+              @click="onQuery"
+            >查询</button>
           </div>
-          <button class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          <button
+            type="button"
+            class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all"
+            @click="reload(rangeStart, rangeEnd)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
             刷新
           </button>
-          <button class="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 text-sm font-bold rounded-xl border border-indigo-200 hover:bg-indigo-50 shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-            导出 Excel
+          <button
+            type="button"
+            class="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 text-sm font-bold rounded-xl border border-indigo-200 hover:bg-indigo-50 shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="exporting"
+            @click="onExport"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            {{ exporting ? '导出中...' : '导出 Excel' }}
           </button>
-          <button class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl hover:border-indigo-300 hover:text-indigo-600 shadow-sm transition-all">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
+          <button
+            type="button"
+            class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl hover:border-indigo-300 hover:text-indigo-600 shadow-sm transition-all"
+            title="把同一品牌的不同写法归类合并"
+            @click="correctionOpen = true"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51 15.42 17.49"/><path d="M15.41 6.51 8.59 10.49"/></svg>
             修正品牌名
           </button>
         </div>
       </div>
+
+    <BrandNameCorrectionModal
+      :open="correctionOpen"
+      :date="rangeEnd || rangeStart"
+      @close="correctionOpen = false"
+      @saved="onCorrectionSaved"
+    />
 
     <div class="flex flex-col gap-6 animate-fade-in max-w-[1600px] mx-auto pb-20 min-w-0 overflow-x-hidden">
 
@@ -243,16 +282,16 @@
         </h3>
         <div class="flex flex-col gap-3">
           <div v-for="q in queryRows" :key="q.id" class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            <button class="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50/50 transition-colors" @click="toggleOpen(q.id)">
-              <div class="flex items-center gap-4">
-                <span class="text-sm font-bold text-gray-900">{{ q.name }}</span>
-                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">排名词</span>
+            <button type="button" class="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50/50 transition-colors" @click="toggleOpen(q.id)">
+              <div class="flex items-center gap-4 min-w-0">
+                <span class="text-sm font-bold text-gray-900 truncate" :title="q.name">{{ q.name }}</span>
+                <span class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">排名词</span>
               </div>
-              <div class="flex items-center gap-8">
+              <div class="flex items-center gap-8 shrink-0">
                 <div class="flex items-center gap-2">
                   <span class="text-xs text-gray-400">本品牌</span>
                   <div class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md" :class="q.brandRank ? 'bg-yellow-50' : 'bg-gray-50'">
-                    <svg v-if="q.brandRank" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-500"><path d="M11.56 3.27a.5.5 0 0 1 .88 0L15.39 8.87a1 1 0 0 0 1.52.29l4.27-3.66a.5.5 0 0 1 .8.52l-2.83 10.25a1 1 0 0 1-.96.73H5.81a1 1 0 0 1-.96-.73L2.02 6.02a.5.5 0 0 1 .8-.52l4.27 3.66a1 1 0 0 0 1.52-.29z"/><path d="M5 21h14"/></svg>
+                    <svg v-if="q.brandRank" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-500"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>
                     <span class="text-xs font-bold" :class="q.brandRank ? 'text-yellow-700' : 'text-gray-400'">{{ q.brandRank ? '#' + q.brandRank : '未上榜' }}</span>
                   </div>
                 </div>
@@ -262,11 +301,55 @@
                     <span class="text-xs font-bold" :class="e.rank ? 'text-gray-700' : 'text-gray-300'">{{ e.rank ? '#' + e.rank : '-' }}</span>
                   </div>
                 </div>
-                <span class="text-xs text-gray-400">{{ q.competitorCount == null ? '—' : q.competitorCount }} 个竞品</span>
+                <span class="text-xs text-gray-400 whitespace-nowrap">{{ q.competitorCount }} 个竞品</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 transition-transform" :class="isOpen(q.id) ? 'rotate-180' : ''"><path d="m6 9 6 6 6-6"/></svg>
               </div>
             </button>
-            <div v-if="isOpen(q.id)" class="px-5 pb-4 text-sm text-gray-400">暂无该问题的竞品明细数据</div>
+
+            <div v-if="isOpen(q.id)" class="border-t border-gray-100 px-5 py-4">
+              <table v-if="q.rankings.length" class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-gray-100">
+                    <th class="text-left py-2 px-3 text-gray-500 font-medium text-xs">排名</th>
+                    <th class="text-left py-2 px-3 text-gray-500 font-medium text-xs">品牌名称</th>
+                    <th class="text-left py-2 px-3 text-gray-500 font-medium text-xs">标识</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="r in q.rankings"
+                    :key="q.id + '-' + r.rank + '-' + r.name"
+                    :class="r.is_target
+                      ? 'border-b border-gray-50 bg-blue-50/40'
+                      : 'border-b border-gray-50 hover:bg-gray-50/30'"
+                  >
+                    <td class="py-2.5 px-3">
+                      <div
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded"
+                        :class="rankBadgeCls(r.rank)"
+                      >
+                        <!-- #1 皇冠 -->
+                        <svg v-if="r.rank === 1" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-500"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>
+                        <!-- #2 / #3 奖牌 -->
+                        <svg v-else-if="r.rank === 2 || r.rank === 3" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="r.rank === 2 ? 'text-gray-400' : 'text-orange-400'"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/></svg>
+                        <span class="text-xs font-bold" :class="rankTextCls(r.rank)">#{{ r.rank }}</span>
+                      </div>
+                    </td>
+                    <td class="py-2.5 px-3">
+                      <div class="flex items-center gap-2 min-w-0">
+                        <svg v-if="r.is_target" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500 shrink-0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                        <span :class="['font-medium truncate', r.is_target ? 'text-blue-700' : 'text-gray-900']" :title="r.name">{{ r.name }}</span>
+                        <span v-if="r.is_target" class="shrink-0 text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">本品牌</span>
+                      </div>
+                    </td>
+                    <td class="py-2.5 px-3">
+                      <span :class="r.is_target ? 'text-[10px] text-blue-500 font-medium' : 'text-[10px] text-gray-400'">{{ r.is_target ? '本品牌' : '竞品' }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else class="text-sm text-gray-400 py-2">暂无该问题的竞品明细数据</div>
+            </div>
           </div>
           <div v-if="!queryRows.length" class="text-center text-sm text-gray-400 py-6">暂无监控问题</div>
         </div>
@@ -278,15 +361,117 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { Message } from '@arco-design/web-vue';
 import { monitorApi } from '@/api/modules/monitor';
+import { lastNDays } from '@/utils/engines';
+import BrandNameCorrectionModal from '@/components/BrandNameCorrectionModal.vue';
+import DashDateInput from '@/components/DashDateInput.vue';
 
+const MAX_DAYS = 31;
+const today = lastNDays(1).end;
+const init = lastNDays(1);
 const raw = ref<any>({});
 const list = ref<any[]>([]);
 const queries = ref<any[]>([]);
-const rangeStart = ref('2026-09-11');
-const rangeEnd = ref('2026-09-11');
+const rangeStart = ref(init.start);
+const rangeEnd = ref(init.end);
+const exporting = ref(false);
+const loading = ref(false);
+const correctionOpen = ref(false);
 
 const rows = computed(() => list.value);
+const canQuery = computed(() => {
+  if (!rangeStart.value || !rangeEnd.value) return false;
+  if (rangeStart.value > rangeEnd.value) return false;
+  return dayDiff(rangeStart.value, rangeEnd.value) <= MAX_DAYS;
+});
+
+function dayDiff(a: string, b: string) {
+  const [ay, am, ad] = a.split('-').map(Number);
+  const [by, bm, bd] = b.split('-').map(Number);
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+}
+function addDays(date: string, n: number) {
+  const [y, m, d] = date.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
+}
+function minDate(a: string, b: string) {
+  return a < b ? a : b;
+}
+function onStartChange() {
+  if (rangeEnd.value && (rangeStart.value > rangeEnd.value || dayDiff(rangeStart.value, rangeEnd.value) > MAX_DAYS)) {
+    rangeEnd.value = '';
+  }
+}
+function onEndChange() {
+  if (rangeStart.value && (rangeEnd.value < rangeStart.value || dayDiff(rangeStart.value, rangeEnd.value) > MAX_DAYS)) {
+    rangeStart.value = '';
+  }
+}
+
+async function reload(start?: string, end?: string) {
+  loading.value = true;
+  try {
+    const resp: any = await monitorApi.competitorInsight(start || undefined, end || undefined);
+    raw.value = resp || {};
+    list.value = resp?.competitor_compare_list || [];
+    queries.value = resp?.keyword_details || [];
+    if (!start && !end) {
+      const s = resp?.start_date || resp?.date || '';
+      const e = resp?.end_date || resp?.date || s;
+      if (s) rangeStart.value = s;
+      if (e) rangeEnd.value = e;
+    }
+  } catch {
+    /* 空态 */
+  } finally {
+    loading.value = false;
+  }
+}
+
+function onQuery() {
+  if (!rangeStart.value || !rangeEnd.value) {
+    Message.warning('请选择开始日期和结束日期');
+    return;
+  }
+  if (rangeStart.value > rangeEnd.value) {
+    Message.warning('开始日期不能晚于结束日期');
+    return;
+  }
+  if (dayDiff(rangeStart.value, rangeEnd.value) > MAX_DAYS) {
+    Message.warning('查询周期最多 31 天');
+    return;
+  }
+  void reload(rangeStart.value, rangeEnd.value);
+}
+
+async function onExport() {
+  exporting.value = true;
+  try {
+    const start = rangeEnd.value || rangeStart.value || undefined;
+    const { blob, filename } = await monitorApi.exportCompetitorXlsxBlob(start);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    Message.success('竞品数据已导出');
+  } catch (e: any) {
+    Message.error(e?.message || '导出失败，请稍后重试');
+  } finally {
+    exporting.value = false;
+  }
+}
+
+function onCorrectionSaved() {
+  Message.success('品牌名归类已保存');
+  void reload(rangeStart.value, rangeEnd.value);
+}
 
 /* 排名徽章 10 色循环（真实站内联 background-color） */
 const PALETTE = [
@@ -359,31 +544,50 @@ const queryRows = computed(() => {
     const pr = d.platform_ranks || {};
     const engines = ENG_ORDER.map(e => {
       const v = pr[e.key];
+      if (v == null || v === '' || v === '未上榜' || v === '-') {
+        return { key: e.key, label: e.label, rank: null as number | null };
+      }
       const n = Number(v);
       return { key: e.key, label: e.label, rank: Number.isFinite(n) ? n : null };
     });
+    const rankings = (Array.isArray(d.rankings) ? d.rankings : [])
+      .map((en: any) => ({
+        name: String(en.name || ''),
+        rank: Number(en.rank) || 0,
+        score: en.score,
+        is_target: !!en.is_target,
+      }))
+      .filter((en: any) => en.name && en.rank > 0)
+      .sort((a: any, b: any) => a.rank - b.rank);
+    const competitorCount = rankings.filter((en: any) => !en.is_target).length;
     return {
       id: d.query_id,
       name: d.keyword,
       brandRank: d.target_rank ?? null,
       engines,
-      competitorCount: null, // 分问题竞品数接口未提供，占位
+      competitorCount,
+      rankings,
     };
   });
 });
 
-const openIds = ref<number[]>([]);
-const toggleOpen = (id: number) => {
+const openIds = ref<(string | number)[]>([]);
+const toggleOpen = (id: string | number) => {
   openIds.value = openIds.value.includes(id) ? openIds.value.filter(x => x !== id) : [...openIds.value, id];
 };
-const isOpen = (id: number) => openIds.value.includes(id);
+const isOpen = (id: string | number) => openIds.value.includes(id);
 
-onMounted(async () => {
-  try {
-    const resp: any = await monitorApi.competitorInsight().catch(() => null);
-    raw.value = resp || {};
-    list.value = resp?.competitor_compare_list || [];
-    queries.value = resp?.keyword_details || [];
-  } catch { /* 空态 */ }
-});
+function rankBadgeCls(rank: number) {
+  if (rank === 1) return 'bg-yellow-50';
+  if (rank === 3) return 'bg-orange-50';
+  return 'bg-gray-50';
+}
+function rankTextCls(rank: number) {
+  if (rank === 1) return 'text-yellow-700';
+  if (rank === 2) return 'text-gray-600';
+  if (rank === 3) return 'text-orange-600';
+  return 'text-gray-500';
+}
+
+onMounted(() => { void reload(); });
 </script>

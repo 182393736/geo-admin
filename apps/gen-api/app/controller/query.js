@@ -25,9 +25,13 @@ class QueryController extends Controller {
     const { ctx } = this;
     const brand = await this._requireBrand(ctx.query.brand_id);
     if (!brand) return;
-    const qt = ctx.query.query_type === 'brand' ? 'brand' : 'industry';
-    const rows = await ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_type: qt })
+    const rawQt = String(ctx.query.query_type || '').trim();
+    // all / 空：管理页（排名入口）展示全部类型；brand|industry 按类型过滤
+    const filter = { brand_id: brand.brand_id };
+    if (rawQt === 'brand' || rawQt === 'industry') filter.query_type = rawQt;
+    const rows = await ctx.model.MonitorQuery.find(filter)
       .sort({ query_order: 1, created_at: 1 }).lean();
+    const pendingRelease = rows.filter(m => !m.query_status).length;
     ctx.body = {
       code: 200, msg: 'ok',
       data: {
@@ -47,7 +51,10 @@ class QueryController extends Controller {
           query_is_execute: !!m.query_is_execute,
           effective_to: m.effective_to || null,
           query_order: m.query_order || 0,
+          group_id: m.group_id || null,
         })),
+        pending_release: pendingRelease,
+        total: rows.length,
       },
     };
   }
@@ -56,27 +63,225 @@ class QueryController extends Controller {
   async queryGroupList() {
     const { ctx } = this;
     const b = ctx.request.body || {};
-    const qt = b.query_type === 'brand' ? 'brand' : 'industry';
+    const rawQt = String(b.query_type || '').trim();
     const brand = await this._requireBrand(b.brand_id);
     if (!brand) return;
+    const qFilter = { brand_id: brand.brand_id };
+    const gFilter = { brand_id: brand.brand_id };
+    if (rawQt === 'brand' || rawQt === 'industry') {
+      qFilter.query_type = rawQt;
+      gFilter.query_type = rawQt;
+    }
     const [groups, queries] = await Promise.all([
-      ctx.model.QueryGroup.find({ brand_id: brand.brand_id, query_type: qt }).sort({ sort: 1, created_at: 1 }).lean(),
-      ctx.model.MonitorQuery.find({ brand_id: brand.brand_id, query_type: qt }).lean(),
+      ctx.model.QueryGroup.find(gFilter).sort({ sort: 1, created_at: 1 }).lean(),
+      ctx.model.MonitorQuery.find(qFilter).lean(),
     ]);
     const total = queries.length;
     const ungrouped = queries.filter(q => !q.group_id).length;
+    const queryMap = {};
+    for (const q of queries) {
+      if (q.group_id) {
+        (queryMap[q.group_id] ||= []).push(q.query_id);
+      }
+    }
     ctx.body = {
       code: 200, msg: 'ok',
       data: {
         groups: groups.map(g => ({
           group_id: g.group_id, name: g.name, sort: g.sort || 0,
+          query_type: g.query_type || null,
           query_count: queries.filter(q => q.group_id === g.group_id).length,
         })),
         ungrouped_count: ungrouped,
         total,
-        query_map: {},
+        query_map: queryMap,
       },
     };
+  }
+
+  async _quota(brandId) {
+    const { ctx } = this;
+    const used = await ctx.model.MonitorQuery.countDocuments({ brand_id: brandId });
+    const sub = await ctx.model.Subscription.findOne({ brand_id: brandId, status: 'active' })
+      .sort({ updated_at: -1 }).lean().catch(() => null)
+      || await ctx.model.Subscription.findOne({ brand_id: brandId }).sort({ updated_at: -1 }).lean().catch(() => null);
+    const limit = (sub && sub.query_limit) || 8;
+    return { used, limit, remain: Math.max(0, limit - used) };
+  }
+
+  /** POST /query/add — 批量新增监控问题（额度校验） */
+  async add() {
+    const { ctx } = this;
+    const b = ctx.request.body || {};
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
+    const qt = b.query_type === 'brand' ? 'brand' : 'industry';
+    let lines = [];
+    if (Array.isArray(b.queries)) lines = b.queries.map(s => String(s || '').trim()).filter(Boolean);
+    else if (typeof b.query === 'string') lines = b.query.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    else if (typeof b.text === 'string') lines = b.text.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    lines = [...new Set(lines.map(s => s.slice(0, 50)))];
+    if (!lines.length) {
+      ctx.status = 400; ctx.body = { code: 400, msg: '请输入至少一个监控问题' }; return;
+    }
+    const quota = await this._quota(brand.brand_id);
+    if (lines.length > quota.remain) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: `剩余额度不足（剩余 ${quota.remain}，本次 ${lines.length}）` };
+      return;
+    }
+    const existing = await ctx.model.MonitorQuery.find({ brand_id: brand.brand_id }).select('query').lean();
+    const existSet = new Set(existing.map(e => e.query));
+    const created = [];
+    let orderBase = existing.length;
+    for (const q of lines) {
+      if (existSet.has(q)) continue;
+      const query_id = await ctx.service.onboarding.nextSeq('query_id');
+      const doc = {
+        query_id,
+        user_id: ctx.state.user.id,
+        brand_id: brand.brand_id,
+        query: q,
+        question_list: [{ user_friendly: q, platform_query: q }],
+        query_type: qt,
+        query_status: true,
+        query_is_execute: true,
+        query_order: orderBase++,
+        group_id: b.group_id || null,
+        weight: 1,
+      };
+      await ctx.model.MonitorQuery.create(doc);
+      created.push({ id: query_id, query: q, query_type: qt });
+      existSet.add(q);
+    }
+    const used = await ctx.model.MonitorQuery.countDocuments({ brand_id: brand.brand_id });
+    await ctx.model.Subscription.updateMany({ brand_id: brand.brand_id, status: 'active' }, { $set: { query_count: used } }).catch(() => null);
+    ctx.body = { code: 200, msg: 'ok', data: { created, count: created.length, remain: Math.max(0, quota.limit - used) } };
+  }
+
+  /** POST /query/update — 更新问题文案 / 状态 */
+  async update() {
+    const { ctx } = this;
+    const b = ctx.request.body || {};
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
+    const qid = Number(b.query_id || b.id);
+    if (!Number.isFinite(qid)) {
+      ctx.status = 400; ctx.body = { code: 400, msg: 'query_id 必填' }; return;
+    }
+    const doc = await ctx.model.MonitorQuery.findOne({ brand_id: brand.brand_id, query_id: qid });
+    if (!doc) { ctx.status = 404; ctx.body = { code: 404, msg: '问题不存在' }; return; }
+    const $set = {};
+    if (typeof b.query === 'string' && b.query.trim()) {
+      const q = b.query.trim().slice(0, 50);
+      $set.query = q;
+      $set.question_list = [{ user_friendly: q, platform_query: q }];
+    }
+    if (typeof b.query_status === 'boolean') {
+      $set.query_status = b.query_status;
+      $set.query_is_execute = b.query_status;
+    }
+    if (b.query_type === 'brand' || b.query_type === 'industry') $set.query_type = b.query_type;
+    if ('group_id' in b) $set.group_id = b.group_id || null;
+    await ctx.model.MonitorQuery.updateOne({ brand_id: brand.brand_id, query_id: qid }, { $set });
+    ctx.body = { code: 200, msg: 'ok', data: { query_id: qid, ...$set } };
+  }
+
+  /** POST /query/delete — 删除问题（硬删，释放额度） */
+  async delete() {
+    const { ctx } = this;
+    const b = ctx.request.body || {};
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
+    const ids = Array.isArray(b.query_ids)
+      ? b.query_ids.map(Number).filter(Number.isFinite)
+      : [Number(b.query_id || b.id)].filter(Number.isFinite);
+    if (!ids.length) {
+      ctx.status = 400; ctx.body = { code: 400, msg: 'query_id 必填' }; return;
+    }
+    const r = await ctx.model.MonitorQuery.deleteMany({ brand_id: brand.brand_id, query_id: { $in: ids } });
+    const used = await ctx.model.MonitorQuery.countDocuments({ brand_id: brand.brand_id });
+    await ctx.model.Subscription.updateMany({ brand_id: brand.brand_id, status: 'active' }, { $set: { query_count: used } }).catch(() => null);
+    ctx.body = { code: 200, msg: 'ok', data: { deleted: r.deletedCount || 0 } };
+  }
+
+  /** POST /query/sort — 拖拽排序 */
+  async sort() {
+    const { ctx } = this;
+    const b = ctx.request.body || {};
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
+    const orders = Array.isArray(b.orders) ? b.orders : [];
+    if (!orders.length) {
+      ctx.status = 400; ctx.body = { code: 400, msg: 'orders 必填' }; return;
+    }
+    const ops = orders.map((row, i) => ({
+      updateOne: {
+        filter: { brand_id: brand.brand_id, query_id: Number(row.query_id || row.id) },
+        update: { $set: { query_order: Number.isFinite(Number(row.query_order)) ? Number(row.query_order) : i } },
+      },
+    })).filter(op => Number.isFinite(op.updateOne.filter.query_id));
+    if (ops.length) await ctx.model.MonitorQuery.bulkWrite(ops);
+    ctx.body = { code: 200, msg: 'ok', data: { updated: ops.length } };
+  }
+
+  /** POST /query-group/save — 新建/重命名分组 */
+  async queryGroupSave() {
+    const { ctx } = this;
+    const b = ctx.request.body || {};
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
+    const name = String(b.name || '').trim().slice(0, 30);
+    if (!name) { ctx.status = 400; ctx.body = { code: 400, msg: '分组名必填' }; return; }
+    const qt = b.query_type === 'brand' ? 'brand' : (b.query_type === 'industry' ? 'industry' : 'industry');
+    if (b.group_id) {
+      await ctx.model.QueryGroup.updateOne(
+        { brand_id: brand.brand_id, group_id: b.group_id },
+        { $set: { name } },
+      );
+      ctx.body = { code: 200, msg: 'ok', data: { group_id: b.group_id, name } };
+      return;
+    }
+    const count = await ctx.model.QueryGroup.countDocuments({ brand_id: brand.brand_id });
+    const { v4: uuid } = require('uuid');
+    const group_id = uuid();
+    await ctx.model.QueryGroup.create({
+      group_id, brand_id: brand.brand_id, query_type: qt, name, sort: count,
+    });
+    ctx.body = { code: 200, msg: 'ok', data: { group_id, name, query_type: qt } };
+  }
+
+  /** POST /query-group/move_query — 将问题移入/移出分组 */
+  async queryGroupMove() {
+    const { ctx } = this;
+    const b = ctx.request.body || {};
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
+    const qid = Number(b.query_id || b.id);
+    if (!Number.isFinite(qid)) {
+      ctx.status = 400; ctx.body = { code: 400, msg: 'query_id 必填' }; return;
+    }
+    const group_id = b.group_id ? String(b.group_id) : null;
+    await ctx.model.MonitorQuery.updateOne(
+      { brand_id: brand.brand_id, query_id: qid },
+      { $set: { group_id } },
+    );
+    ctx.body = { code: 200, msg: 'ok', data: { query_id: qid, group_id } };
+  }
+
+  /** POST /query-group/delete — 删除分组（问题回未分组） */
+  async queryGroupDelete() {
+    const { ctx } = this;
+    const b = ctx.request.body || {};
+    const brand = await this._requireBrand(b.brand_id);
+    if (!brand) return;
+    const group_id = String(b.group_id || '');
+    if (!group_id) { ctx.status = 400; ctx.body = { code: 400, msg: 'group_id 必填' }; return; }
+    await Promise.all([
+      ctx.model.QueryGroup.deleteOne({ brand_id: brand.brand_id, group_id }),
+      ctx.model.MonitorQuery.updateMany({ brand_id: brand.brand_id, group_id }, { $set: { group_id: null } }),
+    ]);
+    ctx.body = { code: 200, msg: 'ok', data: { group_id } };
   }
 
   /** 采集状态（概览页采集状态卡）：契约对齐线上 { list, last_date }，并附加采集前语义 */
