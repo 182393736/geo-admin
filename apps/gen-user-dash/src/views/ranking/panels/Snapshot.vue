@@ -218,7 +218,7 @@
       </div>
     </div>
 
-    <!-- 预览灯箱 -->
+    <!-- 预览灯箱：放大后可拖拽 / 滚轮平移，长截图才能看全 -->
     <Teleport to="body">
       <div
         v-if="previewVisible"
@@ -234,17 +234,29 @@
           >
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
-          <div class="relative bg-black rounded-lg overflow-hidden shadow-2xl w-full">
+          <div
+            class="relative bg-black rounded-lg overflow-hidden shadow-2xl w-full max-h-[80vh] touch-none"
+            @wheel.prevent="onPreviewWheel"
+          >
             <img
               v-if="previewUrl"
               :src="previewUrl"
               alt="Preview"
               draggable="false"
               class="w-full h-auto max-h-[80vh] object-contain select-none"
-              :style="{ transform: `translate(0px, 0px) scale(${previewScale})`, cursor: previewScale > 1 ? 'zoom-out' : 'zoom-in', transition: 'transform 0.15s ease-out' }"
-              @click.stop="togglePreviewZoom"
+              :style="{
+                transform: `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})`,
+                cursor: previewScale > 1 ? (previewDragging ? 'grabbing' : 'grab') : 'zoom-in',
+                transition: previewDragging ? 'none' : 'transform 0.15s ease-out',
+                transformOrigin: 'center center',
+              }"
+              @pointerdown="onPreviewPointerDown"
+              @pointermove="onPreviewPointerMove"
+              @pointerup="onPreviewPointerUp"
+              @pointercancel="onPreviewPointerUp"
+              @click.stop="onPreviewClick"
             />
-            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/70 backdrop-blur rounded-full px-2 py-1 shadow-lg select-none">
+            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/70 backdrop-blur rounded-full px-2 py-1 shadow-lg select-none z-10">
               <button
                 type="button"
                 class="p-2 text-white/90 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
@@ -269,13 +281,14 @@
                 type="button"
                 class="p-2 text-white/90 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
                 title="复位"
-                :disabled="previewScale === 1"
-                @click.stop="previewScale = 1"
+                :disabled="previewScale === 1 && previewOffset.x === 0 && previewOffset.y === 0"
+                @click.stop="resetPreviewView"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
               </button>
             </div>
           </div>
+          <p v-if="previewScale > 1" class="mt-2 text-xs text-white/55">放大后可拖动或滚轮平移查看</p>
         </div>
       </div>
     </Teleport>
@@ -333,7 +346,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { Message } from '@arco-design/web-vue';
 import { monitorApi } from '@/api/modules/monitor';
@@ -379,6 +392,10 @@ const previewVisible = ref(false);
 const previewUrl = ref('');
 const previewItem = ref<SnapshotItem | null>(null);
 const previewScale = ref(1);
+const previewOffset = reactive({ x: 0, y: 0 });
+const previewDragging = ref(false);
+let previewDragMoved = false;
+let previewDragStart = { x: 0, y: 0, ox: 0, oy: 0 };
 
 const answerVisible = ref(false);
 const answerLoading = ref(false);
@@ -495,13 +512,21 @@ function openPreview(s: SnapshotItem) {
   if (!s.photo_url) return;
   previewItem.value = s;
   previewUrl.value = s.photo_url;
-  previewScale.value = 1;
+  resetPreviewView();
   previewVisible.value = true;
 }
 
 function closePreview() {
   previewVisible.value = false;
+  resetPreviewView();
+}
+
+function resetPreviewView() {
   previewScale.value = 1;
+  previewOffset.x = 0;
+  previewOffset.y = 0;
+  previewDragging.value = false;
+  previewDragMoved = false;
 }
 
 function previewZoomIn() {
@@ -509,12 +534,65 @@ function previewZoomIn() {
 }
 
 function previewZoomOut() {
-  previewScale.value = Math.max(1, Math.round((previewScale.value - 0.25) * 100) / 100);
+  const next = Math.max(1, Math.round((previewScale.value - 0.25) * 100) / 100);
+  previewScale.value = next;
+  if (next <= 1) {
+    previewOffset.x = 0;
+    previewOffset.y = 0;
+  }
 }
 
 function togglePreviewZoom() {
-  if (previewScale.value > 1) previewScale.value = 1;
-  else previewScale.value = 1.5;
+  if (previewScale.value > 1) {
+    resetPreviewView();
+  } else {
+    previewScale.value = 1.5;
+  }
+}
+
+function onPreviewPointerDown(e: PointerEvent) {
+  if (previewScale.value <= 1) return;
+  if (e.button != null && e.button !== 0) return;
+  previewDragging.value = true;
+  previewDragMoved = false;
+  previewDragStart = {
+    x: e.clientX,
+    y: e.clientY,
+    ox: previewOffset.x,
+    oy: previewOffset.y,
+  };
+  (e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId);
+}
+
+function onPreviewPointerMove(e: PointerEvent) {
+  if (!previewDragging.value) return;
+  const dx = e.clientX - previewDragStart.x;
+  const dy = e.clientY - previewDragStart.y;
+  if (Math.abs(dx) + Math.abs(dy) > 4) previewDragMoved = true;
+  previewOffset.x = previewDragStart.ox + dx;
+  previewOffset.y = previewDragStart.oy + dy;
+}
+
+function onPreviewPointerUp() {
+  previewDragging.value = false;
+}
+
+function onPreviewClick() {
+  if (previewDragMoved) {
+    previewDragMoved = false;
+    return;
+  }
+  togglePreviewZoom();
+}
+
+function onPreviewWheel(e: WheelEvent) {
+  if (previewScale.value <= 1) {
+    // 未放大时用滚轮微调放大，便于长截图逐段看
+    if (e.deltaY < 0) previewZoomIn();
+    return;
+  }
+  previewOffset.x -= e.deltaX;
+  previewOffset.y -= e.deltaY;
 }
 
 async function openAnswer(s: SnapshotItem) {

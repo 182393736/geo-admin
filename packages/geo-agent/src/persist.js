@@ -7,7 +7,7 @@
 
 /**
  * @param {object} models  { Brand, BrandProfile, BrandAlias, BrandProduct, CompetitorRegister, BrandLibrary, MonitorQuery, OnboardingTrace, OnboardingTask? }
- * @param {object} opts    { userId, brandId?, taskId?, result, nextSeq?, selectedQueries?, confirmLimit? }
+ * @param {object} opts    { userId, brandId?, taskId?, result, nextSeq?, selectedQueries?, selectedAliases?, confirmLimit? }
  */
 async function persistResult(models, opts) {
   const { result } = opts;
@@ -15,6 +15,24 @@ async function persistResult(models, opts) {
   const need = ['Brand', 'BrandProfile', 'BrandAlias', 'BrandProduct', 'CompetitorRegister', 'BrandLibrary', 'MonitorQuery', 'OnboardingTrace'];
   for (const k of need) if (!models[k]) throw new Error(`geo-agent.persist: models.${k} 必填`);
   const counts = { aliases: 0, products: 0, competitors: 0, queries: 0, library: 0, traces: 0 };
+
+  /** 用户确认的识别名优先；未传则用分析结果。去重、排除品牌主名、最多 8 个 */
+  const brandName = String((result.brand && result.brand.name) || '').trim();
+  const brandLower = brandName.toLowerCase();
+  const aliasSource = Array.isArray(opts.selectedAliases) ? 'user' : 'auto';
+  const aliasRaw = Array.isArray(opts.selectedAliases) ? opts.selectedAliases : (result.aliases || []);
+  const aliasSeen = new Set();
+  const aliasesToSave = [];
+  for (const item of aliasRaw) {
+    const a = String(item == null ? '' : item).trim().slice(0, 60);
+    if (!a) continue;
+    const key = a.toLowerCase();
+    if (key === brandLower || aliasSeen.has(key)) continue;
+    aliasSeen.add(key);
+    aliasesToSave.push(a);
+    if (aliasesToSave.length >= 8) break;
+  }
+  result.aliases = aliasesToSave;
 
   // ---- 品牌主档：有 brandId 更新（须归属当前用户），无则新建（is_first_brand 看存量） ----
   let brandId = opts.brandId;
@@ -48,11 +66,11 @@ async function persistResult(models, opts) {
     seeded_from_db: false, exists: true,
   } }, { upsert: true });
 
-  // ---- 别名 ----
-  for (const a of result.aliases || []) {
+  // ---- 别名（识别名）----
+  for (const a of aliasesToSave) {
     await models.BrandAlias.updateOne(
       { brand_id: brandId, alias: a },
-      { $setOnInsert: { brand_id: brandId, alias: a, source: 'auto', enabled: true } },
+      { $setOnInsert: { brand_id: brandId, alias: a, source: aliasSource, enabled: true } },
       { upsert: true },
     ).then(() => { counts.aliases++; }).catch(() => {});
   }
@@ -110,7 +128,6 @@ async function persistResult(models, opts) {
   // 对标真实站（「大艺园林雕塑怎么样，好不好」）。与中立题相反，口碑题就是要
   // 带着品牌名问 AI——口碑页统计的正是「AI 被问及本品牌时的情感倾向」，
   // 由流水线B（reputation_extract）拆解为 Opinion。品牌名缺失/占位时跳过。
-  const brandName = String((result.brand && result.brand.name) || '').trim();
   if (brandName && brandName !== '未命名品牌') {
     const brandQueries = [...new Set([
       `${brandName}怎么样，好不好`,
@@ -166,10 +183,15 @@ async function persistResult(models, opts) {
     kind: t.kind, query: t.query, url: t.url, snapshot: t.snapshot,
     keyword: t.keyword, weight: t.weight, meta: t.meta,
   })).filter(t => t.kind);
-  if (opts.selectedQueries) {
+  if (opts.selectedQueries || Array.isArray(opts.selectedAliases)) {
     traceDocs.push({
       task_id: taskId, brand_id: brandId, user_id: opts.userId,
-      kind: 'user_confirm', meta: { selected: selected.map(c => c.query), limit: opts.confirmLimit || null },
+      kind: 'user_confirm',
+      meta: {
+        selected: selected.map(c => c.query),
+        aliases: aliasesToSave,
+        limit: opts.confirmLimit || null,
+      },
     });
   }
   if (traceDocs.length) {

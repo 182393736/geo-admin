@@ -12,9 +12,10 @@ const CALL_SITE_LABELS = {
 };
 
 /**
- * 管理员总后台（gen-admin）—— 只读监控 API（后续再开放增删改）
+ * 管理员总后台（gen-admin）—— 监控 + 少量运营写接口
  * ------------------------------------------------------------------
- * 定位：跨用户/跨品牌的「上帝视角」，只读 + 检索 + 下钻 + 聚合。
+ * 定位：跨用户/跨品牌的「上帝视角」，检索 / 下钻 / 聚合；写接口仅限超管运营动作（如添加用户）。
+ * 管理总后台只读监控 API（+ 开发环境用户清空）。
  * 全部挂在 /admin/**，鉴权：jwtAuth + adminAuth（is_superuser=true）。
  * 响应统一壳 { code: 200, msg: 'ok', data }；列表统一 { list, total, page, page_size }。
  */
@@ -65,7 +66,14 @@ class AdminController extends Controller {
   async me() {
     const { ctx } = this;
     const u = ctx.state.admin;
-    this._ok({ user_id: u._id, account: u.account, name: u.name || u.account, is_superuser: !!u.is_superuser, roles: u.roles || [] });
+    this._ok({
+      user_id: u._id,
+      account: u.account,
+      name: u.name || u.account,
+      is_superuser: !!u.is_superuser,
+      roles: u.roles || [],
+      purge_user_enabled: ctx.service.userPurge.isAllowed(),
+    });
   }
 
   // ---------- 驾驶舱 ----------
@@ -180,8 +188,119 @@ class AdminController extends Controller {
       user_id: u._id, account: u.account || '', phone: u.phone || '', name: u.name || '',
       company: u.company || '', industry: u.industry || '',
       status: u.status || 'active', is_superuser: !!u.is_superuser, roles: u.roles || [],
+      password: u.password_plain || '',
       created_at: u.created_at, updated_at: u.updated_at,
     };
+  }
+
+  /** POST /admin/users — 运营添加新用户（账号+密码；密码明文存 password_plain 供列表可见） */
+  async createUser() {
+    const { ctx } = this;
+    const bcrypt = require('bcryptjs');
+    const b = ctx.request.body || {};
+    const account = String(b.account || '').trim();
+    const password = String(b.password || '');
+    const name = String(b.name || '').trim();
+    const phone = String(b.phone || '').trim();
+    const company = String(b.company || '').trim();
+    const is_superuser = !!b.is_superuser;
+
+    if (!account) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '账号必填' };
+      return;
+    }
+    if (!password || password.length < 4) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '密码至少 4 位' };
+      return;
+    }
+    const exists = await ctx.model.User.findOne({ account }).lean();
+    if (exists) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '账号已存在' };
+      return;
+    }
+    if (phone) {
+      const phoneHit = await ctx.model.User.findOne({ phone }).lean();
+      if (phoneHit) {
+        ctx.status = 400;
+        ctx.body = { code: 400, msg: '手机号已被占用' };
+        return;
+      }
+    }
+
+    const doc = {
+      account,
+      password_hash: bcrypt.hashSync(password, 10),
+      password_plain: password,
+      name: name || account,
+      phone: phone || undefined,
+      company: company || undefined,
+      is_superuser,
+      roles: is_superuser ? ['admin'] : [],
+      status: 'active',
+    };
+    const user = await ctx.model.User.create(doc);
+    // 预建空积分账户，避免首次进控制台缺钱包
+    try {
+      const existed = await ctx.model.CreditAccount.findOne({ user_id: user._id }).lean();
+      if (!existed) {
+        const { v4: uuidv4 } = require('uuid');
+        await ctx.model.CreditAccount.create({
+          _id: uuidv4(),
+          user_id: user._id,
+          gold_balance: 0,
+          silver_balance: 0,
+          frozen: 0,
+        });
+      }
+    } catch (e) {
+      ctx.logger.warn('[admin.createUser] credit account skip: %s', (e && e.message) || e);
+    }
+
+    this._ok({ ...this._fmtUser(user.toObject ? user.toObject() : user), brand_count: 0 });
+  }
+
+  /**
+   * POST /admin/users/:id/purge
+   * 开发环境专用：删除该用户全部业务数据 + 账号本身。
+   * body: { confirm_account: string } 必须与目标账号一致
+   */
+  async purgeUser() {
+    const { ctx } = this;
+    if (!ctx.service.userPurge.isAllowed()) {
+      ctx.status = 403;
+      ctx.body = { code: 403, msg: '仅开发环境可用' };
+      return;
+    }
+    const id = String(ctx.params.id || '').trim();
+    const confirm = String((ctx.request.body && ctx.request.body.confirm_account) || '').trim();
+    if (!id) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: 'user_id 必填' };
+      return;
+    }
+    const user = await ctx.model.User.findById(id).lean();
+    if (!user) {
+      ctx.status = 404;
+      ctx.body = { code: 404, msg: '用户不存在' };
+      return;
+    }
+    if (!confirm || confirm !== String(user.account || '')) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '请输入目标账号以确认删除（confirm_account）' };
+      return;
+    }
+    const actorId = ctx.state.admin && ctx.state.admin._id;
+    try {
+      const result = await ctx.service.userPurge.purgeAll(id, { actorId });
+      this._ok(result);
+    } catch (e) {
+      const status = e.status || 500;
+      ctx.status = status;
+      ctx.body = { code: status, msg: String(e.message || e).slice(0, 300) };
+    }
   }
 
   async users() {

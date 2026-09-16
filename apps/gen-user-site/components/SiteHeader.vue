@@ -61,7 +61,7 @@ async function goConsole() {
   if (!isLoggedIn.value) { open('password', 'header'); return }
   const { getToken } = useGeoApi()
   const config = useRuntimeConfig()
-  const consoleUrl = String((config.public as Record<string, unknown>).consoleUrl || 'http://127.0.0.1:5173')
+  const consoleUrl = String((config.public as Record<string, unknown>).consoleUrl || 'http://127.0.0.1:6002')
   const base = consoleUrl.split('#')[0]
   const tk = getToken()
   const withToken = (u: string) => (tk ? `${u}#token=${encodeURIComponent(tk)}` : u)

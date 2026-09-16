@@ -185,7 +185,21 @@
 
 /* Confirm panel cards */
 .trial-cp-title{font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.trial-cp-title--gap{margin-top:16px}
 .trial-cp-hint{font-size:12px;color:#b45309;margin:-2px 0 10px;line-height:1.45}
+.trial-cp-sub{font-size:12px;color:#888;margin:-4px 0 10px;line-height:1.45}
+.trial-brand-row{display:flex;align-items:center;gap:8px;padding:12px 14px;background:#fff;border:1.5px solid #ebebeb;border-radius:10px;margin-bottom:6px}
+.trial-brand-name{flex:1;min-width:0;font-size:15px;font-weight:700;color:#0d0d0d;line-height:1.4;word-break:break-all}
+.trial-brand-input{flex:1;min-width:0;font-size:14px;font-weight:600;font-family:inherit;color:#0d0d0d;line-height:1.4;padding:8px 10px;border:1.5px solid #4f46e5;border-radius:8px;outline:none;background:#fff}
+.trial-alias-box{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 12px;background:#fff;border:1.5px solid #ebebeb;border-radius:10px;margin-bottom:6px;min-height:42px}
+.trial-alias-tag{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:4px 10px;border-radius:999px;font-size:12.5px;font-weight:600;line-height:1.3;background:#f3f4f6;color:#374151}
+.trial-alias-tag--primary{background:#ede9fe;color:#4f46e5;border:1px solid #c4b5fd}
+.trial-alias-tag--edit{background:#f5f3ff;color:#4338ca;padding-right:6px}
+.trial-alias-remove{flex-shrink:0;width:18px;height:18px;border:none;border-radius:50%;background:transparent;color:#7c7c8a;font-size:14px;line-height:1;cursor:pointer;padding:0}
+.trial-alias-remove:hover{background:#ddd6fe;color:#4f46e5}
+.trial-alias-input{flex:1;min-width:140px;border:none;outline:none;background:transparent;font-size:12.5px;font-family:inherit;color:#0d0d0d;padding:4px 2px}
+.trial-alias-input::placeholder{color:#b0b0ba}
+.trial-alias-input:disabled{cursor:not-allowed;color:#999}
 .trial-bc{background:#fff;border:1.5px solid #ebebeb;border-radius:10px;padding:13px 15px;cursor:pointer;transition:border-color .18s,box-shadow .18s;margin-bottom:7px}
 .trial-bc:hover{border-color:#c4b5fd;box-shadow:0 1px 8px rgba(79,70,229,.08)}
 .trial-bc.sel{border-color:#4f46e5;background:#ede9fe}

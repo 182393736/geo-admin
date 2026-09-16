@@ -16,7 +16,7 @@ const PLATFORMS = require('../shared/platforms.json');
 const { detectAuth, watchUsername } = require('./login-detect.cjs');
 const { runChat, saveResult, buildJsonPreviewHtml, buildSubmitJson } = require('./chat/index.cjs');
 const { captureConversationScreenshot } = require('./chat/common.cjs');
-const { pullSlot, submitSlot, getConfig: getCollectorConfig } = require('./collector-api.cjs');
+const { pullSlot, submitSlot, getConfig: getCollectorConfig, loadTarget, setTarget, listTargets } = require('./collector-api.cjs');
 const { uploadShotPair, getOssConfig } = require('./oss/upload.cjs');
 
 const IP_LIST_URL = 'http://api.tupianseo.com/daili/daili_list';
@@ -276,6 +276,20 @@ function bindPlatformPageClose(ip, platform, page) {
 }
 
 function registerIpc() {
+  // —— API 目标：本地 / 测试服务器 ——
+  ipcMain.handle('collector:get-api-target', async () => {
+    return { ok: true, ...getCollectorConfig(), targets: listTargets() };
+  });
+  ipcMain.handle('collector:set-api-target', async (_e, targetId) => {
+    try {
+      const cfg = setTarget(String(targetId || '').trim());
+      console.log(`[collector] API 目标切换为 ${cfg.label} → ${cfg.baseUrl}`);
+      return { ok: true, ...cfg, targets: listTargets() };
+    } catch (e) {
+      return { ok: false, error: String((e && e.message) || e) };
+    }
+  });
+
   // —— 拉取 IP 列表 ——
   ipcMain.handle('ip-list:fetch', async () => {
     try {
@@ -700,6 +714,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  loadTarget(app.getPath('userData'));
+  const cfg = getCollectorConfig();
+  console.log(`[collector] API 目标：${cfg.label} → ${cfg.baseUrl}`);
   registerIpc();
   createWindow();
   app.on('activate', () => {

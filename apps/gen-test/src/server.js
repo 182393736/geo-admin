@@ -1,7 +1,7 @@
 'use strict';
 /**
  * gen-test 服务：测试任务列表 + 添加任务 + 执行（Playwright）+ 删除任务数据。
- * 端口 PORT（默认 8787），网页在 /（public/index.html），API 前缀 /api。
+ * 端口 PORT（默认 6005），网页在 /（public/index.html），API 前缀 /api。
  */
 const os = require('node:os');
 const path = require('node:path');
@@ -23,7 +23,7 @@ const { tryStartTask, isRunning, checkDeps, ARTIFACTS } = require('./runner');
 const { deleteTask } = require('./cleanup');
 
 const app = express();
-const PORT = Number(process.env.PORT || 8787);
+const PORT = Number(process.env.PORT || 6005);
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));

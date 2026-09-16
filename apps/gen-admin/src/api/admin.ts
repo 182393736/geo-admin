@@ -10,7 +10,7 @@ import type {
   AdminMediaRow, AdminPublishOrderRow, AdminArticleRow, AdminWritingJobRow,
   AdminReportRow, AdminOnboardingTaskRow, AdminOnboardingTraceRow,
   AdminBehaviorEventRow, AdminDiagnosisRow, AdminAgentHistoryRow, AdminReminderRow, AdminSystem,
-  AdminPipelineDayRow, AdminPipelineTimeline,
+  AdminPipelineDayRow, AdminPipelineTimeline, AdminUserPurgeResult,
 } from '@geo-admin/contracts';
 
 export interface LoginRespLike { accessToken: string; user: { id: string; username: string }; brands: unknown[] }
@@ -34,7 +34,18 @@ export const adminApi = {
 
   // 用户 / 品牌
   users: (p: Record<string, any> = {}) => get<AdminPaged<AdminUserRow>>(`/admin/users${qs(p)}`),
+  createUser: (body: {
+    account: string;
+    password: string;
+    name?: string;
+    phone?: string;
+    company?: string;
+    is_superuser?: boolean;
+  }) => post<AdminUserRow>('/admin/users', body),
   userDetail: (id: string) => get<AdminUserDetail>(`/admin/users/${encodeURIComponent(id)}`),
+  /** 开发环境专用：清空用户全部数据（需 confirm_account） */
+  purgeUser: (id: string, confirm_account: string) =>
+    post<AdminUserPurgeResult>(`/admin/users/${encodeURIComponent(id)}/purge`, { confirm_account }),
   brands: (p: Record<string, any> = {}) => get<AdminPaged<AdminBrandRow>>(`/admin/brands${qs(p)}`),
   brandDetail: (id: string) => get<AdminBrandDetail>(`/admin/brands/${encodeURIComponent(id)}`),
 

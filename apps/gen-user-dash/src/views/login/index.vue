@@ -320,7 +320,7 @@ async function handleSubmit() {
         window.location.assign(siteTrialUrl(auth.token));
       }
     } catch (e: any) {
-      const msg = e?.message || '网络异常，请确认后端已启动（:7001）';
+      const msg = e?.message || '网络异常，请确认后端已启动（:6001）';
       errMsg.value = msg;
       toast.error('登录失败', msg);
     } finally {

@@ -70,6 +70,14 @@ module.exports = () => {
   },
   security: { csrf: { enable: false } }, // API 走 JWT Bearer，无表单 CSRF 面
   keys: 'geo-secret',
+  // 本地默认 6001（见 scripts/dev-ports.js）；可用 PORT / BIND_HOST 覆盖
+  // Docker 部署请设 BIND_HOST=0.0.0.0
+  cluster: {
+    listen: {
+      port: Number(process.env.PORT || 6001),
+      hostname: process.env.BIND_HOST || '127.0.0.1',
+    },
+  },
   // 统一 LLM 配置：gen-api 所有大模型调用唯一入口（首登 Agent / 解析流水线 / 报告等）
   llm: {
     provider,

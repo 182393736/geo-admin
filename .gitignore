@@ -5,6 +5,9 @@ dist-ssr
 .DS_Store
 .env
 .env.local
+.env.*
+!.env.example
+!**/.env.example
 .local-secrets/
 **/oss.local.json
 *.log
@@ -20,4 +23,5 @@ apps/gen-api/run
 .output/
 noetBrett-onboarding/
 .tmp-geo
+.tmp/
 apps/gen-api/logs/

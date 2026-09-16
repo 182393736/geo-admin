@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxt dev --port 3002",
+    "dev": "nuxt dev --port 6003",
     "build": "nuxt build",
     "generate": "nuxt generate",
-    "preview": "nuxt preview --port 3002",
+    "preview": "nuxt preview --port 6003",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {

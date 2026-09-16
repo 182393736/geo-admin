@@ -109,11 +109,57 @@
         <!-- 候选确认面板（对标：勾选 ≤limit 条后才落库） -->
         <div v-if="phase === 'confirm' && preview" class="trial-cp">
           <div class="trial-cp-header">
-            <span class="trial-cp-header-title"><span class="trial-cp-dot"></span>请确认要监控的问题（免费版最多 {{ limit }} 个）· 已选 {{ selected.size }}/{{ limit }}</span>
+            <span class="trial-cp-header-title"><span class="trial-cp-dot"></span>请确认品牌词、识别名与监控问题（免费版最多 {{ limit }} 个）· 已选 {{ selected.size }}/{{ limit }}</span>
             <span class="trial-cp-dismiss" @click="skipConfirm">暂不选择</span>
           </div>
           <div class="trial-cp-body">
-            <div class="trial-cp-title">AI 推荐 · 可勾选，也可点「修改」改写成你的说法（请保持行业中立、不含品牌名）</div>
+            <div class="trial-cp-title">品牌词 · 正式识别名（必填，可改）</div>
+            <p class="trial-cp-sub">口碑题与命中统计都归到这个名字；改错了可点「修改」</p>
+            <div class="trial-brand-row" @click.stop>
+              <template v-if="brandEditing">
+                <input
+                  ref="brandInputEl"
+                  v-model="brandDraft"
+                  class="trial-brand-input"
+                  maxlength="60"
+                  placeholder="输入品牌正式名"
+                  @keydown.enter.prevent="saveBrandEdit"
+                  @keydown.esc.prevent="cancelBrandEdit"
+                >
+                <button type="button" class="trial-bc-btn trial-bc-btn-save" @click="saveBrandEdit">保存</button>
+                <button type="button" class="trial-bc-btn trial-bc-btn-cancel" @click="cancelBrandEdit">取消</button>
+              </template>
+              <template v-else>
+                <span class="trial-brand-name">{{ draftBrandName || '—' }}</span>
+                <button type="button" class="trial-bc-btn trial-bc-btn-edit" @click="startBrandEdit">修改</button>
+              </template>
+            </div>
+            <p v-if="brandHint" class="trial-cp-hint">{{ brandHint }}</p>
+
+            <div class="trial-cp-title trial-cp-title--gap">相似识别名 · AI 回答出现这些写法都会算作你的品牌</div>
+            <p class="trial-cp-sub">可增删其它写法，首次采集更容易命中（最多 {{ aliasLimit }} 个；不含上方品牌词）</p>
+            <div class="trial-alias-box" @click.stop>
+              <span
+                v-for="a in draftAliases"
+                :key="'alias:' + a"
+                class="trial-alias-tag trial-alias-tag--edit"
+              >
+                <span>{{ a }}</span>
+                <button type="button" class="trial-alias-remove" aria-label="移除" @click="removeAlias(a)">×</button>
+              </span>
+              <input
+                v-model="aliasInput"
+                type="text"
+                class="trial-alias-input"
+                :disabled="draftAliases.length >= aliasLimit"
+                :placeholder="draftAliases.length >= aliasLimit ? '已达上限' : '输入别名后按回车或逗号添加…'"
+                maxlength="60"
+                @keydown="onAliasKeydown"
+              >
+            </div>
+            <p v-if="aliasHint" class="trial-cp-hint">{{ aliasHint }}</p>
+
+            <div class="trial-cp-title trial-cp-title--gap">监控问题 · 可勾选，也可点「修改」改写（请保持行业中立、不含品牌名）</div>
             <p v-if="editHint" class="trial-cp-hint">{{ editHint }}</p>
             <div
               v-for="(c, i) in preview.candidates"
@@ -152,7 +198,7 @@
             </div>
           </div>
           <div class="trial-cp-actions">
-            <button class="trial-cp-btn-ok" type="button" :disabled="selected.size === 0 || saving || editingIdx != null" @click="doConfirm">
+            <button class="trial-cp-btn-ok" type="button" :disabled="selected.size === 0 || saving || editingIdx != null || brandEditing || !draftBrandName.trim()" @click="doConfirm">
               {{ saving ? '保存中…' : `确认监控 ${selected.size} 个问题` }}
             </button>
             <button class="trial-cp-btn-skip" type="button" :disabled="saving" @click="skipConfirm">跳过</button>
@@ -172,7 +218,7 @@
 /**
  * /trial 首登分析对话流（复刻对标站交互）：
  *  品牌一段话+官网(可选) → SSE 过程实况气泡（识别→读官网→生成候选→验证热度→情报文）
- *  → 候选问题勾选面板（免费版 ≤3）→ confirm 落库 → 完成报告卡
+ *  → 品牌词确认 + 识别名确认 + 候选问题勾选（免费版 ≤3）→ confirm 落库 → 完成报告卡
  * 数据源：POST /agent/onboarding/stream（save=false 预览）→ POST /agent/onboarding/confirm（确认落库）
  */
 
@@ -191,7 +237,7 @@ const authModal = useAuthModal()
 const config = useRuntimeConfig()
 const route = useRoute()
 const isAddBrand = computed(() => String(route.query.from || '') === 'add_brand')
-const consoleUrl = String((config.public as Record<string, unknown>).consoleUrl || 'http://127.0.0.1:5173')
+const consoleUrl = String((config.public as Record<string, unknown>).consoleUrl || 'http://127.0.0.1:6002')
 /** 确认落库后的新 brand_id，回控制台时写入 hash 以便后台切到该品牌 */
 const savedBrandId = ref('')
 /** 「前往控制台」落地地址：#token= + 可选 brand_id= */
@@ -208,6 +254,7 @@ const consoleLink = computed(() => {
 const QUICK = ['小鹏汽车', '完美日记', '格力空调', '维乐口腔']
 const quickChips = QUICK
 const limit = 3 // 免费版配额（与服务端 GEO_FREE_QUERY_LIMIT 对齐）
+const aliasLimit = 8
 
 const phase = ref<'landing' | 'running' | 'confirm' | 'done' | 'error'>('landing')
 const form = reactive({ text: '', website: '' })
@@ -218,6 +265,14 @@ const msgs = reactive<Msg[]>([])
 const preview = ref<any>(null)
 /** 勾选用候选下标（改文案后仍稳定）；提交时映射成当前 query 文案 */
 const selected = reactive(new Set<number>())
+const draftAliases = reactive<string[]>([])
+const aliasInput = ref('')
+const aliasHint = ref('')
+const draftBrandName = ref('')
+const brandEditing = ref(false)
+const brandDraft = ref('')
+const brandHint = ref('')
+const brandInputEl = ref<HTMLInputElement | null>(null)
 const saving = ref(false)
 const editingIdx = ref<number | null>(null)
 const editDraft = ref('')
@@ -464,12 +519,31 @@ function onEvent(ev: string, data: any) {
   }
 }
 
-/** 默认预选金标（≤limit），用户可改；按 index 勾选，便于改文案 */
+/** 默认预选金标（≤limit），用户可改；按 index 勾选，便于改文案；品牌词/识别名默认可改 */
 function preselect() {
   selected.clear()
   editingIdx.value = null
   editDraft.value = ''
   editHint.value = ''
+  aliasInput.value = ''
+  aliasHint.value = ''
+  brandEditing.value = false
+  brandDraft.value = ''
+  brandHint.value = ''
+  draftAliases.splice(0, draftAliases.length)
+  const brandName = String(preview.value?.brand?.name || '').trim()
+  draftBrandName.value = brandName
+  const brandLower = brandName.toLowerCase()
+  const seen = new Set<string>()
+  for (const raw of preview.value?.aliases || []) {
+    const a = String(raw || '').trim().slice(0, 60)
+    if (!a) continue
+    const key = a.toLowerCase()
+    if (key === brandLower || seen.has(key)) continue
+    seen.add(key)
+    draftAliases.push(a)
+    if (draftAliases.length >= aliasLimit) break
+  }
   const list = preview.value?.candidates || []
   // 记下原始问法，便于展示「已修改」
   for (const c of list) {
@@ -481,6 +555,91 @@ function preselect() {
   if (selected.size === 0) {
     for (let i = 0; i < Math.min(limit, list.length); i++) selected.add(i)
   }
+}
+
+function startBrandEdit() {
+  brandDraft.value = draftBrandName.value
+  brandEditing.value = true
+  brandHint.value = ''
+  nextTick(() => brandInputEl.value?.focus?.())
+}
+
+function cancelBrandEdit() {
+  brandEditing.value = false
+  brandDraft.value = ''
+  brandHint.value = ''
+}
+
+function saveBrandEdit() {
+  const next = brandDraft.value.trim().replace(/\s+/g, ' ').slice(0, 60)
+  if (!next) {
+    brandHint.value = '品牌词不能为空'
+    return
+  }
+  if (next.length < 2) {
+    brandHint.value = '品牌词至少 2 个字'
+    return
+  }
+  const old = draftBrandName.value.trim()
+  draftBrandName.value = next
+  // 新名若在相似识别名里，去掉，避免与正式名重复
+  for (let i = draftAliases.length - 1; i >= 0; i--) {
+    if (draftAliases[i].toLowerCase() === next.toLowerCase()) draftAliases.splice(i, 1)
+  }
+  // 旧名保留为相似识别名，首次采集仍能命中旧写法
+  if (old && old.toLowerCase() !== next.toLowerCase()) {
+    const seen = new Set(draftAliases.map(a => a.toLowerCase()))
+    if (!seen.has(old.toLowerCase()) && draftAliases.length < aliasLimit) {
+      draftAliases.unshift(old)
+    }
+  }
+  if (preview.value?.brand) preview.value.brand.name = next
+  brandEditing.value = false
+  brandDraft.value = ''
+  brandHint.value = ''
+}
+
+function removeAlias(alias: string) {
+  const i = draftAliases.indexOf(alias)
+  if (i >= 0) draftAliases.splice(i, 1)
+  aliasHint.value = ''
+}
+
+function addAlias(raw: string) {
+  const parts = String(raw || '').split(/[,，]/).map(s => s.trim()).filter(Boolean)
+  if (!parts.length) return
+  const brandLower = draftBrandName.value.trim().toLowerCase()
+  const seen = new Set(draftAliases.map(a => a.toLowerCase()))
+  let added = 0
+  for (const p of parts) {
+    const next = p.slice(0, 60)
+    const key = next.toLowerCase()
+    if (!next || key === brandLower || seen.has(key)) continue
+    if (draftAliases.length >= aliasLimit) {
+      aliasHint.value = `识别名最多 ${aliasLimit} 个`
+      break
+    }
+    seen.add(key)
+    draftAliases.push(next)
+    added++
+  }
+  aliasInput.value = ''
+  if (added) aliasHint.value = ''
+}
+
+function onAliasKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault()
+    addAlias(aliasInput.value)
+  } else if (e.key === 'Backspace' && !aliasInput.value && draftAliases.length) {
+    draftAliases.pop()
+    aliasHint.value = ''
+  }
+}
+
+function selectedAliases(): string[] {
+  if (aliasInput.value.trim()) addAlias(aliasInput.value)
+  return [...draftAliases]
 }
 
 function candKey(c: any, i: number) {
@@ -562,31 +721,50 @@ function selectedQueries(): string[] {
 
 async function doConfirm() {
   if (!preview.value || selected.size === 0 || saving.value) return
+  if (brandEditing.value) {
+    brandHint.value = '请先保存正在编辑的品牌词'
+    return
+  }
   if (editingIdx.value != null) {
     editHint.value = '请先保存正在编辑的问题'
     return
   }
+  const brandName = draftBrandName.value.trim().replace(/\s+/g, ' ').slice(0, 60)
+  if (!brandName || brandName.length < 2) {
+    brandHint.value = '请填写有效的品牌词（至少 2 个字）'
+    return
+  }
   const queries = selectedQueries()
   if (!queries.length) return
+  const brandLower = brandName.toLowerCase()
+  const aliases = selectedAliases().filter(a => a.toLowerCase() !== brandLower)
+  if (preview.value.brand) preview.value.brand.name = brandName
+  preview.value.aliases = aliases
   saving.value = true
   try {
     const res = await apiPost<{ data?: { saved?: { brand_id: string, counts: Record<string, number> } } }>(
       '/agent/onboarding/confirm',
-      { preview: preview.value, selected_queries: queries },
+      {
+        preview: preview.value,
+        brand_name: brandName,
+        selected_queries: queries,
+        selected_aliases: aliases,
+      },
     )
     const saved = res?.data?.saved
     if (saved?.brand_id) savedBrandId.value = saved.brand_id
     phase.value = 'done'
+    const aliasTip = aliases.length ? `相似识别名：${aliases.join('、')}。` : ''
     push({
       type: 'ai',
-      text: `已开启监控：${queries.join('、')}。竞品与别名档案同步建立。`,
+      text: `已确认品牌「${brandName}」，开启监控：${queries.join('、')}。${aliasTip}竞品档案同步建立。`,
     })
     push({
       type: 'report',
       summary: {
-        brand: preview.value.brand?.name || '—',
+        brand: brandName,
         industry: preview.value.brand?.industry || preview.value.profile?.industry?.[0] || '',
-        aliases: saved?.counts?.aliases ?? preview.value.aliases?.length ?? 0,
+        aliases: saved?.counts?.aliases ?? aliases.length,
         competitors: saved?.counts?.competitors ?? preview.value.competitors?.length ?? 0,
         queries: saved?.counts?.queries ?? queries.length,
       },
@@ -618,6 +796,13 @@ function reset() {
   msgs.splice(0, msgs.length)
   preview.value = null
   selected.clear()
+  draftAliases.splice(0, draftAliases.length)
+  aliasInput.value = ''
+  aliasHint.value = ''
+  draftBrandName.value = ''
+  brandEditing.value = false
+  brandDraft.value = ''
+  brandHint.value = ''
   editingIdx.value = null
   editDraft.value = ''
   editHint.value = ''

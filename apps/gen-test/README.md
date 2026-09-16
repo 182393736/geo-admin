@@ -12,20 +12,20 @@
 
 ```bash
 # 依赖服务需先就绪（见根 README）：
-#   gen-api(:7001)、gen-user-dash(:5173)、gen-user-site(:3002)
+#   gen-api(:6001)、gen-user-dash(:6002)、gen-user-site(:6003)
 pnpm --filter @geo-admin/gen-test exec playwright install chromium   # 首次装浏览器
-pnpm --filter @geo-admin/gen-test run dev                             # 默认 http://localhost:8787
+pnpm --filter @geo-admin/gen-test run dev                             # 默认 http://localhost:6005
 ```
 
 ## 环境变量
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `PORT` | `8787` | 网页/API 端口 |
+| `PORT` | `6005` | 网页/API 端口 |
 | `TEST_MONGO_URL` | `mongodb://127.0.0.1:27017/geo_dev` | 复用 gen-api 的 MongoDB（任务记录与业务数据同库） |
-| `DASH_URL` | `http://127.0.0.1:5173` | 用户后台 |
-| `SITE_URL` | `http://localhost:3002` | 官网（Nuxt，注意绑定 localhost） |
-| `API_URL` | `http://127.0.0.1:7001` | gen-api |
+| `DASH_URL` | `http://127.0.0.1:6002` | 用户后台 |
+| `SITE_URL` | `http://localhost:6003` | 官网（Nuxt，注意绑定 localhost） |
+| `API_URL` | `http://127.0.0.1:6001` | gen-api |
 | `ARTIFACTS_DIR` | `apps/gen-test/data/artifacts` | 截图产物目录 |
 
 ## 执行流程（steps.js）

@@ -1,7 +1,7 @@
 'use strict';
 /**
  * 管理总后台演示数据（幂等，按 account 去重）
- * 用法：MONGO_URL=mongodb://127.0.0.1:42439/geo_dev node scripts/seed-admin-demo.js
+ * 用法：MONGO_URL=mongodb://127.0.0.1:6007/geo_dev node scripts/seed-admin-demo.js
  * 作用：给 gen-admin 的监控页注入跨域真实形态数据（用户/品牌/采集/解析/LLM/计费/内容/报告/首登/行为/消息）
  */
 const mongoose = require('mongoose');
@@ -11,7 +11,7 @@ const { v4: uuid } = require('uuid');
 const DAY = '2026-09-08';
 
 (async () => {
-  const url = process.env.MONGO_URL || 'mongodb://127.0.0.1:42439/geo_dev';
+  const url = process.env.MONGO_URL || 'mongodb://127.0.0.1:6007/geo_dev';
   await mongoose.connect(url);
   const db = mongoose.connection.db;
   const now = new Date();

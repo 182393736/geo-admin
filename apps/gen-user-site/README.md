@@ -17,7 +17,7 @@
 
 ```bash
 pnpm install
-pnpm dev:site       # http://localhost:3002
+pnpm dev:site       # http://localhost:6003
 pnpm build:site
 ```
 
@@ -25,7 +25,7 @@ pnpm build:site
 
 ```bash
 cd apps/gen-user-site
-pnpm dev            # http://localhost:3002
+pnpm dev            # http://localhost:6003
 pnpm build && pnpm preview
 ```
 

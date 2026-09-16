@@ -16,9 +16,9 @@ export async function request<T = any>(url: string, opts: ReqOpts = {}): Promise
   if (auth.token) headers.Authorization = `Bearer ${auth.token}`;
 
   const resp = await fetch(API_BASE + url, { ...opts, headers });
+  const data = await resp.json().catch(() => ({} as any));
   if (resp.status === 401) { auth.logout(); location.href = '/login'; throw new Error('登录已过期'); }
-  if (resp.status === 403) throw new Error('无管理员权限（需要管理员账号）');
-  const data = await resp.json();
+  if (resp.status === 403) throw new Error(data?.msg || '无管理员权限（需要管理员账号）');
   if (opts.raw) return data as T;
   if (data.code !== 200) throw new Error(data.msg || '请求失败');
   return data.data as T;

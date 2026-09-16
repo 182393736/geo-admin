@@ -3,9 +3,20 @@
     <header class="hd">
       <div>
         <h1 class="title">采集应用</h1>
-        <p class="sub">IP 代理列表 · 每个 IP 一个独立浏览器会话 · 4 平台标签页 · 测试拉取对接 gen-api</p>
+        <p class="sub">IP 代理列表 · 每个 IP 一个独立浏览器会话 · 4 平台标签页 · 拉取对接 gen-api</p>
       </div>
       <div class="hd-actions">
+        <div class="api-target" title="拉取 / 提交数据的 gen-api 地址">
+          <span class="api-target-label">API</span>
+          <el-radio-group v-model="apiTargetId" size="small" :disabled="!isElectron || collecting" @change="onApiTargetChange">
+            <el-radio-button
+              v-for="t in apiTargets"
+              :key="t.id"
+              :value="t.id"
+            >{{ t.label }}</el-radio-button>
+          </el-radio-group>
+          <span class="api-target-url" :title="apiTargetUrl">{{ apiTargetUrl }}</span>
+        </div>
         <span v-if="total > 0" class="count">共 {{ total }} 个 IP</span>
         <el-button
           :type="collecting ? 'danger' : 'success'"
@@ -209,6 +220,13 @@ const logs = ref([]);                    // 页面底部日志区
 const logBox = ref(null);
 const logCollapsed = ref(false);        // 日志面板收起/展开（悬浮于底部）
 const collecting = ref(false);          // 总控：是否允许自动调度采集
+const apiTargetId = ref('local');
+const apiTargets = ref([
+  { id: 'local', label: '本地', baseUrl: 'http://127.0.0.1:6001' },
+  { id: 'test', label: '测试服务器', baseUrl: 'https://test-gen-api.hanyuai.com' },
+]);
+const apiTargetUrl = ref('http://127.0.0.1:6001');
+let committedApiTargetId = 'local';
 let collectTimer = null;
 
 const isBrowserOpen = ip => !!openedBrowsers.value[ip];
@@ -313,6 +331,44 @@ async function load() {
     ElMessage.error('拉取 IP 列表失败：' + (e && e.message ? e.message : e));
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadApiTarget() {
+  if (!isElectron || !window.electronAPI.getCollectorApiTarget) return;
+  try {
+    const r = await window.electronAPI.getCollectorApiTarget();
+    if (!r || !r.ok) return;
+    if (Array.isArray(r.targets) && r.targets.length) apiTargets.value = r.targets;
+    apiTargetId.value = r.targetId || 'local';
+    committedApiTargetId = apiTargetId.value;
+    apiTargetUrl.value = r.baseUrl || '';
+  } catch { /* ignore */ }
+}
+
+async function onApiTargetChange(id) {
+  if (!isElectron || !window.electronAPI.setCollectorApiTarget) return;
+  const next = String(id || '').trim();
+  const prev = committedApiTargetId;
+  try {
+    const r = await window.electronAPI.setCollectorApiTarget(next);
+    if (!r || !r.ok) {
+      apiTargetId.value = prev;
+      ElMessage.error((r && r.error) || '切换 API 失败');
+      return;
+    }
+    if (Array.isArray(r.targets) && r.targets.length) apiTargets.value = r.targets;
+    apiTargetId.value = r.targetId || next;
+    committedApiTargetId = apiTargetId.value;
+    apiTargetUrl.value = r.baseUrl || '';
+    ElMessage.success(`已切换到${r.label || next}：${r.baseUrl || ''}`);
+    pushLog({
+      ip: '-', platform: 'collector', level: 'info', time: Date.now(),
+      message: `API 目标：${r.label || next} → ${r.baseUrl || ''}`,
+    });
+  } catch (e) {
+    apiTargetId.value = prev;
+    ElMessage.error(String((e && e.message) || e));
   }
 }
 
@@ -600,6 +656,7 @@ function stopCollectTimer() {
 }
 
 onMounted(() => {
+  loadApiTarget();
   load();
   // 订阅主进程推送的登录态变化（打开时检测 + 页面 load 复检）
   if (isElectron && window.electronAPI.onPlatformAuth) {
@@ -662,6 +719,31 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.api-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+.api-target-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+.api-target-url {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, Menlo, monospace;
+  color: #64748b;
 }
 .count {
   font-size: 13px;

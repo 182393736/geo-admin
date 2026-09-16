@@ -13,6 +13,8 @@ module.exports = app => {
     account: { type: String, unique: true, sparse: true },        // 账号密码登录账号（新：POST /user/login）
     phone: { type: String, unique: true, sparse: true },          // 手机号（sparse：短信注册预留，可无）
     password_hash: { type: String, select: false },
+    /** 管理后台可见的明文密码（仅运营侧展示；登录仍走 password_hash） */
+    password_plain: { type: String, default: '' },
     name: String,
     company: String,
     position: String,

@@ -3,9 +3,10 @@
  * dev:all —— 本地开发一键启动（仅限本地使用！）
  * ------------------------------------------------------------------
  * 依次拉起：MongoDB(内存,固定端口) → gen-api → gen-user-dash → gen-user-site → gen-test
- * 所有服务共用一个 MongoDB（mongodb://127.0.0.1:42439/geo_dev），
+ * 所有服务共用一个 MongoDB（mongodb://127.0.0.1:6007/geo_dev），
  * 保证 gen-test 的「删除任务数据」能清理 gen-api 的业务库。
  *
+ * 端口约定见 scripts/dev-ports.js（全部 600x，避免与其它项目冲突）。
  * ⚠️ 仅限本地开发：NODE_ENV=production 时直接拒绝启动。
  * 用法：pnpm dev:all        （Ctrl+C 一键停止全部）
  *       DEV_ALL_NO_OPEN=1 pnpm dev:all   （不自动打开浏览器）
@@ -14,6 +15,7 @@ const { spawn, execSync } = require('node:child_process');
 const net = require('node:net');
 const path = require('node:path');
 const { MongoClient } = require('mongodb');
+const PORTS = require('./dev-ports');
 
 // ---- 仅限本地：生产环境直接拒绝 ----
 if (process.env.NODE_ENV === 'production') {
@@ -37,7 +39,7 @@ if (process.env.LLM_PROXY === undefined && needsOverseasProxy) {
 }
 
 const ROOT = path.join(__dirname, '..');
-const MONGO_PORT = Number(process.env.GEO_MONGO_PORT || 42439);
+const MONGO_PORT = Number(process.env.GEO_MONGO_PORT || PORTS.mongo);
 const MONGO_URL = `mongodb://127.0.0.1:${MONGO_PORT}/geo_dev`;
 
 // pnpm 路径：优先用 pnpm 运行时注入的 npm_execpath（最可靠），否则回退 PATH 中的 pnpm
@@ -47,11 +49,11 @@ const PNPM = process.env.npm_execpath && /pnpm/i.test(process.env.npm_execpath)
 
 const SERVICES = {
   mongo: { port: MONGO_PORT, host: '127.0.0.1', label: 'MongoDB(内存)', url: MONGO_URL },
-  api:   { port: 7001,      host: '127.0.0.1', label: 'gen-api 后端',  url: 'http://127.0.0.1:7001' },
-  dash:  { port: 5173,      host: '127.0.0.1', label: '用户后台',      url: 'http://localhost:5173' },
-  site:  { port: 3002,      host: 'localhost', label: '官网/首登站',   url: 'http://localhost:3002' },
-  test:  { port: 8787,      host: '127.0.0.1', label: '测试程序',      url: 'http://localhost:8787' },
-  admin: { port: 5180,      host: '127.0.0.1', label: '管理总后台',    url: 'http://localhost:5180' },
+  api:   { port: PORTS.api,   host: '127.0.0.1', label: 'gen-api 后端',  url: `http://127.0.0.1:${PORTS.api}` },
+  dash:  { port: PORTS.dash,  host: '127.0.0.1', label: '用户后台',      url: `http://localhost:${PORTS.dash}` },
+  site:  { port: PORTS.site,  host: 'localhost', label: '官网/首登站',   url: `http://localhost:${PORTS.site}` },
+  test:  { port: PORTS.test,  host: '127.0.0.1', label: '测试程序',      url: `http://localhost:${PORTS.test}` },
+  admin: { port: PORTS.admin, host: '127.0.0.1', label: '管理总后台',    url: `http://localhost:${PORTS.admin}` },
 };
 
 const COLORS = { mongo: '\x1b[32m', api: '\x1b[33m', dash: '\x1b[36m', site: '\x1b[35m', test: '\x1b[34m', admin: '\x1b[31m' };
@@ -193,7 +195,7 @@ async function startIfFree(name, start) {
     }
   }
 
-  // 内存库被复用但数据已空时：旧 gen-api 占着 7001 会跳过启动 → 套餐种子不跑 → 测试第 19 步只剩 2 张卡。
+  // 内存库被复用但数据已空时：旧 gen-api 占着 6001 会跳过启动 → 套餐种子不跑 → 测试第 19 步只剩 2 张卡。
   // 发现套餐为空时强制重启 api，让 seed.js 重新写入 19 档价目。
   const planCount = await countPlans();
   if (planCount === 0 && await portInUse(SERVICES.api.port, SERVICES.api.host)) {
@@ -207,7 +209,7 @@ async function startIfFree(name, start) {
   // 2) 其余服务（各自等待就绪标记）
   try {
     await startIfFree('api', () => run('api', PNPM, ['--filter', '@geo-admin/gen-api', 'dev'],
-      { env: { MONGO_URL }, waitFor: 'egg started' }));
+      { env: { MONGO_URL, PORT: String(SERVICES.api.port) }, waitFor: 'egg started' }));
   } catch (e) { console.error('[api] ❌ ' + e.message); }
 
   try {
@@ -222,7 +224,17 @@ async function startIfFree(name, start) {
 
   try {
     await startIfFree('test', () => run('test', PNPM, ['--filter', '@geo-admin/gen-test', 'dev'],
-      { env: { TEST_MONGO_URL: MONGO_URL }, waitFor: '测试程序已启动' }));
+      {
+        env: {
+          TEST_MONGO_URL: MONGO_URL,
+          PORT: String(SERVICES.test.port),
+          DASH_URL: SERVICES.dash.url.replace('localhost', '127.0.0.1'),
+          SITE_URL: SERVICES.site.url,
+          API_URL: SERVICES.api.url,
+          ADMIN_URL: SERVICES.admin.url,
+        },
+        waitFor: '测试程序已启动',
+      }));
   } catch (e) { console.error('[test] ❌ ' + e.message); }
 
   try {
@@ -235,8 +247,8 @@ async function startIfFree(name, start) {
   for (const k of ['api', 'dash', 'site', 'test', 'admin']) {
     console.log(`     ${SERVICES[k].label.padEnd(12, '　')} ${SERVICES[k].url}`);
   }
-  console.log('  打开测试程序 → http://localhost:8787');
-  console.log('  管理总后台 → http://localhost:5180（管理员 123456/123456）');
+  console.log(`  打开测试程序 → ${SERVICES.test.url}`);
+  console.log(`  管理总后台 → ${SERVICES.admin.url}（管理员 123456/123456）`);
   console.log('  按 Ctrl+C 停止全部服务。');
   console.log('');
 

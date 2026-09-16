@@ -10,7 +10,7 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src/renderer', import.meta.url)) },
   },
   server: {
-    port: 5190,
+    port: 6006,
     strictPort: true,
   },
   build: {

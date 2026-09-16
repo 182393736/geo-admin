@@ -24,13 +24,13 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5180,
+    port: 6004,
     host: true,
     open: false,
     allowedHosts: ['.e2b.app', 'localhost', '127.0.0.1'],
     proxy: {
-      '/admin': { target: 'http://127.0.0.1:7001', changeOrigin: true },
-      '/user/': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+      '/admin': { target: 'http://127.0.0.1:6001', changeOrigin: true },
+      '/user/': { target: 'http://127.0.0.1:6001', changeOrigin: true },
     },
   },
 });

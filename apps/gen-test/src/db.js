@@ -2,7 +2,7 @@
 /**
  * MongoDB 连接与任务 CRUD
  * 复用 gen-api 的 MongoDB（TEST_MONGO_URL / MONGO_URL，须与 gen-api 进程一致）。
- * 注意：本机常见是 mongodb://127.0.0.1:42439/geo_dev（隧道），不是 27017/geo。
+ * 注意：本机常见是 mongodb://127.0.0.1:6007/geo_dev（隧道），不是 27017/geo。
  * 任务集合 gen_test_tasks 与业务集合同库，便于「删除任务相关数据」时一并清理。
  */
 const { MongoClient, ObjectId } = require('mongodb');

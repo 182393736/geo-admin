@@ -9,7 +9,7 @@ const { chromium } = require('/home/user/geo-admin/apps/gen-test/node_modules/pl
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 
-  await page.goto('http://localhost:5180/login', { waitUntil: 'networkidle' });
+  await page.goto('http://localhost:6004/login', { waitUntil: 'networkidle' });
   console.log('[1] 登录页标题:', await page.title());
   await page.fill('input[placeholder="管理员账号"]', '123456');
   await page.fill('input[placeholder="密码"]', '123456');
@@ -23,7 +23,7 @@ const { chromium } = require('/home/user/geo-admin/apps/gen-test/node_modules/pl
   const routes = ['/users', '/brands', '/collect', '/parse', '/llm', '/billing', '/content', '/reports', '/onboarding', '/behavior', '/diagnosis', '/agent', '/reminders', '/system'];
   for (const r of routes) {
     try {
-      await page.goto('http://localhost:5180' + r, { waitUntil: 'domcontentloaded' });
+      await page.goto('http://localhost:6004' + r, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.page-title', { timeout: 20000 });
       const t = (await page.textContent('.page-title')).trim();
       console.log(`[4] ${r}  → 「${t}」`);

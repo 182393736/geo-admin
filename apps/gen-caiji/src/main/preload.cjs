@@ -5,6 +5,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  /** 当前 gen-api 目标（local / test） */
+  getCollectorApiTarget: () => ipcRenderer.invoke('collector:get-api-target'),
+  /** 切换 gen-api 目标 */
+  setCollectorApiTarget: targetId => ipcRenderer.invoke('collector:set-api-target', targetId),
   /** 拉取 IP 列表（公开 POST 接口，主进程 Node fetch 规避渲染层 CORS） */
   fetchIpList: () => ipcRenderer.invoke('ip-list:fetch'),
   /** 打开该 IP 的独立浏览器会话（launchPersistentContext） */

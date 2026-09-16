@@ -10,6 +10,15 @@ export interface AdminMe {
   name: string;
   is_superuser: boolean;
   roles: string[];
+  /** 仅开发环境为 true：允许清空某用户全部数据 */
+  purge_user_enabled?: boolean;
+}
+
+export interface AdminUserPurgeResult {
+  user_id: string;
+  account: string;
+  brand_ids: string[];
+  deleted: Record<string, number>;
 }
 
 // ---- 通用分页 ----
@@ -56,6 +65,8 @@ export interface AdminUserRow {
   user_id: string; account: string; phone: string; name: string;
   company: string; industry: string; status: string;
   is_superuser: boolean; roles: string[]; brand_count: number;
+  /** 管理端可见明文密码（无则空串） */
+  password?: string;
   created_at: string; updated_at: string;
 }
 export interface AdminTokenSummary {

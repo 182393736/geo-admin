@@ -15,7 +15,7 @@ apps/gen-caiji/
 │   │   ├── main.js
 │   │   └── App.vue            首页：IP 列表 + 平台按钮列 + 操作列
 │   └── shared/platforms.json   5 平台地址（主/渲染共用）
-├── vite.config.js             渲染层构建（端口 5190）
+├── vite.config.js             渲染层构建（端口 6006）
 └── index.html
 ```
 

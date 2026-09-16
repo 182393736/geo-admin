@@ -1,7 +1,7 @@
 'use strict';
 /**
  * 开发用固定端口内存 MongoDB：gen-api 与 gen-test 共享同一实例/库。
- * 用法：node scripts/dev-mongo-fixed.js [port]   （默认 42439，dbName geo_dev）
+ * 用法：node scripts/dev-mongo-fixed.js [port]   （默认 6007，dbName geo_dev）
  */
 const path = require('node:path');
 const fs = require('node:fs');
@@ -14,7 +14,7 @@ process.env.TMPDIR = GEO_TMP;
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
 (async () => {
-  const port = Number(process.argv[2] || 42439);
+  const port = Number(process.argv[2] || 6007);
   const mem = await MongoMemoryServer.create({
     instance: { port, ip: '127.0.0.1', dbName: 'geo_dev' },
   });

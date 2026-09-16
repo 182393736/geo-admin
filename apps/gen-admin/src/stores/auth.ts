@@ -12,10 +12,21 @@ const LS_ADMIN = 'admin_admin';
 
 export const useAuthStore = defineStore('adminAuth', () => {
   const token = ref<string>(localStorage.getItem(LS_TOKEN) || '');
-  const admin = ref<{ user_id: string; account: string; name: string } | null>(
-    JSON.parse(localStorage.getItem(LS_ADMIN) || 'null'));
+  const admin = ref<{
+    user_id: string;
+    account: string;
+    name: string;
+    purge_user_enabled?: boolean;
+  } | null>(JSON.parse(localStorage.getItem(LS_ADMIN) || 'null'));
 
   const isAuthenticated = computed(() => !!token.value);
+
+  async function refreshMe() {
+    const me = await adminApi.me();
+    admin.value = me;
+    localStorage.setItem(LS_ADMIN, JSON.stringify(me));
+    return me;
+  }
 
   async function login(account: string, password: string) {
     const resp = await adminApi.login(account, password);
@@ -23,10 +34,7 @@ export const useAuthStore = defineStore('adminAuth', () => {
     token.value = resp.accessToken;
     localStorage.setItem(LS_TOKEN, token.value);
     // 校验管理员身份
-    const me = await adminApi.me();
-    admin.value = me;
-    localStorage.setItem(LS_ADMIN, JSON.stringify(me));
-    return me;
+    return refreshMe();
   }
 
   function logout() {
@@ -36,5 +44,5 @@ export const useAuthStore = defineStore('adminAuth', () => {
     localStorage.removeItem(LS_ADMIN);
   }
 
-  return { token, admin, isAuthenticated, login, logout };
+  return { token, admin, isAuthenticated, login, logout, refreshMe };
 });

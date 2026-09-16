@@ -78,13 +78,13 @@ class AgentRunnerService extends Service {
     return result;
   }
 
-  async runAndPersist(userId, input, { brandId, taskId, selectedQueries, confirmLimit } = {}, onEvent) {
+  async runAndPersist(userId, input, { brandId, taskId, selectedQueries, selectedAliases, confirmLimit } = {}, onEvent) {
     const { ctx } = this;
     const result = await runOnboarding(this.buildDeps(), input, onEvent);
     const saved = await persistResult(ctx.model, {
       userId, brandId, taskId, result,
       nextSeq: name => ctx.service.onboarding.nextSeq(name),
-      selectedQueries, confirmLimit,
+      selectedQueries, selectedAliases, confirmLimit,
     });
     await this._logOnboardingUsage(
       userId,
@@ -102,16 +102,32 @@ class AgentRunnerService extends Service {
   /**
    * 两段式第二步：确认落库。预览阶段已写过 usage（无 brand），此处回填 brand_id/ref_id。
    */
-  async persistPreview(userId, preview, { brandId, taskId, selectedQueries, confirmLimit } = {}) {
+  async persistPreview(userId, preview, { brandId, taskId, brandName, selectedQueries, selectedAliases, confirmLimit } = {}) {
     const { ctx } = this;
     const result = sanitizePreview(preview);
+    if (typeof brandName === 'string' && brandName.trim()) {
+      const name = brandName.trim().slice(0, 60);
+      result.brand.name = name;
+      // 旧正式名若与新名不同，且未在别名列表中，自动保留为别名，便于命中
+      const prevName = String((preview && preview.brand && preview.brand.name) || '').trim();
+      if (prevName && prevName.toLowerCase() !== name.toLowerCase()) {
+        const list = Array.isArray(selectedAliases)
+          ? selectedAliases.map(String)
+          : (Array.isArray(result.aliases) ? result.aliases.slice() : []);
+        const seen = new Set(list.map(a => String(a || '').trim().toLowerCase()).filter(Boolean));
+        if (!seen.has(prevName.toLowerCase()) && !seen.has(name.toLowerCase())) {
+          list.unshift(prevName);
+        }
+        selectedAliases = list;
+      }
+    }
     if (!result.brand.name || result.brand.name === '未命名品牌') {
       throw new Error('preview 缺少有效的品牌信息，请重新分析');
     }
     const saved = await persistResult(ctx.model, {
       userId, brandId, taskId, result,
       nextSeq: name => ctx.service.onboarding.nextSeq(name),
-      selectedQueries, confirmLimit,
+      selectedQueries, selectedAliases, confirmLimit,
     });
     const bid = (saved && saved.brand_id) || brandId || '';
     const tid = (saved && saved.task_id) || taskId || '';

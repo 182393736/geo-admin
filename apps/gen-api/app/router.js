@@ -139,14 +139,16 @@ module.exports = app => {
   router.post('/collector/slots/pull', collectorAuth, controller.collector.pull);
   router.post('/collector/slots/:slot_id/submit', collectorAuth, controller.collector.submit);
 
-  // ============ 管理员总后台（gen-admin · 只读监控）============
-  // 鉴权：jwtAuth + adminAuth（is_superuser=true）；后续增删改再放开写接口
+  // ============ 管理员总后台（gen-admin）============
+  // 鉴权：jwtAuth + adminAuth（is_superuser=true）；含监控读接口 + 少量运营写接口（添加用户等）
   const adminAuth = middleware.adminAuth();
   router.get('/admin/me', jwtAuth, adminAuth, controller.admin.me);
   router.get('/admin/overview', jwtAuth, adminAuth, controller.admin.overview);
   // 用户 / 品牌
   router.get('/admin/users', jwtAuth, adminAuth, controller.admin.users);
+  router.post('/admin/users', jwtAuth, adminAuth, controller.admin.createUser);
   router.get('/admin/users/:id', jwtAuth, adminAuth, controller.admin.userDetail);
+  router.post('/admin/users/:id/purge', jwtAuth, adminAuth, controller.admin.purgeUser);
   router.get('/admin/brands', jwtAuth, adminAuth, controller.admin.brands);
   router.get('/admin/brands/:id', jwtAuth, adminAuth, controller.admin.brandDetail);
   // 采集监控

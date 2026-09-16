@@ -7,6 +7,7 @@
     "dev": "egg-bin dev",
     "dev:memory": "node scripts/dev-memory.js",
     "start": "egg-scripts start --daemon --title=gen-api",
+    "start:docker": "egg-scripts start --daemon=false --title=gen-api --workers=1 --port=6001",
     "stop": "egg-scripts stop --title=gen-api",
     "test": "egg-bin test"
   },

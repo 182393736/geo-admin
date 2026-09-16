@@ -86,10 +86,10 @@ function skipDetail(step, runCtx) {
   return '不适用（账号已有品牌，跳过首登建档）';
 }
 
-const DASH = process.env.DASH_URL || 'http://127.0.0.1:5173';
-const SITE = process.env.SITE_URL || 'http://localhost:3002';
-const API = process.env.API_URL || 'http://127.0.0.1:7001';
-const ADMIN = process.env.ADMIN_URL || 'http://localhost:5180';
+const DASH = process.env.DASH_URL || 'http://127.0.0.1:6002';
+const SITE = process.env.SITE_URL || 'http://localhost:6003';
+const API = process.env.API_URL || 'http://127.0.0.1:6001';
+const ADMIN = process.env.ADMIN_URL || 'http://localhost:6004';
 const ARTIFACTS = process.env.ARTIFACTS_DIR || path.join(__dirname, '..', 'data', 'artifacts');
 
 let running = false;

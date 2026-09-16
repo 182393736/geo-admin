@@ -41,13 +41,13 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/geo-api',
-      // 分析完成后「前往控制台」落地地址：控制台 = apps/gen-user-dash 用户后台（vite dev 默认 5173），可用 NUXT_PUBLIC_CONSOLE_URL 覆盖
-      consoleUrl: process.env.NUXT_PUBLIC_CONSOLE_URL || 'http://127.0.0.1:5173',
+      // 分析完成后「前往控制台」落地地址：控制台 = apps/gen-user-dash（默认 :6002），可用 NUXT_PUBLIC_CONSOLE_URL 覆盖
+      consoleUrl: process.env.NUXT_PUBLIC_CONSOLE_URL || 'http://127.0.0.1:6002',
     },
   },
   routeRules: {
     '/geo-api/**': {
-      proxy: `${process.env.NUXT_GEO_API_TARGET || 'http://127.0.0.1:7001'}/**`,
+      proxy: `${process.env.NUXT_GEO_API_TARGET || 'http://127.0.0.1:6001'}/**`,
     },
   },
 })

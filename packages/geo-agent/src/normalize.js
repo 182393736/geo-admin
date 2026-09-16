@@ -33,7 +33,7 @@ function normalizeProfile(raw, input) {
     description: s(raw.description) || brand.business_desc,
     scripts: arrOfStr(raw.scripts, 6),
   };
-  const aliases = arrOfStr(raw.aliases, 4).filter(a => a && a !== brand.name);
+  const aliases = arrOfStr(raw.aliases, 8).filter(a => a && a.toLowerCase() !== brand.name.toLowerCase());
   const products = (Array.isArray(raw.products) ? raw.products : []).map(p => ({
     name: s(p && p.name), category: s(p && p.category), price_range: s(p && p.price_range),
   })).filter(p => p.name).slice(0, 8);
