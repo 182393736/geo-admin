@@ -14,4 +14,4 @@ services:
         VITE_USE_MOCK: "false"
     restart: unless-stopped
     ports:
-      - "${DASH_PORT:-80}:80"
+      - "${DASH_PORT:-6002}:80"

@@ -2,12 +2,14 @@
 
 主域：`hanyuai.com`。测试子域格式：`test-<应用文件夹名>.hanyuai.com`，与 `apps/` 下目录一一对应，方便识别。业务逻辑不变，换环境只改各应用 `.env` 里的域名。
 
-| 用途 | 域名 | 应用 | Docker |
-|------|------|------|--------|
-| 官网 / 首登 | `https://test-gen-user-site.hanyuai.com` | gen-user-site | 独立 compose |
-| 用户后台 | `https://test-gen-user-dash.hanyuai.com` | gen-user-dash | 独立 compose |
-| 共用 API | `https://test-gen-api.hanyuai.com` | gen-api | 独立 compose |
-| 管理后台 | `https://test-gen-admin.hanyuai.com` | gen-admin | 本地 `pnpm dev:admin`（暂未单独 Docker） |
+| 用途 | 域名 | 应用 | 宿主机端口 |
+|------|------|------|------------|
+| 官网 / 首登 | `https://test-gen-user-site.hanyuai.com` | gen-user-site | **6003** |
+| 用户后台 | `https://test-gen-user-dash.hanyuai.com` | gen-user-dash | **6002** |
+| 共用 API | `https://test-gen-api.hanyuai.com` | gen-api | **6001** |
+| 管理后台 | `https://test-gen-admin.hanyuai.com` | gen-admin | 6004（暂无 Docker） |
+
+端口与本地开发一致（见 `scripts/dev-ports.js`）。宝塔反向代理到 `127.0.0.1:6001/6002/6003`。
 
 - 官网与用户后台 **分域名**，共用 **同一个** API。
 - 稿件接口与主 API 同域。
