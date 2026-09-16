@@ -100,7 +100,7 @@
                 class="bi-rename-input"
                 :placeholder="`当前:${name}`"
                 maxlength="60"
-                @keydown.enter.prevent="confirmRename"
+                @keydown="onRenameKeydown"
               />
             </div>
           </div>
@@ -180,6 +180,17 @@ function closeRename() {
   renameOpen.value = false;
 }
 
+function onRenameKeydown(e: KeyboardEvent) {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    void confirmRename();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closeRename();
+  }
+}
+
 async function confirmRename() {
   if (!canConfirmRename.value || renameSaving.value) return;
   const next = renameDraft.value.trim();
@@ -227,17 +238,26 @@ function addDraftAlias(raw: string) {
   if (!parts.length) return;
   const brandLower = props.name.trim().toLowerCase();
   const seen = new Set(draftAliases.value.map(a => a.toLowerCase()));
+  let added = 0;
   for (const p of parts) {
     const key = p.toLowerCase();
-    if (key === brandLower) continue;
+    if (key === brandLower) {
+      toast.info('与识别词相同，无需再加为相似识别词');
+      continue;
+    }
     if (seen.has(key)) continue;
     seen.add(key);
     draftAliases.value.push(p);
+    added++;
   }
   aliasInput.value = '';
+  if (!added && parts.length) {
+    /* 全是重复时静默清空输入即可 */
+  }
 }
 
 function onAliasKeydown(e: KeyboardEvent) {
+  if (e.isComposing || e.keyCode === 229) return;
   if (e.key === 'Enter' || e.key === ',') {
     e.preventDefault();
     addDraftAlias(aliasInput.value);

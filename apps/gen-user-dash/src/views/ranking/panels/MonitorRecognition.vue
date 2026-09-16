@@ -329,6 +329,7 @@ function removeDraftAlias(alias: string) {
 }
 
 function onDraftAliasKey(e: KeyboardEvent) {
+  if (e.isComposing || e.keyCode === 229) return;
   if (e.key === 'Enter' || e.key === ',') {
     e.preventDefault();
     addDraftAlias(draft.aliasInput);
@@ -452,6 +453,7 @@ function addCompDraftAlias(comp: CompRow, raw: string) {
 }
 
 function onCompAliasKey(e: KeyboardEvent, comp: CompRow) {
+  if (e.isComposing || e.keyCode === 229) return;
   if (e.key === 'Enter' || e.key === ',') {
     e.preventDefault();
     addCompDraftAlias(comp, comp.aliasInput || '');

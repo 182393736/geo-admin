@@ -123,8 +123,7 @@
                   class="trial-brand-input"
                   maxlength="60"
                   placeholder="输入品牌正式名"
-                  @keydown.enter.prevent="saveBrandEdit"
-                  @keydown.esc.prevent="cancelBrandEdit"
+                  @keydown="onBrandKeydown"
                 >
                 <button type="button" class="trial-bc-btn trial-bc-btn-save" @click="saveBrandEdit">保存</button>
                 <button type="button" class="trial-bc-btn trial-bc-btn-cancel" @click="cancelBrandEdit">取消</button>
@@ -176,8 +175,7 @@
                     class="trial-bc-input"
                     maxlength="80"
                     @click.stop
-                    @keydown.enter.prevent="saveEdit(i)"
-                    @keydown.esc.prevent="cancelEdit"
+                    @keydown="onQueryEditKeydown($event, i)"
                   >
                   <button type="button" class="trial-bc-btn trial-bc-btn-save" @click.stop="saveEdit(i)">保存</button>
                   <button type="button" class="trial-bc-btn trial-bc-btn-cancel" @click.stop="cancelEdit">取消</button>
@@ -570,6 +568,17 @@ function cancelBrandEdit() {
   brandHint.value = ''
 }
 
+function onBrandKeydown(e: KeyboardEvent) {
+  if (e.isComposing || e.keyCode === 229) return
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    saveBrandEdit()
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    cancelBrandEdit()
+  }
+}
+
 function saveBrandEdit() {
   const next = brandDraft.value.trim().replace(/\s+/g, ' ').slice(0, 60)
   if (!next) {
@@ -611,10 +620,14 @@ function addAlias(raw: string) {
   const brandLower = draftBrandName.value.trim().toLowerCase()
   const seen = new Set(draftAliases.map(a => a.toLowerCase()))
   let added = 0
+  let skippedBrand = false
+  let skippedDup = false
   for (const p of parts) {
     const next = p.slice(0, 60)
     const key = next.toLowerCase()
-    if (!next || key === brandLower || seen.has(key)) continue
+    if (!next) continue
+    if (key === brandLower) { skippedBrand = true; continue }
+    if (seen.has(key)) { skippedDup = true; continue }
     if (draftAliases.length >= aliasLimit) {
       aliasHint.value = `识别名最多 ${aliasLimit} 个`
       break
@@ -625,9 +638,13 @@ function addAlias(raw: string) {
   }
   aliasInput.value = ''
   if (added) aliasHint.value = ''
+  else if (skippedBrand) aliasHint.value = '与品牌词相同，无需再加为识别名'
+  else if (skippedDup) aliasHint.value = '该识别名已存在'
 }
 
 function onAliasKeydown(e: KeyboardEvent) {
+  // 中文等 IME 选词回车：此时 isComposing=true，不能当「添加」否则会清空刚输入的字
+  if (e.isComposing || e.keyCode === 229) return
   if (e.key === 'Enter' || e.key === ',') {
     e.preventDefault()
     addAlias(aliasInput.value)
@@ -679,6 +696,17 @@ function cancelEdit() {
   editingIdx.value = null
   editDraft.value = ''
   editHint.value = ''
+}
+
+function onQueryEditKeydown(e: KeyboardEvent, i: number) {
+  if (e.isComposing || e.keyCode === 229) return
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    saveEdit(i)
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    cancelEdit()
+  }
 }
 
 function applyQueryEdit(c: any, next: string) {
