@@ -9,7 +9,8 @@ FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/geo-agent/package.json packages/geo-agent/
 COPY apps/gen-api/package.json apps/gen-api/
-RUN pnpm install --filter @geo-admin/gen-api... --frozen-lockfile
+# 根 postinstall 会 build contracts；本镜像不依赖 contracts，跳过 scripts
+RUN pnpm install --filter @geo-admin/gen-api... --frozen-lockfile --ignore-scripts
 
 FROM deps AS runner
 COPY packages/geo-agent packages/geo-agent

@@ -6,7 +6,8 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/contracts/package.json packages/contracts/
 COPY apps/gen-user-dash/package.json apps/gen-user-dash/
-RUN pnpm install --filter @geo-admin/gen-user-dash... --frozen-lockfile
+# 根 package.json 的 postinstall 会 build contracts；此时源码尚未 COPY，必须跳过 scripts
+RUN pnpm install --filter @geo-admin/gen-user-dash... --frozen-lockfile --ignore-scripts
 COPY packages/contracts packages/contracts
 COPY apps/gen-user-dash apps/gen-user-dash
 RUN pnpm --filter @geo-admin/contracts build

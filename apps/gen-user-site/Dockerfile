@@ -5,7 +5,8 @@ RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/gen-user-site/package.json apps/gen-user-site/
-RUN pnpm install --filter @geo-admin/gen-user-site... --frozen-lockfile
+# 根 postinstall 会 build contracts；site 不依赖，跳过 scripts
+RUN pnpm install --filter @geo-admin/gen-user-site... --frozen-lockfile --ignore-scripts
 COPY apps/gen-user-site apps/gen-user-site
 ARG NUXT_PUBLIC_API_BASE
 ARG NUXT_PUBLIC_CONSOLE_URL
