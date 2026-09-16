@@ -101,7 +101,7 @@ async function executePlatformChat(ip, platform, prompt, log, startedAt = new Da
         log('warn', `展开文心参考资料失败：${(e && e.message) || e}`);
       }
     }
-    screenshot = await captureConversationScreenshot(page, { platform });
+    screenshot = await captureConversationScreenshot(page, { platform, log });
   } catch (e) {
     log('warn', `对话截图失败：${(e && e.message) || e}`);
   }
