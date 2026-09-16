@@ -22,7 +22,7 @@
           <div class="ov2-hero-id">
             <div class="ov2-brand" data-testid="ov2-brand">
               {{ brandName }}
-              <span v-if="pendingCollection" class="ov2-live wait" title="首次采集将于次日 00:30 自动进行"><i></i>等待首次采集</span>
+              <span v-if="pendingCollection" class="ov2-live wait" title="今日采集槽位已生成，等待采集端拉取"><i></i>等待首次采集</span>
               <span v-else class="ov2-live normal" :title="`采集槽位 ${ovStats?.actual_slots ?? 0}/${ovStats?.expected_slots ?? 0}，完整度 ${ovStats?.completeness_rate ?? 0}%`"><i></i>采集正常</span>
             </div>
             <div class="ov2-meta">
@@ -323,10 +323,10 @@
       <div class="rp-pending-t">尚未开始数据采集</div>
       <div class="rp-pending-s">
         品牌档案已建立：{{ brandName }} · {{ industryQueryCount }} 个监控问题（预计 {{ queryStatus?.expected_slots || 0 }} 采集槽位）。
-        首次采集将于次日 00:30 自动进行，采集 → 分析 → 入库完成后，此处将展示周报/月报数据。
+        今日槽位已生成，采集端拉取完成后将自动分析入库，此处展示周报/月报数据。
       </div>
       <div class="rp-pending-flow">
-        <span>注册 ✓</span><i>→</i><span>建档 ✓</span><i>→</i><span>次日 00:30 采集</span><i>→</i><span>凌晨分析入库</span><i>→</i><span>报告展示</span>
+        <span>注册 ✓</span><i>→</i><span>建档 ✓</span><i>→</i><span>今日采集</span><i>→</i><span>分析入库</span><i>→</i><span>报告展示</span>
       </div>
     </section>
   </div>

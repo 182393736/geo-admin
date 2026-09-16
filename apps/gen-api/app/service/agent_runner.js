@@ -67,6 +67,24 @@ class AgentRunnerService extends Service {
     }
   }
 
+  /** 首登落库后立即展开「今天」采集槽位，供采集端马上拉取（幂等） */
+  async _expandTodaySlots(brand) {
+    const { ctx } = this;
+    if (!brand || !brand.brand_id) return null;
+    try {
+      const date = ctx.app.dayjs().format('YYYY-MM-DD');
+      const task = await ctx.service.collect.expandDailyTask(brand, date, { trigger: 'manual' });
+      if (task && task.task_id) {
+        await ctx.service.queue.push('geo.collect.slot', { task_id: task.task_id }).catch(() => {});
+      }
+      ctx.logger.info(`[agent] 首登展开今日槽位 brand=${brand.brand_id} date=${date} expected=${task && task.expected_slots}`);
+      return task;
+    } catch (e) {
+      ctx.logger.warn(`[agent] 首登展开今日槽位失败 brand=${brand.brand_id}: ${e.message}`);
+      return null;
+    }
+  }
+
   async analyze(input, onEvent) {
     return runOnboarding(this.buildDeps(), input, onEvent);
   }
@@ -95,6 +113,7 @@ class AgentRunnerService extends Service {
     if (saved && saved.brand_id) {
       const brand = await ctx.model.Brand.findOne({ brand_id: saved.brand_id }).lean();
       await ctx.service.brandScope.ensureFreeSubscription(userId, brand || { brand_id: saved.brand_id });
+      await this._expandTodaySlots(brand || { brand_id: saved.brand_id });
     }
     return { result, saved };
   }
@@ -144,6 +163,7 @@ class AgentRunnerService extends Service {
       ).catch(() => {});
       const brand = await ctx.model.Brand.findOne({ brand_id: bid }).lean();
       await ctx.service.brandScope.ensureFreeSubscription(userId, brand || { brand_id: bid });
+      await this._expandTodaySlots(brand || { brand_id: bid });
     }
     return { result, saved };
   }
