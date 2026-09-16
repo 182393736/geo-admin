@@ -265,7 +265,15 @@
                   <td class="px-2 py-2.5 text-center" style="border-bottom:1px solid rgb(242,242,248);"><span class="font-mono text-[12.5px] font-semibold text-gray-700">{{ pct(row.top3_mention_rate) }}</span></td>
                   <td class="px-2 py-2.5 text-center" style="border-bottom:1px solid rgb(242,242,248);"><span class="font-mono text-[12.5px] font-semibold text-gray-700">{{ pct(row.first_mention_rate) }}</span></td>
                   <td v-for="e in visibleEngines" :key="e.key" class="px-2 py-2.5 text-center" style="border-bottom:1px solid rgb(242,242,248);">
-                    <span :class="cellCls()" :style="cellStyle(row.rank_value[e.key])" :title="`${row.query} · ${e.name}`">{{ cellText(row.rank_value[e.key]) }}</span>
+                    <span
+                      :class="cellCls()"
+                      :style="cellStyle(row.rank_value[e.key])"
+                      :title="`查看「${row.query}」在${e.name}的搜索快照`"
+                      role="link"
+                      tabindex="0"
+                      @click="goMatrixCell(row, e.key)"
+                      @keydown.enter.prevent="goMatrixCell(row, e.key)"
+                    >{{ cellText(row.rank_value[e.key]) }}</span>
                   </td>
                 </tr>
                 <tr v-if="!matrixRows.length">
@@ -352,7 +360,11 @@ const pct = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? `${(+v).t
 const leaderboard = computed(() => ranking.value.slice(0, 10));
 
 const matrixRows = computed(() => {
-  const rows: any[] = Object.values(matrix.value.list || {});
+  const list = matrix.value.list || {};
+  const rows: any[] = Object.entries(list).map(([qid, r]: [string, any]) => ({
+    ...r,
+    query_id: Number((r as any)?.query_id) || Number(qid) || 0,
+  }));
   const scored = rows.map(r => {
     const all = r.rank_value?.all;
     const allN = Number(all);
@@ -541,6 +553,21 @@ function cellStyle(v: any) {
 function cellText(v: any) {
   if (Number.isFinite(Number(v))) return `#${v}`;
   return '未上榜';
+}
+
+/** 对标：矩阵引擎格点击 → 搜索快照（按问题×平台×日期过滤） */
+function goMatrixCell(row: any, platform: string) {
+  const qid = Number(row?.query_id);
+  router.push({
+    path: '/dashboard/downloads',
+    query: {
+      type: 'industry',
+      platform,
+      date: matrixDate.value || undefined,
+      ...(Number.isFinite(qid) && qid > 0 ? { query_id: String(qid) } : {}),
+      ...(row?.query ? { q: String(row.query) } : {}),
+    },
+  });
 }
 
 async function reloadKpi() {

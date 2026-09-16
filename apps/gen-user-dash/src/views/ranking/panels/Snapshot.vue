@@ -614,8 +614,44 @@ async function exportAnswersCsv() {
 watch(type, async () => {
   page.value = 1;
   await loadTopics();
+  applyRouteFilters();
   await load();
 });
+
+watch(
+  () => [route.query.date, route.query.platform, route.query.query_id, route.query.q],
+  async () => {
+    applyRouteFilters();
+    page.value = 1;
+    await load();
+  },
+);
+
+function applyRouteFilters() {
+  const q = route.query;
+  if (typeof q.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(q.date)) {
+    date.value = q.date;
+  }
+  if (typeof q.platform === 'string' && platformOptions.some(p => p.key === q.platform)) {
+    platform.value = q.platform;
+  }
+  const qid = Number(q.query_id);
+  if (Number.isFinite(qid) && qid > 0) {
+    const hit = topics.value.find(t => Number(t.query_id) === qid);
+    queryId.value = qid;
+    queryLabel.value = hit?.name || (typeof q.q === 'string' && q.q ? q.q : `问题 #${qid}`);
+  } else if (typeof q.q === 'string' && q.q.trim()) {
+    const label = q.q.trim();
+    const hit = topics.value.find(t => t.name === label || t.name.includes(label) || label.includes(t.name));
+    if (hit) {
+      queryId.value = hit.query_id;
+      queryLabel.value = hit.name;
+    } else {
+      queryId.value = 0;
+      queryLabel.value = label;
+    }
+  }
+}
 
 onMounted(async () => {
   document.addEventListener('click', onDocClick);
@@ -624,6 +660,7 @@ onMounted(async () => {
   today.value = ymd;
   date.value = ymd;
   await loadTopics();
+  applyRouteFilters();
   await load();
 });
 
