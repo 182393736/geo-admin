@@ -8,6 +8,7 @@ COPY packages/contracts/package.json packages/contracts/
 COPY apps/gen-user-dash/package.json apps/gen-user-dash/
 # 根 package.json 的 postinstall 会 build contracts；此时源码尚未 COPY，必须跳过 scripts
 RUN pnpm install --filter @geo-admin/gen-user-dash... --frozen-lockfile --ignore-scripts
+COPY tsconfig.base.json ./
 COPY packages/contracts packages/contracts
 COPY apps/gen-user-dash apps/gen-user-dash
 RUN pnpm --filter @geo-admin/contracts build
