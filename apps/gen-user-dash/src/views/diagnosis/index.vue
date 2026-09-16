@@ -293,7 +293,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { Message } from '@arco-design/web-vue';
 import { diagnosisApi } from '@/api/modules/diagnosis';
 import { brandApi } from '@/api/modules/brand';
 import { monitorApi } from '@/api/modules/monitor';
@@ -450,7 +450,7 @@ async function loadBrandMeta() {
 function continueWithTopics(kind: 'existing' | 'new') {
   const name = brandMode.value === 'current' ? currentBrandName.value : newBrandName.value.trim();
   if (!name) {
-    ElMessage.warning(brandMode.value === 'current' ? '请先选择品牌' : '请输入品牌名称');
+    Message.warning(brandMode.value === 'current' ? '请先选择品牌' : '请输入品牌名称');
     return;
   }
   topicCount.value = kind === 'existing' ? monitoredQueryCount.value : 50;
@@ -464,11 +464,11 @@ async function submitDiagnosis() {
     ? (brandMode.value === 'current' ? currentBrandName.value : newBrandName.value.trim())
     : (auth.activeBrand?.name || newBrandName.value.trim() || '未命名品牌');
   if (!name) {
-    ElMessage.warning('请先指定品牌');
+    Message.warning('请先指定品牌');
     return;
   }
   if (!selectedEnds.value.length) {
-    ElMessage.warning('请至少选择一个引擎终端');
+    Message.warning('请至少选择一个引擎终端');
     return;
   }
   submitting.value = true;
@@ -488,11 +488,11 @@ async function submitDiagnosis() {
       platforms,
       target_brand_input: { name, brand_id: brandMode.value === 'current' ? auth.activeBrandId : null },
     });
-    ElMessage.success('已加入诊断队列');
+    Message.success('已加入诊断队列');
     calcOpen.value = false;
     await load();
   } catch (e: any) {
-    ElMessage.error(e?.message || '下单失败');
+    Message.error(e?.message || '下单失败');
   } finally {
     submitting.value = false;
   }
@@ -541,10 +541,10 @@ function canCancel(t: DiagnosisTaskItem) {
 async function cancelTask(t: DiagnosisTaskItem) {
   try {
     await diagnosisApi.cancel(t.diagnosis_id);
-    ElMessage.success('已取消');
+    Message.success('已取消');
     await load();
   } catch (e: any) {
-    ElMessage.error(e?.message || '取消失败');
+    Message.error(e?.message || '取消失败');
   }
 }
 

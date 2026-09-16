@@ -306,7 +306,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
-import { ElMessage } from 'element-plus';
+import { Message } from '@arco-design/web-vue';
 import { useAuthStore } from '@/stores/auth';
 import { paymentApi, creditApi } from '@/api/modules/payment';
 import type { PlansGrouped, PlanItem, CreditTxn, RechargePack, PayOrderCreated } from '@/api/modules/payment';
@@ -635,12 +635,12 @@ async function openWxPay(order: PayOrderCreated, kind: 'plan' | 'recharge') {
 
 async function onPrimary(plan: PlanCard) {
   if (plan.id === 'custom') {
-    ElMessage.info('请联系客服定制方案');
+    Message.info('请联系客服定制方案');
     return;
   }
   if (plan.id === 'free') return;
   const item = selectedItem(plan.id);
-  if (!item) { ElMessage.error('套餐不可用'); return; }
+  if (!item) { Message.error('套餐不可用'); return; }
   paying.value = true;
   try {
     const order = await paymentApi.createOrder({
@@ -651,7 +651,7 @@ async function onPrimary(plan: PlanCard) {
     });
     await openWxPay(order, 'plan');
   } catch (e: any) {
-    ElMessage.error(e?.message || '下单失败');
+    Message.error(e?.message || '下单失败');
   } finally {
     paying.value = false;
   }
@@ -660,10 +660,10 @@ async function onPrimary(plan: PlanCard) {
 async function onCreditPay(plan: PlanCard) {
   if (plan.id === 'custom' || plan.id === 'free') return;
   const item = selectedItem(plan.id);
-  if (!item) { ElMessage.error('套餐不可用'); return; }
+  if (!item) { Message.error('套餐不可用'); return; }
   const need = creditPriceOf(item);
   if (credit.value < need) {
-    ElMessage.warning(`积分不足，还需 ${fmtNum(need - credit.value)} 积分`);
+    Message.warning(`积分不足，还需 ${fmtNum(need - credit.value)} 积分`);
     openRecharge();
     return;
   }
@@ -675,10 +675,10 @@ async function onCreditPay(plan: PlanCard) {
       pay_method: 'credit',
       order_type: plan.current ? 'upgrade' : 'new',
     });
-    ElMessage.success('积分支付成功，套餐已生效');
+    Message.success('积分支付成功，套餐已生效');
     await Promise.all([ refreshCredit(), refreshSub() ]);
   } catch (e: any) {
-    ElMessage.error(e?.message || '积分支付失败');
+    Message.error(e?.message || '积分支付失败');
     if (/不足/.test(e?.message || '')) openRecharge();
   } finally {
     paying.value = false;
@@ -692,7 +692,7 @@ async function buyPack(p: RechargePack) {
     rechargeOpen.value = false;
     await openWxPay(order, 'recharge');
   } catch (e: any) {
-    ElMessage.error(e?.message || '创建充值订单失败');
+    Message.error(e?.message || '创建充值订单失败');
   } finally {
     paying.value = false;
   }
@@ -703,12 +703,12 @@ async function confirmMockPay() {
   paying.value = true;
   try {
     await paymentApi.mockPay(payOrder.value.order_no);
-    ElMessage.success(payKind.value === 'recharge' ? '充值成功' : '支付成功，套餐已生效');
+    Message.success(payKind.value === 'recharge' ? '充值成功' : '支付成功，套餐已生效');
     closePay();
     await Promise.all([ refreshCredit(), refreshSub() ]);
     if (creditDetailOpen.value) await loadTxns();
   } catch (e: any) {
-    ElMessage.error(e?.message || '支付失败');
+    Message.error(e?.message || '支付失败');
   } finally {
     paying.value = false;
   }

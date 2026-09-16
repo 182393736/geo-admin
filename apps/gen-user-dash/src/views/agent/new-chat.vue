@@ -142,7 +142,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { Message } from '@arco-design/web-vue';
 import { agentApi, type AgentChatMode } from '@/api/modules/agent';
 import { userApi } from '@/api/modules/user';
 import { monitorApi } from '@/api/modules/monitor';
@@ -259,7 +259,7 @@ function addLink() {
   const url = window.prompt('请输入参考链接');
   if (url && url.trim()) {
     refLink.value = url.trim();
-    ElMessage.success('已添加参考链接');
+    Message.success('已添加参考链接');
   }
 }
 
@@ -271,7 +271,7 @@ function onFile(e: Event) {
   const f = (e.target as HTMLInputElement).files?.[0];
   if (!f) return;
   mimicFile.value = f.name.length > 12 ? `${f.name.slice(0, 10)}…` : f.name;
-  ElMessage.success(`已选择 ${f.name}`);
+  Message.success(`已选择 ${f.name}`);
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -296,7 +296,7 @@ async function start() {
     window.dispatchEvent(new CustomEvent('agent-sessions-changed'));
     await router.push(`/dashboard/writing/${data.session_id}`);
   } catch (err: any) {
-    ElMessage.error(err?.message || '启动失败');
+    Message.error(err?.message || '启动失败');
   } finally {
     starting.value = false;
   }

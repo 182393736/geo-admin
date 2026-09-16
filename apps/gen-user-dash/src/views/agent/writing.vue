@@ -75,7 +75,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { Message, Modal } from '@arco-design/web-vue';
 import { agentApi, type AgentChatSession } from '@/api/modules/agent';
 import { userApi } from '@/api/modules/user';
 
@@ -98,7 +98,7 @@ async function load() {
     await nextTick();
     scrollBottom();
   } catch {
-    ElMessage.error('会话不存在');
+    Message.error('会话不存在');
     router.replace('/dashboard/new-agent');
   }
 }
@@ -141,7 +141,7 @@ async function send() {
     await nextTick();
     scrollBottom();
   } catch (err: any) {
-    ElMessage.error(err?.message || '发送失败');
+    Message.error(err?.message || '发送失败');
     draft.value = content;
   } finally {
     sending.value = false;
@@ -154,19 +154,24 @@ async function endSession() {
     return;
   }
   try {
-    await ElMessageBox.confirm('结束本篇后将不可继续对话，确认结束？', '结束本篇', {
-      confirmButtonText: '结束',
-      cancelButtonText: '取消',
-      type: 'warning',
+    await new Promise<void>((resolve, reject) => {
+      Modal.confirm({
+        title: '结束本篇',
+        content: '结束本篇后将不可继续对话，确认结束？',
+        okText: '结束',
+        cancelText: '取消',
+        onOk: () => resolve(),
+        onCancel: () => reject(new Error('cancel')),
+      });
     });
   } catch { return; }
   try {
     session.value = await agentApi.end(session.value.session_id);
     window.dispatchEvent(new CustomEvent('agent-sessions-changed'));
-    ElMessage.success('已结束');
+    Message.success('已结束');
     router.push('/dashboard/new-agent');
   } catch (err: any) {
-    ElMessage.error(err?.message || '结束失败');
+    Message.error(err?.message || '结束失败');
   }
 }
 

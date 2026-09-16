@@ -165,7 +165,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { Message } from '@arco-design/web-vue';
 import { brandApi, type ArticleLibraryItem } from '@/api/modules/brand';
 import { useAuthStore } from '@/stores/auth';
 
@@ -309,9 +309,9 @@ async function confirmDelete() {
       counters.value.all = Math.max(0, (counters.value.all || 0) - 1);
     }
     pendingDelete.value = null;
-    ElMessage.success('已删除');
+    Message.success('已删除');
   } catch (e: any) {
-    ElMessage.error(e?.message || '删除失败');
+    Message.error(e?.message || '删除失败');
   } finally {
     deleting.value = false;
   }
