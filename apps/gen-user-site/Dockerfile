@@ -10,8 +10,10 @@ RUN pnpm install --filter @geo-admin/gen-user-site... --frozen-lockfile --ignore
 COPY apps/gen-user-site apps/gen-user-site
 ARG NUXT_PUBLIC_API_BASE
 ARG NUXT_PUBLIC_CONSOLE_URL
+ARG NUXT_GEO_API_TARGET=http://host.docker.internal:6001
 ENV NUXT_PUBLIC_API_BASE=$NUXT_PUBLIC_API_BASE \
     NUXT_PUBLIC_CONSOLE_URL=$NUXT_PUBLIC_CONSOLE_URL \
+    NUXT_GEO_API_TARGET=$NUXT_GEO_API_TARGET \
     NITRO_PRESET=node-server
 WORKDIR /app/apps/gen-user-site
 RUN pnpm exec nuxt build
