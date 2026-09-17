@@ -10,20 +10,21 @@
           <a-date-picker v-model="fromDate" style="width: 150px" placeholder="开始日期" @change="loadTasks(1)" />
           <span class="muted">~</span>
           <a-date-picker v-model="toDate" style="width: 150px" placeholder="结束日期" @change="loadTasks(1)" />
-          <a-select v-model="taskStatus" placeholder="状态" style="width: 140px" allow-clear @change="loadTasks(1)">
-            <a-option value="created">created</a-option>
-            <a-option value="running">running</a-option>
-            <a-option value="ok">ok</a-option>
-            <a-option value="partial">partial</a-option>
-            <a-option value="fail">fail</a-option>
-          </a-select>
+          <a-radio-group v-model="taskStatus" type="button" @change="loadTasks(1)">
+            <a-radio value="">全部</a-radio>
+            <a-radio value="created">已创建</a-radio>
+            <a-radio value="running">进行中</a-radio>
+            <a-radio value="ok">完成</a-radio>
+            <a-radio value="partial">部分完成</a-radio>
+            <a-radio value="fail">失败</a-radio>
+          </a-radio-group>
           <a-button type="primary" @click="loadTasks(1)">查询</a-button>
           <span class="muted" style="margin-left: auto">共 {{ taskTotal }} 条</span>
         </div>
         <div class="table-card">
           <a-table :data="tasks" :columns="taskCols" :loading="taskLoading" :pagination="false" row-key="task_id" size="medium">
             <template #status="{ record }">
-              <a-tag :color="statusColor(record.status)">{{ record.status }}</a-tag>
+              <a-tag :color="statusColor(record.status)">{{ taskStatusLabel(record.status) }}</a-tag>
             </template>
             <template #rate="{ record }">
               <a-progress :percent="(record.completeness_rate ?? 0) / 100" :size="'small'" :show-text="true" />
@@ -91,10 +92,18 @@
           <div class="kv-row mb">
             <span>任务 ID</span><span class="muted">{{ slotTask.task_id }}</span>
             <span>应采 / 已采 / 失败</span><span class="muted">{{ slotTask.expected_slots }} / {{ slotTask.actual_slots }} / {{ slotTask.failed_slots }}</span>
-            <span>状态</span><a-tag :color="statusColor(slotTask.status)" size="small">{{ slotTask.status }}</a-tag>
+            <span>状态</span><a-tag :color="statusColor(slotTask.status)" size="small">{{ taskStatusLabel(slotTask.status) }}</a-tag>
           </div>
           <div class="mb toolbar-inline">
-            <span v-for="(n, s) in slotSummary" :key="s" class="chip" :style="{ background: slotColor(s) }">{{ s }} {{ n }}</span>
+            <a-radio-group v-model="slotStatus" type="button" size="small">
+              <a-radio value="">全部</a-radio>
+              <a-radio value="pending">待采</a-radio>
+              <a-radio value="running">进行中</a-radio>
+              <a-radio value="ok">成功</a-radio>
+              <a-radio value="empty">空答</a-radio>
+              <a-radio value="fail">失败</a-radio>
+            </a-radio-group>
+            <span v-for="(n, s) in slotSummary" :key="s" class="chip" :style="{ background: slotColor(s) }">{{ slotStatusLabel(String(s)) }} {{ n }}</span>
             <a-button
               v-if="(slotSummary.fail || 0) > 0"
               type="outline"
@@ -104,9 +113,9 @@
               @click="resetAllFailed"
             >重置全部失败（{{ slotSummary.fail }}）</a-button>
           </div>
-          <a-table :data="slots" :columns="slotCols" :pagination="false" size="small" row-key="slot_id">
+          <a-table :data="filteredSlots" :columns="slotCols" :pagination="false" size="small" row-key="slot_id">
             <template #status="{ record }">
-              <a-tag :color="statusColor(record.status)" size="small">{{ record.status }}</a-tag>
+              <a-tag :color="statusColor(record.status)" size="small">{{ slotStatusLabel(record.status) }}</a-tag>
             </template>
             <template #op="{ record }">
               <a-button
@@ -173,7 +182,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Message, Modal } from '@arco-design/web-vue';
 import { adminApi } from '@/api/admin';
 import type { AdminCollectTaskRow, AdminSlotRow, AdminAnswerRow, AdminAnswerDetail, AdminSnapshotRow } from '@geo-admin/contracts';
@@ -194,6 +203,26 @@ function fmtDate(d: any) {
   return String(d).slice(0, 10);
 }
 const taskStatus = ref('');
+const TASK_STATUS_LABEL: Record<string, string> = {
+  created: '已创建',
+  running: '进行中',
+  ok: '完成',
+  partial: '部分完成',
+  fail: '失败',
+};
+function taskStatusLabel(s: string) {
+  return TASK_STATUS_LABEL[s] || s || '—';
+}
+const SLOT_STATUS_LABEL: Record<string, string> = {
+  pending: '待采',
+  running: '进行中',
+  ok: '成功',
+  empty: '空答',
+  fail: '失败',
+};
+function slotStatusLabel(s: string) {
+  return SLOT_STATUS_LABEL[s] || s || '—';
+}
 const taskCols = [
   { title: '账户', dataIndex: 'account', width: 130, ellipsis: true, render: ({ record }: any) => record.account || '—' },
   { title: '品牌', dataIndex: 'brand_name', ellipsis: true },
@@ -243,6 +272,11 @@ const slotLoading = ref(false);
 const slotTask = ref<AdminCollectTaskRow | null>(null);
 const slots = ref<AdminSlotRow[]>([]);
 const slotSummary = ref<Record<string, number>>({});
+const slotStatus = ref('');
+const filteredSlots = computed(() => {
+  if (!slotStatus.value) return slots.value;
+  return slots.value.filter(s => s.status === slotStatus.value);
+});
 const slotCols = [
   { title: '问题ID', dataIndex: 'query_id', width: 80 },
   { title: '平台', dataIndex: 'platform', width: 90 },
@@ -303,6 +337,7 @@ async function loadSnaps(p = 1) {
 
 async function openSlots(t: AdminCollectTaskRow) {
   slotTask.value = t;
+  slotStatus.value = '';
   slotDrawer.value = true;
   await refreshSlots(t.task_id);
 }
