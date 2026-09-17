@@ -172,7 +172,19 @@
                   <span class="text-xs font-medium text-gray-400">{{ rankRangeStart.slice(5) }} - {{ rankRangeEnd.slice(5) }}</span>
                 </div>
                 <div class="min-h-0 flex-1">
-                  <SparkLine v-if="hasRankTrend" :points="rankTrendPoints" :labels="rankTrendLabels" color="#4f46e5" :height="380" :digits="0" />
+                  <SparkLine
+                    v-if="hasRankTrend"
+                    :points="rankTrendPoints"
+                    :labels="rankTrendLabels"
+                    :series="rankTrendSeries"
+                    color="#4f46e5"
+                    :height="380"
+                    :digits="0"
+                    :interactive="true"
+                    variant="rank"
+                    rate-label="排名"
+                    value-class="text-indigo-600"
+                  />
                   <div v-else class="flex h-full items-center justify-center text-sm text-gray-400">暂无趋势数据</div>
                 </div>
               </div>
@@ -474,9 +486,17 @@ function trendPoints(t: any) {
 }
 
 const trendLabels = computed(() => (mentionTrend.value.trend || []).map((t: any) => fmtDate(t.date_day)));
-const rankTrendLabels = computed(() => visibilityTrend.value.map((t: any) => fmtDate(t.date_day)));
-const rankTrendPoints = computed(() => visibilityTrend.value.map((t: any) => Number(t.rank_value)).filter((n: number) => Number.isFinite(n)));
-const hasRankTrend = computed(() => rankTrendPoints.value.length > 1);
+const rankTrendSeries = computed(() =>
+  visibilityTrend.value
+    .map((t: any) => ({
+      date: fmtDate(t.date_day),
+      rate: Number(t.rank_value),
+    }))
+    .filter((s: { date: string; rate: number }) => Number.isFinite(s.rate) && s.rate > 0),
+);
+const rankTrendLabels = computed(() => rankTrendSeries.value.map(s => s.date || ''));
+const rankTrendPoints = computed(() => rankTrendSeries.value.map(s => s.rate));
+const hasRankTrend = computed(() => rankTrendSeries.value.length >= 1);
 
 /** 仅 1 个点时复制为起止两点，曲线横向拉满（对标：两天同值时的水平线，而不是贴底单点） */
 function padFlatSeries(series: { date?: string; rate: number; numerator?: number; denominator?: number }[]) {

@@ -18,13 +18,13 @@
           <stop :offset="interactive ? '95%' : '100%'" :stop-color="color" stop-opacity="0" />
         </linearGradient>
         <clipPath v-if="interactive" :id="clipId">
-          <rect :x="ML" :y="MT" :width="plotW" :height="plotH" />
+          <rect :x="ml" :y="MT" :width="plotW" :height="plotH" />
         </clipPath>
         <!-- 从左到右揭示动画 -->
         <clipPath :id="revealId">
           <rect
             class="spark-reveal-rect"
-            :x="interactive ? ML : 0"
+            :x="interactive ? ml : 0"
             y="0"
             :width="revealW"
             :height="vbH"
@@ -37,8 +37,8 @@
         <line
           v-for="(tick, i) in yTicks"
           :key="'yg' + i"
-          :x1="ML"
-          :x2="ML + plotW"
+          :x1="ml"
+          :x2="ml + plotW"
           :y1="yOfValue(tick)"
           :y2="yOfValue(tick)"
           stroke="#f1f5f9"
@@ -48,11 +48,11 @@
         <text
           v-for="(tick, i) in yTicks"
           :key="'yl' + i"
-          :x="ML - 6"
+          :x="ml - 6"
           :y="yOfValue(tick) + 3"
           text-anchor="end"
           class="spark-axis-label"
-        >{{ tick }}</text>
+        >{{ formatYTick(tick) }}</text>
       </template>
       <template v-else>
         <line
@@ -122,7 +122,11 @@
       </template>
     </svg>
 
-    <div v-if="interactive && axisLabels.length" class="spark-x-axis">
+    <div
+      v-if="interactive && axisLabels.length"
+      class="spark-x-axis"
+      :style="{ paddingLeft: `${ml}px` }"
+    >
       <span v-for="(lb, i) in axisLabels" :key="'x' + i" class="spark-x-tick">{{ lb }}</span>
     </div>
     <div v-else-if="axisLabels.length" class="spark-axis">
@@ -140,7 +144,7 @@
         <span class="text-gray-500">{{ rateLabel }}:</span>
         <span class="font-bold" :class="valueClass">{{ tip.rateText }}</span>
       </div>
-      <div class="flex justify-between gap-3">
+      <div v-if="variant !== 'rank'" class="flex justify-between gap-3">
         <span class="text-gray-500">分子 / 分母:</span>
         <span class="font-bold text-gray-900">{{ tip.num }} / {{ tip.den }}</span>
       </div>
@@ -166,6 +170,8 @@ const props = withDefaults(defineProps<{
   unit?: string;
   digits?: number;
   interactive?: boolean;
+  /** rate=百分比轴；rank=名次轴（第1名在上，倒序） */
+  variant?: 'rate' | 'rank';
   rateLabel?: string;
   valueClass?: string;
   series?: SparkSeriesPoint[];
@@ -176,21 +182,29 @@ const props = withDefaults(defineProps<{
   unit: '',
   digits: 1,
   interactive: false,
+  variant: 'rate',
   rateLabel: '提及率',
   valueClass: 'text-blue-600',
   series: () => [],
 });
 
 const PAD = 26;
-const ML = 40;
 const MR = 5;
-const MT = 5;
+const MT = 8;
 const MB = 10;
 const REVEAL_MS = 900;
 
-const vbW = computed(() => (props.interactive ? 323 : 600));
-const vbH = computed(() => (props.interactive ? 100 : 160));
-const plotW = computed(() => vbW.value - ML - MR);
+const ml = computed(() => (props.variant === 'rank' ? 52 : 40));
+
+const vbW = computed(() => {
+  if (!props.interactive) return 600;
+  return props.variant === 'rank' ? 560 : 323;
+});
+const vbH = computed(() => {
+  if (!props.interactive) return 160;
+  return props.variant === 'rank' ? 280 : 100;
+});
+const plotW = computed(() => vbW.value - ml.value - MR);
 const plotH = computed(() => vbH.value - MT - MB);
 
 const gid = `spark-${Math.random().toString(36).slice(2, 9)}`;
@@ -204,7 +218,6 @@ let revealRaf = 0;
 let revealStart = 0;
 
 const chartH = computed(() => (props.interactive ? Math.max(90, props.height - 18) : props.height));
-const yTicks = [0, 25, 50, 75, 100];
 
 const rawPoints = computed(() => {
   const fromSeries = (props.series || []).map(s => Number(s.rate) || 0);
@@ -243,6 +256,11 @@ const axisLabels = computed(() => {
 });
 
 const yDomain = computed(() => {
+  if (props.interactive && props.variant === 'rank') {
+    const arr = drawPoints.value.filter(v => Number.isFinite(v) && v > 0);
+    const dataMax = arr.length ? Math.max(...arr) : 5;
+    return { min: 1, max: Math.max(5, Math.ceil(dataMax)) };
+  }
   if (props.interactive) return { min: 0, max: 100 };
   const arr = drawPoints.value;
   if (!arr.length) return { min: 0, max: 1 };
@@ -252,9 +270,34 @@ const yDomain = computed(() => {
   return { min, max };
 });
 
+const yTicks = computed(() => {
+  if (props.variant === 'rank') {
+    const { min, max } = yDomain.value;
+    const ticks: number[] = [];
+    for (let i = min; i <= max; i++) ticks.push(i);
+    // 名次过多时抽稀，最多 6 档
+    if (ticks.length <= 6) return ticks;
+    const step = Math.ceil((max - min) / 4);
+    const sparse = [min];
+    for (let v = min + step; v < max; v += step) sparse.push(v);
+    if (sparse[sparse.length - 1] !== max) sparse.push(max);
+    return sparse;
+  }
+  return [0, 25, 50, 75, 100];
+});
+
+function formatYTick(tick: number) {
+  if (props.variant === 'rank') return `第${tick}名`;
+  return String(tick);
+}
+
 const pts = computed(() => {
   const { min, max } = yDomain.value;
   const span = max - min || 1;
+  if (props.interactive && props.variant === 'rank') {
+    // 倒序：第1名在上 → 小名次映射为高 y 归一化值
+    return drawPoints.value.map(v => (max - v) / span);
+  }
   if (props.interactive) {
     return drawPoints.value.map(v => (v - min) / span);
   }
@@ -269,8 +312,8 @@ function xOf(i: number) {
   const n = pts.value.length;
   if (props.interactive) {
     // 至少两点时铺满；单点兜底居中（drawPoints 已保证 ≥2）
-    if (n <= 1) return ML + plotW.value / 2;
-    return ML + (i / (n - 1)) * plotW.value;
+    if (n <= 1) return ml.value + plotW.value / 2;
+    return ml.value + (i / (n - 1)) * plotW.value;
   }
   if (n <= 1) return 0;
   return (i / (n - 1)) * vbW.value;
@@ -284,6 +327,7 @@ function yNorm(p: number) {
 function yOfValue(v: number) {
   const { min, max } = yDomain.value;
   const span = max - min || 1;
+  if (props.variant === 'rank') return yNorm((max - v) / span);
   return yNorm((v - min) / span);
 }
 
@@ -327,9 +371,12 @@ const tip = computed(() => {
   const i = hoverIdx.value;
   const s = drawSeries.value[i] || drawSeries.value[0];
   const rate = s ? Number(s.rate) || 0 : drawPoints.value[i] || 0;
+  const rateText = props.variant === 'rank'
+    ? `第${Math.round(rate)}名`
+    : `${Number(rate).toFixed(props.digits)}%`;
   return {
     date: s?.date || axisLabels.value[i] || axisLabels.value[0] || '',
-    rateText: `${Number(rate).toFixed(props.digits)}%`,
+    rateText,
     num: s?.numerator ?? 0,
     den: s?.denominator ?? 0,
   };
@@ -341,7 +388,7 @@ const tipStyle = computed(() => {
   const w = el.clientWidth || 1;
   const n = Math.max(1, pts.value.length - 1);
   const ratio = hoverIdx.value / n;
-  const leftPx = ((ML + ratio * plotW.value) / vbW.value) * w;
+  const leftPx = ((ml.value + ratio * plotW.value) / vbW.value) * w;
   const tipW = 148;
   let left = leftPx + 12;
   if (left + tipW > w) left = leftPx - tipW - 8;
@@ -358,7 +405,7 @@ function onMove(ev: MouseEvent) {
     hoverIdx.value = 0;
     return;
   }
-  const t = (relX - ML) / plotW.value;
+  const t = (relX - ml.value) / plotW.value;
   hoverIdx.value = Math.round(Math.max(0, Math.min(1, t)) * (n - 1));
 }
 
@@ -367,6 +414,7 @@ function onLeave() {
 }
 
 function fmt(v: number) {
+  if (props.variant === 'rank') return `第${Math.round(v)}名`;
   const s = Number.isFinite(v) ? v.toFixed(props.digits) : '0';
   return `${s}${props.unit}`;
 }
@@ -384,7 +432,7 @@ function stopReveal() {
 
 function startReveal() {
   stopReveal();
-  const full = props.interactive ? ML + plotW.value : vbW.value;
+  const full = props.interactive ? ml.value + plotW.value : vbW.value;
   revealW.value = 0;
   if (pts.value.length < 2) {
     revealW.value = full;
@@ -401,7 +449,7 @@ function startReveal() {
 }
 
 watch(
-  () => [drawPoints.value.join(','), props.interactive, vbW.value, plotW.value] as const,
+  () => [drawPoints.value.join(','), props.interactive, props.variant, vbW.value, plotW.value] as const,
   async () => {
     await nextTick();
     startReveal();
@@ -441,7 +489,7 @@ onBeforeUnmount(stopReveal);
 .spark-x-axis {
   display: flex;
   justify-content: space-between;
-  padding: 2px 5px 0 40px;
+  padding: 2px 5px 0 0;
   margin-top: -2px;
 }
 .spark-x-tick {
