@@ -20,6 +20,16 @@
         <clipPath v-if="interactive" :id="clipId">
           <rect :x="ML" :y="MT" :width="plotW" :height="plotH" />
         </clipPath>
+        <!-- 从左到右揭示动画 -->
+        <clipPath :id="revealId">
+          <rect
+            class="spark-reveal-rect"
+            :x="interactive ? ML : 0"
+            y="0"
+            :width="revealW"
+            :height="vbH"
+          />
+        </clipPath>
       </defs>
 
       <!-- 网格 -->
@@ -57,37 +67,39 @@
         />
       </template>
 
-      <g :clip-path="interactive ? `url(#${clipId})` : undefined">
-        <path v-if="pts.length > 1" :d="areaPath" :fill="`url(#${gid})`" />
-      </g>
-      <!-- stroke 不裁剪，避免 0%/低值水平线贴底被 clip 掉 -->
-      <path
-        v-if="pts.length > 1"
-        :d="linePath"
-        fill="none"
-        :stroke="color"
-        stroke-width="2"
-        stroke-linejoin="round"
-        stroke-linecap="round"
-      />
-
-      <template v-if="!interactive">
-        <circle
-          v-for="(p, i) in pts"
-          :key="'p' + i"
-          :cx="xOf(i)"
-          :cy="yNorm(p)"
-          r="2.6"
-          :fill="color"
+      <g :clip-path="`url(#${revealId})`">
+        <g :clip-path="interactive ? `url(#${clipId})` : undefined">
+          <path v-if="pts.length > 1" :d="areaPath" :fill="`url(#${gid})`" />
+        </g>
+        <!-- stroke 不裁剪 plot，避免 0%/低值水平线贴底被 clip 掉 -->
+        <path
+          v-if="pts.length > 1"
+          :d="linePath"
+          fill="none"
+          :stroke="color"
+          stroke-width="2"
+          stroke-linejoin="round"
+          stroke-linecap="round"
         />
+
+        <template v-if="!interactive">
+          <circle
+            v-for="(p, i) in pts"
+            :key="'p' + i"
+            :cx="xOf(i)"
+            :cy="yNorm(p)"
+            r="2.6"
+            :fill="color"
+          />
           <text
-          v-if="pts.length"
-          :x="xOf(pts.length - 1)"
-          :y="yNorm(pts[pts.length - 1]) - 9"
-          text-anchor="end"
-          class="spark-v"
-        >{{ fmt(drawPoints[pts.length - 1]) }}</text>
-      </template>
+            v-if="pts.length"
+            :x="xOf(pts.length - 1)"
+            :y="yNorm(pts[pts.length - 1]) - 9"
+            text-anchor="end"
+            class="spark-v"
+          >{{ fmt(drawPoints[pts.length - 1]) }}</text>
+        </template>
+      </g>
 
       <template v-if="interactive && hoverIdx != null">
         <line
@@ -137,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 export type SparkSeriesPoint = {
   date?: string;
@@ -174,6 +186,7 @@ const ML = 40;
 const MR = 5;
 const MT = 5;
 const MB = 10;
+const REVEAL_MS = 900;
 
 const vbW = computed(() => (props.interactive ? 323 : 600));
 const vbH = computed(() => (props.interactive ? 100 : 160));
@@ -182,9 +195,13 @@ const plotH = computed(() => vbH.value - MT - MB);
 
 const gid = `spark-${Math.random().toString(36).slice(2, 9)}`;
 const clipId = `clip-${Math.random().toString(36).slice(2, 9)}`;
+const revealId = `reveal-${Math.random().toString(36).slice(2, 9)}`;
 
 const root = ref<HTMLElement | null>(null);
 const hoverIdx = ref<number | null>(null);
+const revealW = ref(0);
+let revealRaf = 0;
+let revealStart = 0;
 
 const chartH = computed(() => (props.interactive ? Math.max(90, props.height - 18) : props.height));
 const yTicks = [0, 25, 50, 75, 100];
@@ -270,14 +287,39 @@ function yOfValue(v: number) {
   return yNorm((v - min) / span);
 }
 
-const linePath = computed(() =>
-  pts.value.map((p, i) => `${i === 0 ? 'M' : 'L'}${xOf(i).toFixed(1)},${yNorm(p).toFixed(1)}`).join(' '),
+/** Catmull-Rom → 三次贝塞尔，折线变平滑曲线 */
+function buildSmoothPath(coords: { x: number; y: number }[]) {
+  if (!coords.length) return '';
+  if (coords.length === 1) return `M${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)}`;
+  if (coords.length === 2) {
+    return `M${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)} L${coords[1].x.toFixed(1)},${coords[1].y.toFixed(1)}`;
+  }
+  let d = `M${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)}`;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p0 = coords[i - 1] || coords[i];
+    const p1 = coords[i];
+    const p2 = coords[i + 1];
+    const p3 = coords[i + 2] || p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
+const coordPts = computed(() =>
+  pts.value.map((p, i) => ({ x: xOf(i), y: yNorm(p) })),
 );
+
+const linePath = computed(() => buildSmoothPath(coordPts.value));
 
 const areaPath = computed(() => {
   if (!pts.value.length) return '';
   const base = props.interactive ? MT + plotH.value : vbH.value - PAD;
-  return `${linePath.value} L${xOf(pts.value.length - 1).toFixed(1)},${base} L${xOf(0).toFixed(1)},${base} Z`;
+  const last = pts.value.length - 1;
+  return `${linePath.value} L${xOf(last).toFixed(1)},${base} L${xOf(0).toFixed(1)},${base} Z`;
 });
 
 const tip = computed(() => {
@@ -328,6 +370,46 @@ function fmt(v: number) {
   const s = Number.isFinite(v) ? v.toFixed(props.digits) : '0';
   return `${s}${props.unit}`;
 }
+
+function easeOutCubic(t: number) {
+  return 1 - (1 - t) ** 3;
+}
+
+function stopReveal() {
+  if (revealRaf) {
+    cancelAnimationFrame(revealRaf);
+    revealRaf = 0;
+  }
+}
+
+function startReveal() {
+  stopReveal();
+  const full = props.interactive ? ML + plotW.value : vbW.value;
+  revealW.value = 0;
+  if (pts.value.length < 2) {
+    revealW.value = full;
+    return;
+  }
+  revealStart = performance.now();
+  const tick = (now: number) => {
+    const t = Math.min(1, (now - revealStart) / REVEAL_MS);
+    revealW.value = full * easeOutCubic(t);
+    if (t < 1) revealRaf = requestAnimationFrame(tick);
+    else revealRaf = 0;
+  };
+  revealRaf = requestAnimationFrame(tick);
+}
+
+watch(
+  () => [drawPoints.value.join(','), props.interactive, vbW.value, plotW.value] as const,
+  async () => {
+    await nextTick();
+    startReveal();
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(stopReveal);
 </script>
 
 <style scoped>
