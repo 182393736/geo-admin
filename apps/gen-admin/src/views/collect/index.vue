@@ -39,6 +39,52 @@
         </div>
       </a-tab-pane>
 
+      <!-- 槽位（跨任务，可按状态直筛） -->
+      <a-tab-pane key="slots" title="采集槽位">
+        <div class="toolbar">
+          <a-date-picker v-model="slotFromDate" style="width: 150px" placeholder="开始日期" @change="loadSlotList(1)" />
+          <span class="muted">~</span>
+          <a-date-picker v-model="slotToDate" style="width: 150px" placeholder="结束日期" @change="loadSlotList(1)" />
+          <a-select v-model="slotPlatform" placeholder="平台" style="width: 120px" allow-clear @change="loadSlotList(1)">
+            <a-option value="doubao">豆包</a-option>
+            <a-option value="deepseek">DeepSeek</a-option>
+            <a-option value="wenxin">文心</a-option>
+            <a-option value="yuanbao">元宝</a-option>
+          </a-select>
+          <a-radio-group v-model="slotListStatus" type="button" @change="loadSlotList(1)">
+            <a-radio value="">全部</a-radio>
+            <a-radio value="pending">待采</a-radio>
+            <a-radio value="running">进行中</a-radio>
+            <a-radio value="ok">成功</a-radio>
+            <a-radio value="empty">空答</a-radio>
+            <a-radio value="fail">失败</a-radio>
+          </a-radio-group>
+          <a-button type="primary" @click="loadSlotList(1)">查询</a-button>
+          <span class="muted" style="margin-left: auto">共 {{ slotListTotal }} 条</span>
+        </div>
+        <div class="table-card">
+          <a-table :data="slotList" :columns="slotListCols" :loading="slotListLoading" :pagination="false" row-key="slot_id" size="medium">
+            <template #status="{ record }">
+              <a-tag :color="statusColor(record.status)" size="small">{{ slotStatusLabel(record.status) }}</a-tag>
+            </template>
+            <template #op="{ record }">
+              <a-button
+                v-if="record.status === 'fail'"
+                type="text"
+                size="mini"
+                status="warning"
+                :loading="resettingSlotId === record.slot_id"
+                @click="resetOneSlotFromList(record)"
+              >重置</a-button>
+              <span v-else class="muted">—</span>
+            </template>
+          </a-table>
+          <div class="pager">
+            <a-pagination :total="slotListTotal" :current="slotListPage" :page-size="20" show-total @change="loadSlotList" />
+          </div>
+        </div>
+      </a-tab-pane>
+
       <!-- 原始回答 -->
       <a-tab-pane key="answers" title="原始回答">
         <div class="toolbar">
@@ -230,8 +276,30 @@ const taskCols = [
   { title: '触发', dataIndex: 'trigger', width: 80 },
   { title: '应采/已采/失败', width: 150, render: ({ record }: any) => `${record.expected_slots}/${record.actual_slots}/${record.failed_slots}` },
   { title: '完成率', slotName: 'rate', width: 150 },
-  { title: '状态', slotName: 'status', width: 90 },
+  { title: '状态', slotName: 'status', width: 100 },
   { title: '', slotName: 'op', width: 60, fixed: 'right' as const },
+];
+
+// 跨任务槽位列表
+const slotList = ref<AdminSlotRow[]>([]);
+const slotListTotal = ref(0);
+const slotListPage = ref(1);
+const slotListLoading = ref(false);
+const slotListStatus = ref('fail');
+const slotFromDate = ref<any>('');
+const slotToDate = ref<any>('');
+const slotPlatform = ref('');
+const slotListCols = [
+  { title: '日期', dataIndex: 'date', width: 110 },
+  { title: '账户', dataIndex: 'account', width: 120, ellipsis: true, render: ({ record }: any) => record.account || '—' },
+  { title: '品牌', dataIndex: 'brand_name', width: 140, ellipsis: true },
+  { title: '平台', dataIndex: 'platform', width: 90 },
+  { title: '问题ID', dataIndex: 'query_id', width: 80 },
+  { title: '发出问题', dataIndex: 'question_sent', ellipsis: true },
+  { title: '状态', slotName: 'status', width: 90 },
+  { title: '尝试', dataIndex: 'attempts', width: 60 },
+  { title: '错误', dataIndex: 'error', ellipsis: true, width: 160 },
+  { title: '操作', slotName: 'op', width: 80, fixed: 'right' as const },
 ];
 
 // 回答
@@ -313,6 +381,45 @@ async function loadTasks(p = 1) {
     tasks.value = d.list;
     taskTotal.value = d.total;
   } finally { taskLoading.value = false; }
+}
+
+async function loadSlotList(p = 1) {
+  slotListLoading.value = true;
+  slotListPage.value = p;
+  try {
+    const d = await adminApi.collectSlotList({
+      page: p,
+      page_size: 20,
+      status: slotListStatus.value,
+      platform: slotPlatform.value,
+      from: fmtDate(slotFromDate.value),
+      to: fmtDate(slotToDate.value),
+    });
+    slotList.value = d.list;
+    slotListTotal.value = d.total;
+  } finally { slotListLoading.value = false; }
+}
+
+async function resetOneSlotFromList(row: AdminSlotRow) {
+  Modal.warning({
+    title: '重置失败槽位',
+    content: `将 ${row.platform} / 问题 ${row.query_id}（${row.brand_name || row.brand_id}）重置为待采，采集端可重新领取。`,
+    hideCancel: false,
+    okText: '确认重置',
+    onOk: async () => {
+      resettingSlotId.value = row.slot_id;
+      try {
+        const r = await adminApi.collectSlotReset(row.slot_id);
+        Message.success(`已重置为 ${r.slot.status}`);
+        await loadSlotList(slotListPage.value);
+      } catch (e: any) {
+        Message.error(e?.message || '重置失败');
+        throw e;
+      } finally {
+        resettingSlotId.value = '';
+      }
+    },
+  });
 }
 
 async function loadAnswers(p = 1) {
@@ -425,7 +532,10 @@ async function openAnswer(row: AdminAnswerRow) {
   }
 }
 
-onMounted(() => loadTasks(1));
+onMounted(() => {
+  loadTasks(1);
+  loadSlotList(1);
+});
 </script>
 
 <style scoped lang="scss">

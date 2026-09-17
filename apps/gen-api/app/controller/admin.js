@@ -476,7 +476,52 @@ class AdminController extends Controller {
         platform: s.platform, end: s.end, question_sent: s.question_sent,
         mock_account_id: s.mock_account_id, status: s.status, answer_id: s.answer_id,
         error: s.error, attempts: s.attempts, finished_at: s.finished_at,
+        task_id: s.task_id, brand_id: s.brand_id, date: s.date,
       })),
+    });
+  }
+
+  /** 跨任务槽位列表（可按 status / date / platform / brand_id 筛选） */
+  async collectSlotList() {
+    const { ctx } = this;
+    const M = ctx.model;
+    const { page, page_size } = this._page();
+    const { from, to } = this._range();
+    const q = {};
+    if (from || to) { q.date = {}; if (from) q.date.$gte = from; if (to) q.date.$lte = to; }
+    if (ctx.query.status) q.status = ctx.query.status;
+    if (ctx.query.brand_id) q.brand_id = ctx.query.brand_id;
+    if (ctx.query.platform) q.platform = ctx.query.platform;
+    if (ctx.query.task_id) q.task_id = ctx.query.task_id;
+    const [total, rows] = await Promise.all([
+      M.CollectSlot.countDocuments(q),
+      M.CollectSlot.find(q).sort({ date: -1, updated_at: -1 }).skip((page - 1) * page_size).limit(page_size).lean(),
+    ]);
+    const bids = [...new Set(rows.map(s => s.brand_id).filter(Boolean))];
+    const brands = bids.length ? await M.Brand.find({ brand_id: { $in: bids } }).lean() : [];
+    const bm = {}; for (const b of brands) bm[b.brand_id] = b.name;
+    const am = await this._brandAccountMap(brands);
+    this._ok({
+      list: rows.map(s => ({
+        slot_id: s.slot_id,
+        task_id: s.task_id,
+        brand_id: s.brand_id,
+        brand_name: bm[s.brand_id] || s.brand_id,
+        account: am[s.brand_id] || '',
+        date: s.date,
+        query_id: s.query_id,
+        query_type: s.query_type,
+        platform: s.platform,
+        end: s.end,
+        question_sent: s.question_sent,
+        mock_account_id: s.mock_account_id,
+        status: s.status,
+        answer_id: s.answer_id,
+        error: s.error,
+        attempts: s.attempts,
+        finished_at: s.finished_at,
+      })),
+      total, page, page_size,
     });
   }
 

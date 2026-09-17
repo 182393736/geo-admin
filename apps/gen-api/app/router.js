@@ -155,6 +155,7 @@ module.exports = app => {
   router.get('/admin/collect/tasks', jwtAuth, adminAuth, controller.admin.collectTasks);
   router.get('/admin/collect/tasks/:id/slots', jwtAuth, adminAuth, controller.admin.collectSlots);
   router.post('/admin/collect/tasks/:id/reset-failed', jwtAuth, adminAuth, controller.admin.collectTaskResetFailed);
+  router.get('/admin/collect/slots', jwtAuth, adminAuth, controller.admin.collectSlotList);
   router.post('/admin/collect/slots/:slotId/reset', jwtAuth, adminAuth, controller.admin.collectSlotReset);
   router.get('/admin/collect/answers', jwtAuth, adminAuth, controller.admin.collectAnswers);
   router.get('/admin/collect/answers/:id', jwtAuth, adminAuth, controller.admin.collectAnswerDetail);

@@ -130,6 +130,8 @@ export interface AdminSlotRow {
   slot_id: string; query_id: number; query_type: string; platform: string; end: string;
   question_sent: string; mock_account_id: string; status: string; answer_id: string;
   error: string; attempts: number; finished_at: string | null;
+  /** 跨任务列表时带回 */
+  task_id?: string; brand_id?: string; brand_name?: string; account?: string; date?: string;
 }
 export interface AdminAnswerRow {
   answer_id: string; slot_id: string; brand_id: string; brand_name?: string; account?: string; query_id: number; platform: string;

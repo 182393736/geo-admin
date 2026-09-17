@@ -52,6 +52,7 @@ export const adminApi = {
   // 采集
   collectTasks: (p: Record<string, any> = {}) => get<AdminPaged<AdminCollectTaskRow>>(`/admin/collect/tasks${qs(p)}`),
   collectSlots: (taskId: string) => get<{ task: AdminCollectTaskRow; summary: Record<string, number>; list: AdminSlotRow[] }>(`/admin/collect/tasks/${encodeURIComponent(taskId)}/slots`),
+  collectSlotList: (p: Record<string, any> = {}) => get<AdminPaged<AdminSlotRow>>(`/admin/collect/slots${qs(p)}`),
   collectSlotReset: (slotId: string) => post<{ slot: { slot_id: string; status: string; attempts: number; error: string | null; task_id: string }; task: AdminCollectTaskRow | null }>(`/admin/collect/slots/${encodeURIComponent(slotId)}/reset`),
   collectTaskResetFailed: (taskId: string) => post<{ reset_count: number; task: AdminCollectTaskRow | null }>(`/admin/collect/tasks/${encodeURIComponent(taskId)}/reset-failed`),
   collectAnswers: (p: Record<string, any> = {}) => get<AdminPaged<AdminAnswerRow>>(`/admin/collect/answers${qs(p)}`),
