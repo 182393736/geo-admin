@@ -331,23 +331,30 @@ function yOfValue(v: number) {
   return yNorm((v - min) / span);
 }
 
-/** Catmull-Rom → 三次贝塞尔，折线变平滑曲线 */
+/** Catmull-Rom → 三次贝塞尔；张力略大，视觉上更「曲线」而非折线 */
 function buildSmoothPath(coords: { x: number; y: number }[]) {
   if (!coords.length) return '';
-  if (coords.length === 1) return `M${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)}`;
-  if (coords.length === 2) {
-    return `M${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)} L${coords[1].x.toFixed(1)},${coords[1].y.toFixed(1)}`;
+  if (coords.length === 1) {
+    return `M${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)}`;
   }
+  if (coords.length === 2) {
+    const a = coords[0];
+    const b = coords[1];
+    const dx = (b.x - a.x) / 3;
+    // 两点也用水平控制柄的三次贝塞尔，避免纯折线
+    return `M${a.x.toFixed(1)},${a.y.toFixed(1)} C${(a.x + dx).toFixed(1)},${a.y.toFixed(1)} ${(b.x - dx).toFixed(1)},${b.y.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
+  }
+  const tension = 1 / 4; // 原 1/6，略加大弯曲
   let d = `M${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)}`;
   for (let i = 0; i < coords.length - 1; i++) {
     const p0 = coords[i - 1] || coords[i];
     const p1 = coords[i];
     const p2 = coords[i + 1];
     const p3 = coords[i + 2] || p2;
-    const cp1x = p1.x + (p2.x - p0.x) / 6;
-    const cp1y = p1.y + (p2.y - p0.y) / 6;
-    const cp2x = p2.x - (p3.x - p1.x) / 6;
-    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    const cp1x = p1.x + (p2.x - p0.x) * tension;
+    const cp1y = p1.y + (p2.y - p0.y) * tension;
+    const cp2x = p2.x - (p3.x - p1.x) * tension;
+    const cp2y = p2.y - (p3.y - p1.y) * tension;
     d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
   }
   return d;
