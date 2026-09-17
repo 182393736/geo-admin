@@ -371,25 +371,21 @@ const pct = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? `${(+v).t
 
 const leaderboard = computed(() => ranking.value.slice(0, 10));
 
+/** 对标：综合排名直接展示 rank_value.all（不做题间相对重排） */
+function overallFromRankValue(rankValue: Record<string, any> | undefined) {
+  const raw = rankValue?.all;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return String(Math.round(n));
+  return '未上榜';
+}
+
 const matrixRows = computed(() => {
   const list = matrix.value.list || {};
-  const rows: any[] = Object.entries(list).map(([qid, r]: [string, any]) => ({
+  return Object.entries(list).map(([qid, r]: [string, any]) => ({
     ...r,
     query_id: Number((r as any)?.query_id) || Number(qid) || 0,
+    overall: overallFromRankValue(r?.rank_value),
   }));
-  const scored = rows.map(r => {
-    const all = r.rank_value?.all;
-    const allN = Number(all);
-    const _avg = Number.isFinite(allN) ? allN : null;
-    const fallbackVals = ENGINES_ALL.map(k => Number(r.rank_value?.[k])).filter(Number.isFinite);
-    return {
-      ...r,
-      _avg: _avg ?? (fallbackVals.length ? fallbackVals.reduce((s: number, n: number) => s + n, 0) / fallbackVals.length : null),
-    };
-  });
-  const orderable = scored.filter(r => r._avg != null).sort((a, b) => a._avg - b._avg);
-  const rankOf = new Map(orderable.map((r, i) => [r.query, i + 1]));
-  return scored.map(r => ({ ...r, overall: rankOf.get(r.query) ?? '未上榜' }));
 });
 
 function resolveEngines(selected: string[]): string[] {
