@@ -490,9 +490,13 @@ const rankTrendSeries = computed(() =>
   visibilityTrend.value
     .map((t: any) => ({
       date: fmtDate(t.date_day),
+      dateRaw: String(t.date_day || ''),
       rate: Number(t.rank_value),
     }))
-    .filter((s: { date: string; rate: number }) => Number.isFinite(s.rate) && s.rate > 0),
+    .filter((s: { date: string; dateRaw: string; rate: number }) => Number.isFinite(s.rate) && s.rate > 0)
+    // 接口 validList 为降序；曲线 X 轴需从左到右升序
+    .sort((a, b) => a.dateRaw.localeCompare(b.dateRaw))
+    .map(({ date, rate }) => ({ date, rate })),
 );
 const rankTrendLabels = computed(() => rankTrendSeries.value.map(s => s.date || ''));
 const rankTrendPoints = computed(() => rankTrendSeries.value.map(s => s.rate));
