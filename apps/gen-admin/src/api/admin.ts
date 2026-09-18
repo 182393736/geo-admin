@@ -54,6 +54,15 @@ export const adminApi = {
   collectSlots: (taskId: string) => get<{ task: AdminCollectTaskRow; summary: Record<string, number>; list: AdminSlotRow[] }>(`/admin/collect/tasks/${encodeURIComponent(taskId)}/slots`),
   collectSlotList: (p: Record<string, any> = {}) => get<AdminPaged<AdminSlotRow>>(`/admin/collect/slots${qs(p)}`),
   collectSlotReset: (slotId: string) => post<{ slot: { slot_id: string; status: string; attempts: number; error: string | null; task_id: string }; task: AdminCollectTaskRow | null }>(`/admin/collect/slots/${encodeURIComponent(slotId)}/reset`),
+  collectSlotReparse: (slotId: string) => post<{
+    slot_id: string;
+    answer_id: string;
+    brand_id: string;
+    date: string;
+    query_type: string | null;
+    parsed: boolean;
+    aggregated: boolean;
+  }>(`/admin/collect/slots/${encodeURIComponent(slotId)}/reparse`),
   collectTaskResetFailed: (taskId: string) => post<{ reset_count: number; task: AdminCollectTaskRow | null }>(`/admin/collect/tasks/${encodeURIComponent(taskId)}/reset-failed`),
   collectAnswers: (p: Record<string, any> = {}) => get<AdminPaged<AdminAnswerRow>>(`/admin/collect/answers${qs(p)}`),
   collectAnswerDetail: (answerId: string) => get<AdminAnswerDetail>(`/admin/collect/answers/${encodeURIComponent(answerId)}`),

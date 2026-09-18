@@ -543,6 +543,18 @@ class AdminController extends Controller {
     }
   }
 
+  /** 单槽重新解析：清旧事实 → A/B/C → 聚合该品牌×该日（不改原文/采集状态） */
+  async collectSlotReparse() {
+    const { ctx } = this;
+    try {
+      const r = await ctx.service.parse.reprocessSlot(ctx.params.slotId);
+      this._ok(r);
+    } catch (e) {
+      ctx.status = e.status || 500;
+      ctx.body = { code: ctx.status, msg: e.message || '重解析失败' };
+    }
+  }
+
   /** 重置某采集任务下全部 fail 槽位 */
   async collectTaskResetFailed() {
     const { ctx } = this;

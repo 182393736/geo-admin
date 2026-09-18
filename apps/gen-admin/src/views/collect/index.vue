@@ -68,15 +68,24 @@
               <a-tag :color="statusColor(record.status)" size="small">{{ slotStatusLabel(record.status) }}</a-tag>
             </template>
             <template #op="{ record }">
-              <a-button
-                v-if="record.status === 'fail'"
-                type="text"
-                size="mini"
-                status="warning"
-                :loading="resettingSlotId === record.slot_id"
-                @click="resetOneSlotFromList(record)"
-              >重置</a-button>
-              <span v-else class="muted">—</span>
+              <a-space>
+                <a-button
+                  v-if="record.status === 'ok' || record.status === 'empty'"
+                  type="text"
+                  size="mini"
+                  :loading="reparsingSlotId === record.slot_id"
+                  @click="reparseSlot(record)"
+                >重解析</a-button>
+                <a-button
+                  v-if="record.status === 'fail'"
+                  type="text"
+                  size="mini"
+                  status="warning"
+                  :loading="resettingSlotId === record.slot_id"
+                  @click="resetOneSlotFromList(record)"
+                >重置</a-button>
+                <span v-if="record.status !== 'ok' && record.status !== 'empty' && record.status !== 'fail'" class="muted">—</span>
+              </a-space>
             </template>
           </a-table>
           <div class="pager">
@@ -102,7 +111,16 @@
               <a-tag :color="record.parsed ? 'green' : 'orange'">{{ record.parsed ? '已解析' : '未解析' }}</a-tag>
             </template>
             <template #op="{ record }">
-              <a-link @click="openAnswer(record)">查看</a-link>
+              <a-space>
+                <a-link @click="openAnswer(record)">查看</a-link>
+                <a-button
+                  v-if="record.slot_id"
+                  type="text"
+                  size="mini"
+                  :loading="reparsingSlotId === record.slot_id"
+                  @click="reparseSlot(record)"
+                >重解析</a-button>
+              </a-space>
             </template>
           </a-table>
           <div class="pager">
@@ -164,15 +182,24 @@
               <a-tag :color="statusColor(record.status)" size="small">{{ slotStatusLabel(record.status) }}</a-tag>
             </template>
             <template #op="{ record }">
-              <a-button
-                v-if="record.status === 'fail'"
-                type="text"
-                size="mini"
-                status="warning"
-                :loading="resettingSlotId === record.slot_id"
-                @click="resetOneSlot(record)"
-              >重置</a-button>
-              <span v-else class="muted">—</span>
+              <a-space>
+                <a-button
+                  v-if="record.status === 'ok' || record.status === 'empty'"
+                  type="text"
+                  size="mini"
+                  :loading="reparsingSlotId === record.slot_id"
+                  @click="reparseSlot(record)"
+                >重解析</a-button>
+                <a-button
+                  v-if="record.status === 'fail'"
+                  type="text"
+                  size="mini"
+                  status="warning"
+                  :loading="resettingSlotId === record.slot_id"
+                  @click="resetOneSlot(record)"
+                >重置</a-button>
+                <span v-if="record.status !== 'ok' && record.status !== 'empty' && record.status !== 'fail'" class="muted">—</span>
+              </a-space>
             </template>
           </a-table>
         </template>
@@ -198,6 +225,13 @@
             <a-tag :color="answerDetail.parsed ? 'green' : 'orange'" size="small">
               {{ answerDetail.parsed ? '已解析' : '未解析' }}
             </a-tag>
+            <a-button
+              v-if="answerDetail.slot_id"
+              type="outline"
+              size="mini"
+              :loading="reparsingSlotId === answerDetail.slot_id"
+              @click="reparseSlot(answerDetail)"
+            >重新解析</a-button>
           </div>
 
           <h4 class="sec">回答正文（{{ answerDetail.answer_len }} 字）</h4>
@@ -299,7 +333,7 @@ const slotListCols = [
   { title: '状态', slotName: 'status', width: 90 },
   { title: '尝试', dataIndex: 'attempts', width: 60 },
   { title: '错误', dataIndex: 'error', ellipsis: true, width: 160 },
-  { title: '操作', slotName: 'op', width: 80, fixed: 'right' as const },
+  { title: '操作', slotName: 'op', width: 120, fixed: 'right' as const },
 ];
 
 // 回答
@@ -317,7 +351,7 @@ const answerCols = [
   { title: '长度', dataIndex: 'answer_len', width: 80 },
   { title: '引用链接', dataIndex: 'cited_urls', width: 80 },
   { title: '解析', slotName: 'parsed', width: 90 },
-  { title: '', slotName: 'op', width: 60, fixed: 'right' as const },
+  { title: '操作', slotName: 'op', width: 140, fixed: 'right' as const },
 ];
 
 // 截图
@@ -353,11 +387,12 @@ const slotCols = [
   { title: '状态', slotName: 'status', width: 90 },
   { title: '尝试', dataIndex: 'attempts', width: 60 },
   { title: '错误', dataIndex: 'error', ellipsis: true, width: 140 },
-  { title: '操作', slotName: 'op', width: 80, fixed: 'right' as const },
+  { title: '操作', slotName: 'op', width: 120, fixed: 'right' as const },
 ];
 
 const resettingSlotId = ref('');
 const resettingAll = ref(false);
+const reparsingSlotId = ref('');
 
 function statusColor(s: string) {
   return s === 'ok' ? 'green'
@@ -417,6 +452,39 @@ async function resetOneSlotFromList(row: AdminSlotRow) {
         throw e;
       } finally {
         resettingSlotId.value = '';
+      }
+    },
+  });
+}
+
+/** 单槽重新解析：用已有原文再跑 A/B/C + 聚合该品牌×日 */
+async function reparseSlot(row: { slot_id?: string; platform?: string; query_id?: number | string; brand_name?: string; brand_id?: string; date?: string }) {
+  const slotId = String(row.slot_id || '').trim();
+  if (!slotId) {
+    Message.warning('缺少槽位 ID');
+    return;
+  }
+  Modal.warning({
+    title: '重新解析槽位',
+    content: `将用已有原文重新抽取并聚合：${row.platform || ''} / 问题 ${row.query_id ?? ''}（${row.brand_name || row.brand_id || ''} · ${row.date || ''}）。不重采、不改原文。会消耗一次 LLM。`,
+    hideCancel: false,
+    okText: '确认重解析',
+    onOk: async () => {
+      reparsingSlotId.value = slotId;
+      try {
+        const r = await adminApi.collectSlotReparse(slotId);
+        Message.success(`已重解析并聚合 ${r.brand_id} · ${r.date}`);
+        if (tab.value === 'answers') await loadAnswers(answerPage.value);
+        if (tab.value === 'slots') await loadSlotList(slotListPage.value);
+        if (slotDrawer.value && slotTask.value?.task_id) await refreshSlots(slotTask.value.task_id);
+        if (answerDrawer.value && answerDetail.value?.slot_id === slotId) {
+          await openAnswer({ answer_id: r.answer_id } as AdminAnswerRow);
+        }
+      } catch (e: any) {
+        Message.error(e?.message || '重解析失败');
+        throw e;
+      } finally {
+        reparsingSlotId.value = '';
       }
     },
   });

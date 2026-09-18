@@ -125,5 +125,87 @@ class ParseService extends Service {
     }
     return aggregated;
   }
+
+  /**
+   * 管理端：单槽重新解析（最小方案）
+   * 清该 slot 旧事实 → 再跑 A/B/C → 聚合该品牌×该日。不改原文、不改槽位采集状态。
+   * @param {string} slotId
+   */
+  async reprocessSlot(slotId) {
+    const { ctx } = this;
+    const M = ctx.model;
+    const id = String(slotId || '').trim();
+    if (!id) {
+      const err = new Error('缺少 slot_id');
+      err.status = 400;
+      throw err;
+    }
+
+    const slot = await M.CollectSlot.findOne({ slot_id: id }).lean();
+    if (!slot) {
+      const err = new Error('槽位不存在');
+      err.status = 404;
+      throw err;
+    }
+
+    const answer = await M.RawAnswer.findOne({ slot_id: id }).lean();
+    if (!answer || !answer.answer_id) {
+      const err = new Error('该槽位无原始回答，无法重解析（失败槽请先重置后重采）');
+      err.status = 400;
+      throw err;
+    }
+
+    // 清旧事实，避免 create 重复写入
+    await Promise.all([
+      M.BrandMention.deleteMany({ slot_id: id }),
+      M.Opinion.deleteMany({ slot_id: id }),
+      M.CitationEdge.deleteMany({ slot_id: id }),
+    ]);
+    await M.RawAnswer.updateOne({ answer_id: answer.answer_id }, { $set: { parsed: false } });
+
+    const fresh = await M.RawAnswer.findOne({ answer_id: answer.answer_id }).lean();
+    try {
+      if (fresh.query_type === 'industry') await ctx.service.pipeline.rankExtract.run(fresh);
+      else await ctx.service.pipeline.reputationExtract.run(fresh);
+      await ctx.service.pipeline.citationExtract.run(fresh);
+      await M.RawAnswer.updateOne({ answer_id: fresh.answer_id }, { $set: { parsed: true } });
+    } catch (e) {
+      ctx.logger.error(`[parse] 手动重解析失败 slot=${id}: ${e.message}`);
+      await ctx.service.pipelineEvent.record({
+        brand_id: slot.brand_id, date: slot.date, stage: 'parse',
+        status: 'fail',
+        message: `手动重解析失败 ${id}`,
+        error: e.message,
+        detail: { slot_id: id, answer_id: answer.answer_id },
+      }).catch(() => {});
+      const err = new Error(e.message || '重解析失败');
+      err.status = 500;
+      throw err;
+    }
+
+    await ctx.service.pipeline.aggregate.run(slot.brand_id, slot.date);
+    await ctx.service.pipelineEvent.record({
+      brand_id: slot.brand_id, date: slot.date, stage: 'parse',
+      status: 'ok',
+      message: `手动重解析槽位 ${id}`,
+      detail: { slot_id: id, answer_id: answer.answer_id, query_type: fresh.query_type },
+    }).catch(() => {});
+    await ctx.service.pipelineEvent.record({
+      brand_id: slot.brand_id, date: slot.date, stage: 'aggregate',
+      status: 'ok',
+      message: '指标聚合完成（单槽重解析后）',
+      detail: { slot_id: id },
+    }).catch(() => {});
+
+    return {
+      slot_id: id,
+      answer_id: answer.answer_id,
+      brand_id: slot.brand_id,
+      date: slot.date,
+      query_type: fresh.query_type || null,
+      parsed: true,
+      aggregated: true,
+    };
+  }
 }
 module.exports = ParseService;
