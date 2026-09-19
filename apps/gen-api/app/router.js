@@ -8,6 +8,8 @@ module.exports = app => {
   // ============ 认证（对齐契约层 src/api/modules/user.ts） ============
   router.post('/user/login', controller.auth.login);
   router.get('/user/info', jwtAuth, controller.auth.info);
+  router.post('/user/info/update', jwtAuth, controller.auth.updateInfo);
+  router.post('/user/change_password', jwtAuth, controller.auth.changePassword);
   router.post('/api/auth/logout', jwtAuth, controller.auth.logout);
 
   // ============ 品牌列表 ============

@@ -70,11 +70,15 @@ class AuthController extends Controller {
       msg: 'ok',
       data: {
         user_id: user._id,
+        account: user.account || '',
+        name: user.name || '',
+        position: user.position || '',
         brand_id: current ? current.brand_id : '',
         phone: user.phone || '',
         brand: current ? current.name : (user.company || ''),
         company: user.company || '',
         industary: (current && current.industry) || user.industry || '',
+        industry: user.industry || '',
         aliases: aliasRows.map(a => a.alias),
         vip_level: sub ? (sub.vip_level || 'free') : 'free',
         vip_expire_date: sub ? (sub.expire_date || '') : '',
@@ -87,6 +91,94 @@ class AuthController extends Controller {
         keyword_gen_completed_at: task ? (task.keyword_gen_completed_at || null) : null,
       },
     };
+  }
+
+  /** POST /user/info/update —— 个人资料（公司/姓名/职位/行业/手机） */
+  async updateInfo() {
+    const { ctx } = this;
+    const uid = ctx.state.user && ctx.state.user.id;
+    if (!uid) {
+      ctx.status = 401;
+      ctx.body = { code: 401, msg: '未登录' };
+      return;
+    }
+    const b = ctx.request.body || {};
+    const patch = {};
+    if (b.name != null) patch.name = String(b.name).trim().slice(0, 40);
+    if (b.company != null) patch.company = String(b.company).trim().slice(0, 80);
+    if (b.position != null) patch.position = String(b.position).trim().slice(0, 40);
+    if (b.industry != null) patch.industry = String(b.industry).trim().slice(0, 60);
+    if (b.phone != null) {
+      const phone = String(b.phone).trim();
+      if (phone && !/^1\d{10}$/.test(phone)) {
+        ctx.status = 400;
+        ctx.body = { code: 400, msg: '手机号格式不正确' };
+        return;
+      }
+      if (phone) {
+        const hit = await ctx.model.User.findOne({ phone, _id: { $ne: uid } }).lean();
+        if (hit) {
+          ctx.status = 400;
+          ctx.body = { code: 400, msg: '该手机号已被其他账号绑定' };
+          return;
+        }
+      }
+      patch.phone = phone || undefined;
+    }
+    await ctx.model.User.updateOne({ _id: uid }, { $set: patch });
+    const user = await ctx.model.User.findById(uid).lean();
+    ctx.body = {
+      code: 200,
+      msg: 'ok',
+      data: {
+        account: user.account || '',
+        name: user.name || '',
+        phone: user.phone || '',
+        company: user.company || '',
+        position: user.position || '',
+        industry: user.industry || '',
+      },
+    };
+  }
+
+  /** POST /user/change_password —— 修改登录密码 */
+  async changePassword() {
+    const { ctx } = this;
+    const uid = ctx.state.user && ctx.state.user.id;
+    if (!uid) {
+      ctx.status = 401;
+      ctx.body = { code: 401, msg: '未登录' };
+      return;
+    }
+    const b = ctx.request.body || {};
+    const oldPwd = String(b.old_password || b.password || '');
+    const newPwd = String(b.new_password || '');
+    if (!oldPwd || !newPwd) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '请填写当前密码与新密码' };
+      return;
+    }
+    if (newPwd.length < 6) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '新密码至少 6 位' };
+      return;
+    }
+    if (oldPwd === newPwd) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '新密码不能与当前密码相同' };
+      return;
+    }
+    const user = await ctx.model.User.findById(uid).select('+password_hash');
+    if (!user || !user.password_hash || !require('bcryptjs').compareSync(oldPwd, user.password_hash)) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: '当前密码不正确' };
+      return;
+    }
+    const hash = require('bcryptjs').hashSync(newPwd, 10);
+    user.password_hash = hash;
+    user.password_plain = newPwd;
+    await user.save();
+    ctx.body = { code: 200, msg: '密码已更新' };
   }
 
   async logout() {

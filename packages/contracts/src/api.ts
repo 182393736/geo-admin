@@ -27,6 +27,8 @@ export interface UserInfo {
   industary: string; aliases: string[]; vip_level: string; vip_expire_date: string;
   query_limit: number; daily_exec_count: number; first_login: number;
   crawler_started_at: string | null; keyword_gen_started_at: string | null; // onboarding 进度
+  /** 账号资料（个人资料页） */
+  account?: string; name?: string; position?: string; industry?: string;
 }
 
 export interface MenuItem {
