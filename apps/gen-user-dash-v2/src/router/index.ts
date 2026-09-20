@@ -46,6 +46,7 @@ const router = createRouter({
         { path: 'dashboard/plan-upgrade', component: () => import('@/views/pricing/index.vue'), meta: { title: '套餐' } },
         { path: 'dashboard/profile', component: () => import('@/views/profile/index.vue'), meta: { title: '个人资料' } },
         { path: 'dashboard/settings', redirect: '/dashboard/profile' },
+        { path: 'dashboard/support', component: () => import('@/views/support/index.vue'), meta: { title: '联系客服' } },
       ],
     },
   ],
