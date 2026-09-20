@@ -4,6 +4,7 @@ const Controller = require('egg').Controller;
 /**
  * 监控问题与采集状态（排名/口碑页问题列表 + 概览页采集状态卡）
  *  - GET /api/query/list?query_type=industry|brand
+ *    industry：排名词；brand：口碑词；空/all：全部（额度等统计用）
  *  - GET /user/get_query_status
  *
  * 采集之前（S2 尚未运行）时：collect_tasks 为空 → 返回 pending=true 的诚实空态，

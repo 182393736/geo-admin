@@ -388,11 +388,11 @@ type Group = { group_id: string; name: string; query_count: number };
 const route = useRoute();
 const router = useRouter();
 
-/** 口碑菜单 ?type=brand → 仅口碑词；排名入口展示全部分类（对标） */
+/** 口碑菜单 ?type=brand → 仅口碑词；排名入口仅排名词（不含口碑词） */
 const isBrandPage = computed(() => route.query.type === 'brand');
-const listType = computed<'industry' | 'brand' | 'all'>(() => (isBrandPage.value ? 'brand' : 'all'));
+const listType = computed<'industry' | 'brand'>(() => (isBrandPage.value ? 'brand' : 'industry'));
 const defaultAddType = computed<'industry' | 'brand'>(() => (isBrandPage.value ? 'brand' : 'industry'));
-const pageScopeLabel = computed(() => (isBrandPage.value ? '口碑词' : '当前分类'));
+const pageScopeLabel = computed(() => (isBrandPage.value ? '口碑词' : '排名词'));
 
 const rows = ref<Row[]>([]);
 const groups = ref<Group[]>([]);
