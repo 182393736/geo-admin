@@ -20,6 +20,11 @@
         <template #status="{ record }">
           <a-tag :color="statusColor(record.status)">{{ record.status }}</a-tag>
         </template>
+        <template #quota="{ record }">
+          <span :class="{ 'quota-full': record.query_limit != null && (record.query_count || 0) >= record.query_limit }">
+            {{ record.query_count ?? 0 }} / {{ record.query_limit != null ? record.query_limit : '—' }}
+          </span>
+        </template>
         <template #op="{ record }">
           <a-link @click="openDetail(record.brand_id)">详情</a-link>
         </template>
@@ -141,6 +146,7 @@ const cols = [
   { title: '行业', dataIndex: 'industry', width: 140 },
   { title: '账号', dataIndex: 'account', width: 120 },
   { title: '状态', slotName: 'status', width: 100 },
+  { title: '问题数', slotName: 'quota', width: 110 },
   { title: '平台数', dataIndex: 'platforms', width: 90, render: ({ record }: any) => (record.platforms || []).length },
   { title: '剩余改名', dataIndex: 'rename_remaining', width: 90 },
   { title: '创建时间', dataIndex: 'created_at', width: 170 },
@@ -215,6 +221,11 @@ async function saveQueryLimit() {
       detail.value.subscription.query_limit = r.query_limit;
       detail.value.subscription.query_count = r.query_count;
     }
+    const row = rows.value.find(b => b.brand_id === brandId);
+    if (row) {
+      row.query_limit = r.query_limit;
+      if (r.query_count != null) row.query_count = r.query_count;
+    }
     editQueryLimit.value = r.query_limit;
     Message.success(`已将问题额度从 ${r.previous_query_limit} 调整为 ${r.query_limit}`);
   } catch (e: any) {
@@ -244,4 +255,5 @@ onMounted(() => load(1));
   gap: 8px;
 }
 .quota-edit .tip { flex: 1 1 100%; margin-top: 2px; }
+.quota-full { color: #c2410c; font-weight: 600; }
 </style>

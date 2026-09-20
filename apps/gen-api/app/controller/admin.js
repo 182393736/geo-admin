@@ -384,9 +384,39 @@ class AdminController extends Controller {
       M.Brand.find(q).sort({ created_at: -1 }).skip((page - 1) * page_size).limit(page_size).lean(),
     ]);
     const userIds = [...new Set(rows.map(b => b.user_id))];
-    const users = await M.User.find({ _id: { $in: userIds } }).lean();
+    const brandIds = rows.map(b => b.brand_id);
+    const [users, queryCounts, activeSubs, anySubs] = await Promise.all([
+      M.User.find({ _id: { $in: userIds } }).lean(),
+      brandIds.length
+        ? M.MonitorQuery.aggregate([
+          { $match: { brand_id: { $in: brandIds } } },
+          { $group: { _id: '$brand_id', n: { $sum: 1 } } },
+        ])
+        : [],
+      brandIds.length
+        ? M.Subscription.find({ brand_id: { $in: brandIds }, status: 'active' })
+          .sort({ updated_at: -1, created_at: -1 }).lean()
+        : [],
+      brandIds.length
+        ? M.Subscription.find({ brand_id: { $in: brandIds } })
+          .sort({ created_at: -1 }).lean()
+        : [],
+    ]);
     const um = {}; for (const u of users) um[u._id] = u.account || '';
-    this._ok({ list: rows.map(b => this._fmtBrand(b, um[b.user_id] || '')), total, page, page_size });
+    const qm = {}; for (const c of queryCounts) qm[c._id] = c.n;
+    const activeMap = {}; for (const s of activeSubs) { if (!activeMap[s.brand_id]) activeMap[s.brand_id] = s; }
+    const anyMap = {}; for (const s of anySubs) { if (!anyMap[s.brand_id]) anyMap[s.brand_id] = s; }
+    this._ok({
+      list: rows.map(b => {
+        const sub = activeMap[b.brand_id] || anyMap[b.brand_id];
+        return {
+          ...this._fmtBrand(b, um[b.user_id] || ''),
+          query_count: qm[b.brand_id] || 0,
+          query_limit: sub && sub.query_limit != null ? sub.query_limit : null,
+        };
+      }),
+      total, page, page_size,
+    });
   }
 
   async brandDetail() {

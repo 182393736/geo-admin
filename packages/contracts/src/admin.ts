@@ -99,6 +99,10 @@ export interface AdminUserDetail {
 export interface AdminBrandRow {
   brand_id: string; name: string; industry: string; user_id: string; account: string;
   status: string; platforms: string[]; rename_remaining: number; access_type: string;
+  /** 当前监控问题数（MonitorQuery 实计） */
+  query_count?: number;
+  /** 订阅额度上限；无订阅时为 null */
+  query_limit?: number | null;
   created_at: string; updated_at: string;
 }
 export interface AdminBrandDetail {
