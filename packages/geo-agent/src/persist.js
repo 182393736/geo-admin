@@ -112,7 +112,7 @@ async function persistResult(models, opts) {
   let order = 0;
   for (const c of selected) {
     try {
-      const qid = opts.nextSeq ? await opts.nextSeq('monitor_query') : undefined;
+      const qid = opts.nextSeq ? await opts.nextSeq('query_id') : undefined;
       await models.MonitorQuery.create({
         query_id: qid, user_id: opts.userId, brand_id: brandId,
         query: c.query, question_list: c.question_list,
@@ -131,7 +131,7 @@ async function persistResult(models, opts) {
   if (brandName && brandName !== '未命名品牌') {
     const q = `${brandName}怎么样，好不好`;
     try {
-      const qid = opts.nextSeq ? await opts.nextSeq('monitor_query') : undefined;
+      const qid = opts.nextSeq ? await opts.nextSeq('query_id') : undefined;
       await models.MonitorQuery.create({
         query_id: qid, user_id: opts.userId, brand_id: brandId,
         query: q, question_list: [{ user_friendly: q, platform_query: q }],

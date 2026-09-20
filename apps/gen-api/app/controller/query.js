@@ -134,25 +134,32 @@ class QueryController extends Controller {
     const existSet = new Set(existing.map(e => e.query));
     const created = [];
     let orderBase = existing.length;
-    for (const q of lines) {
-      if (existSet.has(q)) continue;
-      const query_id = await ctx.service.onboarding.nextSeq('query_id');
-      const doc = {
-        query_id,
-        user_id: ctx.state.user.id,
-        brand_id: brand.brand_id,
-        query: q,
-        question_list: [{ user_friendly: q, platform_query: q }],
-        query_type: qt,
-        query_status: true,
-        query_is_execute: true,
-        query_order: orderBase++,
-        group_id: b.group_id || null,
-        weight: 1,
-      };
-      await ctx.model.MonitorQuery.create(doc);
-      created.push({ id: query_id, query: q, query_type: qt });
-      existSet.add(q);
+    try {
+      for (const q of lines) {
+        if (existSet.has(q)) continue;
+        const query_id = await ctx.service.onboarding.nextSeq('query_id');
+        const doc = {
+          query_id,
+          user_id: ctx.state.user.id,
+          brand_id: brand.brand_id,
+          query: q,
+          question_list: [{ user_friendly: q, platform_query: q }],
+          query_type: qt,
+          query_status: true,
+          query_is_execute: true,
+          query_order: orderBase++,
+          group_id: b.group_id || null,
+          weight: 1,
+        };
+        await ctx.model.MonitorQuery.create(doc);
+        created.push({ id: query_id, query: q, query_type: qt });
+        existSet.add(q);
+      }
+    } catch (err) {
+      ctx.logger.error('[query.add] %s', err && err.stack || err);
+      ctx.status = 500;
+      ctx.body = { code: 500, msg: (err && err.message) || '添加问题失败' };
+      return;
     }
     const used = await ctx.model.MonitorQuery.countDocuments({ brand_id: brand.brand_id });
     await ctx.model.Subscription.updateMany({ brand_id: brand.brand_id, status: 'active' }, { $set: { query_count: used } }).catch(() => null);
