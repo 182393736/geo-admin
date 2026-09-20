@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <h2 class="page-title">品牌管理</h2>
-    <p class="page-desc">全平台品牌（只读）· 详情下钻：画像 / 别名 / 竞品 / 监控问题 / 订阅 / 采集任务</p>
+    <p class="page-desc">全平台品牌 · 详情下钻：画像 / 别名 / 竞品 / 监控问题 / 订阅 / 采集任务；可单独调整某品牌的监控问题额度</p>
 
     <div class="toolbar">
       <a-input v-model="kw" placeholder="搜索品牌名" style="width: 240px" allow-clear @press-enter="load(1)" />
@@ -75,6 +75,19 @@
             <span class="k">周期</span><span class="v">{{ detail.subscription.start_date }} ~ {{ detail.subscription.expire_date }}</span>
             <span class="k">额度用量</span><span class="v">{{ detail.subscription.query_count }} / {{ detail.subscription.query_limit }}</span>
             <span class="k">状态</span><span class="v">{{ detail.subscription.status }}</span>
+            <span class="k">调整问题额度</span>
+            <span class="v quota-edit">
+              <a-input-number
+                v-model="editQueryLimit"
+                :min="1"
+                :max="500"
+                :precision="0"
+                placeholder="1–500"
+                style="width: 120px"
+              />
+              <a-button type="primary" size="small" :loading="savingLimit" @click="saveQueryLimit">保存</a-button>
+              <span class="muted tip">仅改本品牌订阅，不影响套餐表与其它品牌；购套餐后可能被套餐额度覆盖</span>
+            </span>
           </div>
           <p v-else class="muted">无订阅</p>
 
@@ -111,6 +124,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { Message } from '@arco-design/web-vue';
 import { adminApi } from '@/api/admin';
 import type { AdminBrandRow, AdminBrandDetail } from '@geo-admin/contracts';
 
@@ -155,6 +169,8 @@ const tokenCols = [
 const drawer = ref(false);
 const detail = ref<AdminBrandDetail | null>(null);
 const detailLoading = ref(false);
+const editQueryLimit = ref<number | undefined>(undefined);
+const savingLimit = ref(false);
 
 function statusColor(s: string) {
   return s === 'active' ? 'green' : s === 'building' ? 'arcoblue' : s === 'expired' ? 'orange' : 'red';
@@ -173,7 +189,39 @@ async function load(p = 1) {
 async function openDetail(id: string) {
   drawer.value = true;
   detailLoading.value = true;
-  try { detail.value = await adminApi.brandDetail(id); } finally { detailLoading.value = false; }
+  editQueryLimit.value = undefined;
+  try {
+    detail.value = await adminApi.brandDetail(id);
+    editQueryLimit.value = detail.value?.subscription?.query_limit;
+  } finally { detailLoading.value = false; }
+}
+
+async function saveQueryLimit() {
+  const brandId = detail.value?.brand?.brand_id;
+  const limit = Number(editQueryLimit.value);
+  if (!brandId) return;
+  if (!Number.isFinite(limit) || limit < 1 || limit > 500) {
+    Message.warning('额度须为 1–500 的整数');
+    return;
+  }
+  if (detail.value?.subscription && limit === detail.value.subscription.query_limit) {
+    Message.info('额度未变化');
+    return;
+  }
+  savingLimit.value = true;
+  try {
+    const r = await adminApi.updateBrandQueryLimit(brandId, limit);
+    if (detail.value?.subscription) {
+      detail.value.subscription.query_limit = r.query_limit;
+      detail.value.subscription.query_count = r.query_count;
+    }
+    editQueryLimit.value = r.query_limit;
+    Message.success(`已将问题额度从 ${r.previous_query_limit} 调整为 ${r.query_limit}`);
+  } catch (e: any) {
+    Message.error(e?.message || '调整失败');
+  } finally {
+    savingLimit.value = false;
+  }
 }
 
 onMounted(() => load(1));
@@ -189,4 +237,11 @@ onMounted(() => load(1));
 .comp-row { padding: 6px 0; border-bottom: 1px dashed #eef0f5; font-size: 13px; }
 .comp-row:last-child { border-bottom: none; }
 .comp-name { font-weight: 600; margin-right: 10px; }
+.quota-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.quota-edit .tip { flex: 1 1 100%; margin-top: 2px; }
 </style>

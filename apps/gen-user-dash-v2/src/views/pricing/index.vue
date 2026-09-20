@@ -440,7 +440,13 @@
             <p class="mb-2 max-w-xs text-center text-[11px] leading-relaxed text-muted-foreground">
               购买即代表你同意《透镜GEO 用户协议》，因机制特殊性，付款不支持退款，请知悉。《支付/退款协议》
             </p>
-            <p class="text-xs text-muted-foreground">支付遇到问题？联系客服</p>
+            <button
+              type="button"
+              class="text-xs text-primary hover:underline"
+              @click="router.push('/dashboard/support')"
+            >
+              支付遇到问题？联系客服
+            </button>
           </div>
         </Card>
       </div>
@@ -450,6 +456,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Message } from '@/lib/toast'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -502,6 +509,7 @@ interface PlanCard {
 }
 
 const auth = useAuthStore()
+const router = useRouter()
 const credit = ref(0)
 const creditFrozen = ref(0)
 const creditMeta = reactive({ total_recharge: 0, total_consume: 0, total_expired: 0 })
@@ -830,7 +838,7 @@ async function openWxPay(order: PayOrderCreated, kind: 'plan' | 'recharge') {
 
 async function onPrimary(plan: PlanCard) {
   if (plan.id === 'custom') {
-    Message.info('请联系客服定制方案')
+    router.push('/dashboard/support')
     return
   }
   if (plan.id === 'free') return

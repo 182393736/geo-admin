@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { CreditCard, HelpCircle, LogOut, Plus, UserRound } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
-import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
 const emit = defineEmits<{ close: [] }>()
@@ -55,7 +54,7 @@ function goProfile() {
 }
 function contactSupport() {
   close()
-  toast.info('请添加客服微信或发送邮件至 support@hanyuai.com')
+  router.push('/dashboard/support')
 }
 async function doLogout() {
   close()

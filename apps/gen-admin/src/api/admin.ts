@@ -48,6 +48,16 @@ export const adminApi = {
     post<AdminUserPurgeResult>(`/admin/users/${encodeURIComponent(id)}/purge`, { confirm_account }),
   brands: (p: Record<string, any> = {}) => get<AdminPaged<AdminBrandRow>>(`/admin/brands${qs(p)}`),
   brandDetail: (id: string) => get<AdminBrandDetail>(`/admin/brands/${encodeURIComponent(id)}`),
+  /** 仅调整该品牌订阅的监控问题额度，不影响套餐表与其它品牌 */
+  updateBrandQueryLimit: (id: string, query_limit: number) =>
+    post<{
+      brand_id: string
+      subscription_id: number
+      previous_query_limit: number
+      query_limit: number
+      query_count: number
+      subscription: AdminSubscriptionRow
+    }>(`/admin/brands/${encodeURIComponent(id)}/query-limit`, { query_limit }),
 
   // 采集
   collectTasks: (p: Record<string, any> = {}) => get<AdminPaged<AdminCollectTaskRow>>(`/admin/collect/tasks${qs(p)}`),

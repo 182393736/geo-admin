@@ -428,6 +428,51 @@ class AdminController extends Controller {
     });
   }
 
+  /**
+   * POST /admin/brands/:id/query-limit
+   * 仅调整该品牌当前订阅的监控问题额度（subscriptions.query_limit），
+   * 不改 plans / 其他品牌 / 套餐门控逻辑。购套餐激活仍可能按 plan 回写。
+   */
+  async updateBrandQueryLimit() {
+    const { ctx } = this;
+    const M = ctx.model;
+    const brandId = ctx.params.id;
+    const brand = await M.Brand.findOne({ brand_id: brandId }).lean();
+    if (!brand) {
+      ctx.status = 404;
+      ctx.body = { code: 404, msg: '品牌不存在' };
+      return;
+    }
+    const raw = (ctx.request.body || {}).query_limit;
+    const limit = parseInt(raw, 10);
+    if (!Number.isFinite(limit) || limit < 1 || limit > 500) {
+      ctx.status = 400;
+      ctx.body = { code: 400, msg: 'query_limit 须为 1–500 的整数' };
+      return;
+    }
+    let sub = await M.Subscription.findOne({ brand_id: brandId, status: 'active' })
+      .sort({ updated_at: -1, created_at: -1 });
+    if (!sub) {
+      sub = await M.Subscription.findOne({ brand_id: brandId }).sort({ created_at: -1 });
+    }
+    if (!sub) {
+      ctx.status = 404;
+      ctx.body = { code: 404, msg: '该品牌无订阅记录，无法调整额度' };
+      return;
+    }
+    const prev = sub.query_limit;
+    sub.query_limit = limit;
+    await sub.save();
+    this._ok({
+      brand_id: brandId,
+      subscription_id: sub.subscription_id,
+      previous_query_limit: prev,
+      query_limit: sub.query_limit,
+      query_count: sub.query_count,
+      subscription: this._fmtSubscription(sub.toObject ? sub.toObject() : sub),
+    });
+  }
+
   // ---------- 采集 ----------
   _fmtCollectTask(t) {
     return {
