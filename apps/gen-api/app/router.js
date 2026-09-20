@@ -153,6 +153,7 @@ module.exports = app => {
   router.post('/admin/users/:id/purge', jwtAuth, adminAuth, controller.admin.purgeUser);
   router.get('/admin/brands', jwtAuth, adminAuth, controller.admin.brands);
   router.get('/admin/brands/:id', jwtAuth, adminAuth, controller.admin.brandDetail);
+  router.post('/admin/brands/:id/query-limit', jwtAuth, adminAuth, controller.admin.updateBrandQueryLimit);
   // 采集监控
   router.get('/admin/collect/tasks', jwtAuth, adminAuth, controller.admin.collectTasks);
   router.get('/admin/collect/tasks/:id/slots', jwtAuth, adminAuth, controller.admin.collectSlots);
