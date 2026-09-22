@@ -218,7 +218,7 @@
       </div>
     </div>
 
-    <!-- 预览灯箱：放大后可拖拽 / 滚轮平移，长截图才能看全 -->
+    <!-- 预览灯箱：滚轮缩放 · 拖动平移 -->
     <Teleport to="body">
       <div
         v-if="previewVisible"
@@ -246,8 +246,8 @@
               class="w-full h-auto max-h-[80vh] object-contain select-none"
               :style="{
                 transform: `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})`,
-                cursor: previewScale > 1 ? (previewDragging ? 'grabbing' : 'grab') : 'zoom-in',
-                transition: previewDragging ? 'none' : 'transform 0.15s ease-out',
+                cursor: previewDragging ? 'grabbing' : 'grab',
+                transition: previewDragging ? 'none' : 'transform 0.12s ease-out',
                 transformOrigin: 'center center',
               }"
               @pointerdown="onPreviewPointerDown"
@@ -261,7 +261,7 @@
                 type="button"
                 class="p-2 text-white/90 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
                 title="缩小"
-                :disabled="previewScale <= 1"
+                :disabled="previewScale <= PREVIEW_SCALE_MIN"
                 @click.stop="previewZoomOut"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="8" x2="14" y1="11" y2="11"/></svg>
@@ -271,7 +271,7 @@
                 type="button"
                 class="p-2 text-white/90 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
                 title="放大"
-                :disabled="previewScale >= 3"
+                :disabled="previewScale >= PREVIEW_SCALE_MAX"
                 @click.stop="previewZoomIn"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg>
@@ -288,7 +288,7 @@
               </button>
             </div>
           </div>
-          <p v-if="previewScale > 1" class="mt-2 text-xs text-white/55">放大后可拖动或滚轮平移查看</p>
+          <p class="mt-2 text-xs text-white/55">滚轮缩放 · 拖动平移</p>
         </div>
       </div>
     </Teleport>
@@ -391,6 +391,8 @@ const platformMenuRef = ref<HTMLElement | null>(null);
 const previewVisible = ref(false);
 const previewUrl = ref('');
 const previewItem = ref<SnapshotItem | null>(null);
+const PREVIEW_SCALE_MIN = 0.5;
+const PREVIEW_SCALE_MAX = 4;
 const previewScale = ref(1);
 const previewOffset = reactive({ x: 0, y: 0 });
 const previewDragging = ref(false);
@@ -530,20 +532,29 @@ function resetPreviewView() {
 }
 
 function previewZoomIn() {
-  previewScale.value = Math.min(3, Math.round((previewScale.value + 0.25) * 100) / 100);
+  previewScale.value = Math.min(
+    PREVIEW_SCALE_MAX,
+    Math.round((previewScale.value + 0.25) * 100) / 100,
+  );
 }
 
 function previewZoomOut() {
-  const next = Math.max(1, Math.round((previewScale.value - 0.25) * 100) / 100);
+  const next = Math.max(
+    PREVIEW_SCALE_MIN,
+    Math.round((previewScale.value - 0.25) * 100) / 100,
+  );
   previewScale.value = next;
   if (next <= 1) {
-    previewOffset.x = 0;
-    previewOffset.y = 0;
+    // 缩回适配尺寸时清偏移，避免图像偏出视口
+    if (next === 1) {
+      previewOffset.x = 0;
+      previewOffset.y = 0;
+    }
   }
 }
 
 function togglePreviewZoom() {
-  if (previewScale.value > 1) {
+  if (previewScale.value !== 1) {
     resetPreviewView();
   } else {
     previewScale.value = 1.5;
@@ -551,7 +562,6 @@ function togglePreviewZoom() {
 }
 
 function onPreviewPointerDown(e: PointerEvent) {
-  if (previewScale.value <= 1) return;
   if (e.button != null && e.button !== 0) return;
   previewDragging.value = true;
   previewDragMoved = false;
@@ -585,14 +595,10 @@ function onPreviewClick() {
   togglePreviewZoom();
 }
 
+/** 滚轮始终缩放；平移交给拖动 */
 function onPreviewWheel(e: WheelEvent) {
-  if (previewScale.value <= 1) {
-    // 未放大时用滚轮微调放大，便于长截图逐段看
-    if (e.deltaY < 0) previewZoomIn();
-    return;
-  }
-  previewOffset.x -= e.deltaX;
-  previewOffset.y -= e.deltaY;
+  if (e.deltaY < 0) previewZoomIn();
+  else if (e.deltaY > 0) previewZoomOut();
 }
 
 async function openAnswer(s: SnapshotItem) {
