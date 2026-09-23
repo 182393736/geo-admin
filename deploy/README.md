@@ -1,30 +1,45 @@
-# Docker 一键部署（无需手改配置）
+# Docker 部署（分项目启动）
 
-生产 `.env` 已提交在 `deploy/server/.env`、`deploy/web/.env`。
+配置已写在 `docker-compose.yml` 默认值里，**无需手改**。
 
-## 服务器
+## 分开启动（推荐）
 
 ```bash
-cd ~/geo-admin    # 或 /opt/geo-admin
+cd ~/geo-admin
 git pull
-bash deploy/up.sh
+
+# 只起业务 API + CMS API（6001 / 5001）
+bash deploy/up-server.sh
+
+# 只起官网 + 用户后台（5003 / 5180）
+bash deploy/up-web.sh
 ```
 
-首次若还没有仓库：
+也可用 compose 原生命令：
 
 ```bash
-git clone git@github.com:182393736/geo-admin.git
-cd geo-admin
+cd ~/geo-admin/deploy/server && docker compose up -d --build
+cd ~/geo-admin/deploy/web    && docker compose up -d --build
+```
+
+## 全部一起起（可选）
+
+```bash
 bash deploy/up.sh
 ```
 
-## 端口
+## 停止
 
-| 服务 | 端口 | 域名 |
-|------|------|------|
-| geo-api | 6001 | geo-api.hanyuai.com |
-| site-server | 5001 | geo-site-api.hanyuai.com |
-| site-web | 5003 | geo.hanyuai.com |
-| dash-v2 | 5180 | geo-user-dash.hanyuai.com |
+```bash
+cd ~/geo-admin/deploy/server && docker compose down
+cd ~/geo-admin/deploy/web    && docker compose down
+```
 
-前提：本机 Mongo 已启动（`27017`），Nginx 已按上表反代。
+## 端口 / 域名
+
+| 项目 | 命令 | 端口 | 域名 |
+|------|------|------|------|
+| server | `bash deploy/up-server.sh` | 6001 / 5001 | geo-api / geo-site-api |
+| web | `bash deploy/up-web.sh` | 5003 / 5180 | geo / geo-user-dash |
+
+前提：本机 Mongo `:27017`；Nginx 已反代。
