@@ -36,9 +36,9 @@ FROM node:20-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
-    PORT=3000 \
+    PORT=5003 \
     NITRO_HOST=0.0.0.0 \
-    NITRO_PORT=3000
+    NITRO_PORT=5003
 COPY --from=build /app/apps/site-web/.output ./.output
-EXPOSE 3000
+EXPOSE 5003
 CMD ["node", ".output/server/index.mjs"]

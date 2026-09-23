@@ -27,11 +27,11 @@ cd ~/geo-admin/deploy/server && docker compose down
 cd ~/geo-admin/deploy/web    && docker compose down
 ```
 
-## 端口 / 域名
+## 端口 / 域名（宿主机端口 = 容器内端口）
 
 | 项目 | 命令 | 端口 | 域名 |
 |------|------|------|------|
-| server | `bash deploy/up-server.sh` | 6001 / 5001 | geo-api / geo-site-api |
-| web | `bash deploy/up-web.sh` | 5003 / 5180 / 5002 | geo / geo-user-dash / geo-site-admin |
+| server | `bash deploy/up-server.sh` | `6001:6001` / `5001:5001` | geo-api / geo-site-api |
+| web | `bash deploy/up-web.sh` | `5003:5003` / `5180:5180` / `5002:5002` | geo / geo-user-dash / geo-site-admin |
 
 前提：本机 Mongo `:27017`；Nginx 已反代。

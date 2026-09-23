@@ -28,4 +28,4 @@ RUN pnpm --filter @geo-admin/geo-user-dash-v2 exec vite build
 FROM nginx:1.27-alpine
 COPY apps/geo-user-dash-v2/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/geo-user-dash-v2/dist /usr/share/nginx/html
-EXPOSE 80
+EXPOSE 5180

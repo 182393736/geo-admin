@@ -16,4 +16,4 @@ RUN pnpm --filter @site-manage/admin exec vite build
 FROM nginx:1.27-alpine
 COPY apps/site-admin/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/site-admin/dist /usr/share/nginx/html
-EXPOSE 80
+EXPOSE 5002

@@ -1,5 +1,6 @@
 # 官网 + 用户后台 + CMS 管理端
 # 一键：bash deploy/up-web.sh
+# 端口映射一律「宿主机=容器内」（便于记忆）
 
 name: geo-web
 
@@ -17,11 +18,12 @@ services:
         NUXT_GEO_API_TARGET: ${NUXT_GEO_API_TARGET:-https://geo-api.hanyuai.com}
     restart: unless-stopped
     ports:
-      - "${SITE_WEB_PORT:-5003}:3000"
+      - "${SITE_WEB_PORT:-5003}:5003"
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
-      PORT: "3000"
+      PORT: "5003"
+      NITRO_PORT: "5003"
 
   dash-v2:
     build:
@@ -33,7 +35,7 @@ services:
         VITE_SITE_URL: ${VITE_SITE_URL:-https://geo.hanyuai.com}
     restart: unless-stopped
     ports:
-      - "${DASH_PORT:-5180}:80"
+      - "${DASH_PORT:-5180}:5180"
 
   site-admin:
     build:
@@ -41,6 +43,6 @@ services:
       dockerfile: apps/site-admin/Dockerfile
     restart: unless-stopped
     ports:
-      - "${SITE_ADMIN_PORT:-5002}:80"
+      - "${SITE_ADMIN_PORT:-5002}:5002"
     extra_hosts:
       - "host.docker.internal:host-gateway"
