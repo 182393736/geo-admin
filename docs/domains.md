@@ -59,8 +59,9 @@ pnpm env:local && pnpm dev:site    # 官网 CMS 三端（site-web / site-server 
 pnpm build:test    # 切测试域名后构建后台
 pnpm build:prod    # 切生产域名后构建后台
 
-# 官网 + 用户后台：bash deploy/up-web.sh
-# API 服务：bash deploy/up-server.sh
+# API：bash deploy/up-server.sh
+# 官网+用户后台：bash deploy/up-web.sh
+# 管理总后台：bash deploy/up-admin.sh
 # 详见 deploy/README.md
 ```
 

@@ -8,18 +8,9 @@
 cd ~/geo-admin
 git pull
 
-# 只起业务 API + CMS API（6001 / 5001）
-bash deploy/up-server.sh
-
-# 只起官网 + 用户后台（5003 / 5180）
-bash deploy/up-web.sh
-```
-
-也可用 compose 原生命令：
-
-```bash
-cd ~/geo-admin/deploy/server && docker compose up -d --build
-cd ~/geo-admin/deploy/web    && docker compose up -d --build
+bash deploy/up-server.sh   # 业务 API + CMS API（6001 / 5001）
+bash deploy/up-web.sh      # 官网 + 用户后台（5003 / 5180）
+bash deploy/up-admin.sh    # 管理总后台（6004）
 ```
 
 ## 全部一起起（可选）
@@ -33,6 +24,7 @@ bash deploy/up.sh
 ```bash
 cd ~/geo-admin/deploy/server && docker compose down
 cd ~/geo-admin/deploy/web    && docker compose down
+cd ~/geo-admin/deploy/admin  && docker compose down
 ```
 
 ## 端口 / 域名
@@ -41,5 +33,6 @@ cd ~/geo-admin/deploy/web    && docker compose down
 |------|------|------|------|
 | server | `bash deploy/up-server.sh` | 6001 / 5001 | geo-api / geo-site-api |
 | web | `bash deploy/up-web.sh` | 5003 / 5180 | geo / geo-user-dash |
+| admin | `bash deploy/up-admin.sh` | 6004 | geo-admin |
 
 前提：本机 Mongo `:27017`；Nginx 已反代。
