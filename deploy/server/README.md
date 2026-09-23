@@ -1,9 +1,11 @@
 # 业务 API + CMS API
 
-已含生产 `.env`，直接：
-
 ```bash
-docker compose up -d --build
+# 推荐
+bash deploy/up-server.sh
+
+# 或本目录
+cd deploy/server && docker compose up -d --build
 ```
 
-或仓库根目录：`bash deploy/up.sh`
+停止：`docker compose down`

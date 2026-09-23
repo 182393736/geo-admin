@@ -59,9 +59,9 @@ pnpm env:local && pnpm dev:site    # 官网 CMS 三端（site-web / site-server 
 pnpm build:test    # 切测试域名后构建后台
 pnpm build:prod    # 切生产域名后构建后台
 
-# 官网 + 用户后台 Docker：cd deploy/web && docker compose up -d --build
-# API 服务 Docker：cd deploy/server && docker compose up -d --build
-# 详见 docs/deploy-docker-web.md / docs/deploy-docker-server.md
+# 官网 + 用户后台：bash deploy/up-web.sh
+# API 服务：bash deploy/up-server.sh
+# 详见 deploy/README.md
 ```
 
 生产域名若与上表不符，只改 `config/environments.json` 的对应字段，再 `pnpm env:*`。

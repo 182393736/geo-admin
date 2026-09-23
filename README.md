@@ -42,21 +42,17 @@ pnpm env:prod    # 生产
 | API | `http://127.0.0.1:6001` | `test-geo-api.hanyuai.com` | `geo-api.hanyuai.com` |
 | 管理总后台 | `http://localhost:6004` | `test-geo-admin.hanyuai.com` | `geo-admin.hanyuai.com` |
 
-## Docker 一键部署
+## Docker 生产部署
 
-先 `pnpm env:test` 或 `pnpm env:prod` 写出域名，再 compose：
+配置已内置，**无需手改**。详见 [`deploy/README.md`](./deploy/README.md)。
 
 ```bash
-# API（含 Mongo）
-cd apps/geo-api && docker compose up -d --build
+cd ~/geo-admin && git pull
 
-# 用户后台
-cd apps/geo-user-dash && docker compose up -d --build
-
-# 官网已废弃 —— 请用 site-manage-monorepo/apps/web
+bash deploy/up-server.sh   # API：6001 / 5001
+bash deploy/up-web.sh      # 官网+后台：5003 / 5180
+# bash deploy/up.sh        # 可选：两套一起起
 ```
-
-各目录另有 `DOCKER.md`。
 
 ## 开发
 

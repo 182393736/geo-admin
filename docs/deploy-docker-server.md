@@ -1,14 +1,10 @@
 # API Docker 部署
 
-与官网一起用一键脚本即可：
-
 ```bash
-bash deploy/up.sh
+cd ~/geo-admin
+git pull
+bash deploy/up-server.sh
 ```
 
-单独启动 API：
-
-```bash
-cd deploy/server
-docker compose up -d --build
-```
+仅起业务 API（`:6001`）+ CMS API（`:5001`）。  
+官网用 `bash deploy/up-web.sh`。详见 [`deploy/README.md`](../deploy/README.md)。
