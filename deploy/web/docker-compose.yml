@@ -42,7 +42,5 @@ services:
     restart: unless-stopped
     ports:
       - "${SITE_ADMIN_PORT:-5002}:80"
-    environment:
-      CMS_API_UPSTREAM: ${CMS_API_UPSTREAM:-http://host.docker.internal:5001}
     extra_hosts:
       - "host.docker.internal:host-gateway"

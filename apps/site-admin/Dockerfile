@@ -14,7 +14,6 @@ COPY apps/site-admin apps/site-admin
 RUN pnpm --filter @site-manage/admin exec vite build
 
 FROM nginx:1.27-alpine
-COPY apps/site-admin/nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY apps/site-admin/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/site-admin/dist /usr/share/nginx/html
-ENV CMS_API_UPSTREAM=http://host.docker.internal:5001
 EXPOSE 80
