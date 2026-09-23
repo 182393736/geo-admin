@@ -5,7 +5,7 @@
  *   POST /collector/slots/:slot_id/submit
  * 鉴权：Authorization: Bearer <COLLECTOR_API_KEY> 或 X-Collector-Key
  *
- * 支持运行时切换 API 目标（本地 / 测试服务器），选择持久化到 userData。
+ * 支持运行时切换 API 目标（本地 / 测试 / 生产），选择持久化到 userData。
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -21,12 +21,17 @@ const TARGETS = {
     label: '测试服务器',
     baseUrl: process.env.GEO_API_BASE_TEST || 'https://test-geo-api.hanyuai.com',
   },
+  prod: {
+    id: 'prod',
+    label: '生产服务器',
+    baseUrl: process.env.GEO_API_BASE_PROD || 'https://geo-api.hanyuai.com',
+  },
 };
 
 const DEFAULT_KEY =
   process.env.COLLECTOR_API_KEY || 'collector-dev-key-8f3a1c2e9d7b4a5f';
 
-/** @type {'local'|'test'} */
+/** @type {'local'|'test'|'prod'} */
 let currentTargetId = 'local';
 let persistPath = '';
 
@@ -60,8 +65,9 @@ function loadTarget(userDataDir) {
       }
     }
   } catch { /* ignore */ }
-  // 无持久化时：若 GEO_API_BASE 指向测试域则默认 test，否则 local
+  // 无持久化时：按 GEO_API_BASE 推断默认目标
   if (/test-geo-api\.hanyuai\.com/i.test(envForce)) currentTargetId = 'test';
+  else if (/^https?:\/\/geo-api\.hanyuai\.com/i.test(envForce)) currentTargetId = 'prod';
   else if (envForce && /127\.0\.0\.1|localhost/i.test(envForce)) currentTargetId = 'local';
   return getConfig();
 }

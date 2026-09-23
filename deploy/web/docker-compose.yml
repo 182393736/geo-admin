@@ -1,5 +1,5 @@
-# 官网 + 用户后台
-# 一键：bash deploy/up.sh
+# 官网 + 用户后台 + CMS 管理端
+# 一键：bash deploy/up-web.sh
 
 name: geo-web
 
@@ -34,3 +34,15 @@ services:
     restart: unless-stopped
     ports:
       - "${DASH_PORT:-5180}:80"
+
+  site-admin:
+    build:
+      context: ../..
+      dockerfile: apps/site-admin/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${SITE_ADMIN_PORT:-5002}:80"
+    environment:
+      CMS_API_UPSTREAM: ${CMS_API_UPSTREAM:-http://host.docker.internal:5001}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

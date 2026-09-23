@@ -16,6 +16,7 @@
           <span class="crumb">GEO 平台 · {{ currentTitle }}</span>
         </div>
         <div class="header-right">
+          <ApiTargetSwitch />
           <a-tag color="arcoblue" v-if="auth.admin">管理员 · {{ auth.admin.account }}</a-tag>
           <a-button size="small" @click="logout">退出登录</a-button>
         </div>
@@ -31,6 +32,7 @@
 import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import ApiTargetSwitch from '@/components/ApiTargetSwitch.vue';
 
 const route = useRoute();
 const router = useRouter();

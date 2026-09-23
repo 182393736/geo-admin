@@ -5,7 +5,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  /** 当前 geo-api 目标（local / test） */
+  /** 当前 geo-api 目标（local / test / prod） */
   getCollectorApiTarget: () => ipcRenderer.invoke('collector:get-api-target'),
   /** 切换 geo-api 目标 */
   setCollectorApiTarget: targetId => ipcRenderer.invoke('collector:set-api-target', targetId),

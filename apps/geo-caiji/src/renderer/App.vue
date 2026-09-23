@@ -224,6 +224,7 @@ const apiTargetId = ref('local');
 const apiTargets = ref([
   { id: 'local', label: '本地', baseUrl: 'http://127.0.0.1:6001' },
   { id: 'test', label: '测试服务器', baseUrl: 'https://test-geo-api.hanyuai.com' },
+  { id: 'prod', label: '生产服务器', baseUrl: 'https://geo-api.hanyuai.com' },
 ]);
 const apiTargetUrl = ref('http://127.0.0.1:6001');
 let committedApiTargetId = 'local';

@@ -276,7 +276,7 @@ function bindPlatformPageClose(ip, platform, page) {
 }
 
 function registerIpc() {
-  // —— API 目标：本地 / 测试服务器 ——
+  // —— API 目标：本地 / 测试 / 生产 ——
   ipcMain.handle('collector:get-api-target', async () => {
     return { ok: true, ...getCollectorConfig(), targets: listTargets() };
   });

@@ -7,6 +7,10 @@
       </div>
       <h1 class="title">管理员登录</h1>
       <p class="subtitle">仅限平台运营管理员账号（is_superuser）</p>
+      <div class="target-row">
+        <ApiTargetSwitch />
+        <span class="target-url" :title="apiTarget.displayUrl">{{ apiTarget.displayUrl }}</span>
+      </div>
       <form @submit.prevent="handleSubmit">
         <a-input v-model="account" placeholder="管理员账号" size="large" allow-clear class="field" />
         <a-input-password v-model="password" placeholder="密码" size="large" class="field" />
@@ -15,7 +19,7 @@
           登录
         </a-button>
       </form>
-      <p class="hint">本地默认管理员：123456 / 123456</p>
+      <p class="hint">本地默认管理员：123456 / 123456（切测试/生产请用对应环境账号）</p>
     </div>
   </div>
 </template>
@@ -24,9 +28,12 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { useApiTargetStore } from '@/stores/apiTarget';
+import ApiTargetSwitch from '@/components/ApiTargetSwitch.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
+const apiTarget = useApiTargetStore();
 const account = ref('');
 const password = ref('');
 const errMsg = ref('');
@@ -61,6 +68,15 @@ async function handleSubmit() {
 .logo-text { font-weight: 700; color: #1f2430; }
 .title { font-size: 22px; margin: 0 0 4px; color: #1f2430; }
 .subtitle { font-size: 13px; color: #6b7280; margin: 0 0 20px; }
+.target-row {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-bottom: 16px; padding: 10px 12px;
+  background: #f8fafc; border-radius: 8px;
+}
+.target-url {
+  font-size: 11px; color: #9ca3af; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
 .field { margin-bottom: 14px; }
 .err-msg { color: #ef4444; font-size: 13px; margin: 4px 0 8px; }
 .submit { margin-top: 4px; }

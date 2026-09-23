@@ -50,9 +50,9 @@ pnpm env:prod    # 生产
 cd ~/geo-admin && git pull
 
 bash deploy/up-server.sh   # API：6001 / 5001
-bash deploy/up-web.sh      # 官网+后台：5003 / 5180
-bash deploy/up-admin.sh    # 管理总后台：6004
-# bash deploy/up.sh        # 可选：全部一起起
+bash deploy/up-web.sh      # 官网+后台+CMS管理：5003 / 5180 / 5002
+# bash deploy/up.sh        # 可选：两套一起起
+# 管理总后台本地：pnpm dev:admin（可切换本地/测试/生产 API）
 ```
 
 ## 开发
