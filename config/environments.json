@@ -1,0 +1,48 @@
+{
+  "$schema_comment": "geo-admin 三环境。geoApi=业务 API；siteCms=网站 CMS API（apps/site-server），二者域名必须不同。",
+  "local": {
+    "label": "本地",
+    "geoApi": "http://127.0.0.1:6001",
+    "geoDash": "http://127.0.0.1:5180",
+    "geoDashV1": "http://localhost:6002",
+    "geoAdmin": "http://localhost:6004",
+    "siteWeb": "http://localhost:5003",
+    "siteCms": "http://127.0.0.1:5001",
+    "siteAdmin": "http://localhost:5002",
+    "siteMongoUrl": "mongodb://127.0.0.1:27017/site_manage",
+    "viteApiBase": "",
+    "mongoUrl": "mongodb://127.0.0.1:27017/geo",
+    "publicApiUrl": "http://127.0.0.1:6001",
+    "apiPort": "6001"
+  },
+  "test": {
+    "label": "测试",
+    "geoApi": "https://test-geo-api.hanyuai.com",
+    "geoDash": "https://test-geo-user-dash.hanyuai.com",
+    "geoDashV1": "https://test-geo-user-dash.hanyuai.com",
+    "geoAdmin": "https://test-geo-admin.hanyuai.com",
+    "siteWeb": "https://test-geo.hanyuai.com",
+    "siteCms": "https://test-geo-site-api.hanyuai.com",
+    "siteAdmin": "https://test-geo-site-admin.hanyuai.com",
+    "siteMongoUrl": "mongodb://mongo:27017/site_manage",
+    "viteApiBase": "https://test-geo-api.hanyuai.com",
+    "mongoUrl": "mongodb://mongo:27017/geo",
+    "publicApiUrl": "https://test-geo-api.hanyuai.com",
+    "apiPort": "6001"
+  },
+  "prod": {
+    "label": "生产",
+    "geoApi": "https://geo-api.hanyuai.com",
+    "geoDash": "https://geo-user-dash.hanyuai.com",
+    "geoDashV1": "https://geo-user-dash.hanyuai.com",
+    "geoAdmin": "https://geo-admin.hanyuai.com",
+    "siteWeb": "https://geo.hanyuai.com",
+    "siteCms": "https://geo-site-api.hanyuai.com",
+    "siteAdmin": "https://geo-site-admin.hanyuai.com",
+    "siteMongoUrl": "mongodb://mongo:27017/site_manage",
+    "viteApiBase": "https://geo-api.hanyuai.com",
+    "mongoUrl": "mongodb://mongo:27017/geo",
+    "publicApiUrl": "https://geo-api.hanyuai.com",
+    "apiPort": "6001"
+  }
+}

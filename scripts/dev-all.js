@@ -2,11 +2,12 @@
 /**
  * dev:all —— 本地开发一键启动（仅限本地使用！）
  * ------------------------------------------------------------------
- * 依次拉起：MongoDB(内存,固定端口) → gen-api → gen-user-dash → gen-user-site → gen-test
+ * 依次拉起：MongoDB(内存) → geo-api → geo-user-dash-v2 → geo-test → geo-admin
+ * 用户前台请另开 site-manage-monorepo：`pnpm dev:web`（:5003）
  * 所有服务共用一个 MongoDB（mongodb://127.0.0.1:6007/geo_dev），
- * 保证 gen-test 的「删除任务数据」能清理 gen-api 的业务库。
+ * 保证 geo-test 的「删除任务数据」能清理 geo-api 的业务库。
  *
- * 端口约定见 scripts/dev-ports.js（全部 600x，避免与其它项目冲突）。
+ * 端口约定见 scripts/dev-ports.js。
  * ⚠️ 仅限本地开发：NODE_ENV=production 时直接拒绝启动。
  * 用法：pnpm dev:all        （Ctrl+C 一键停止全部）
  *       DEV_ALL_NO_OPEN=1 pnpm dev:all   （不自动打开浏览器）
@@ -49,9 +50,9 @@ const PNPM = process.env.npm_execpath && /pnpm/i.test(process.env.npm_execpath)
 
 const SERVICES = {
   mongo: { port: MONGO_PORT, host: '127.0.0.1', label: 'MongoDB(内存)', url: MONGO_URL },
-  api:   { port: PORTS.api,   host: '127.0.0.1', label: 'gen-api 后端',  url: `http://127.0.0.1:${PORTS.api}` },
-  dash:  { port: PORTS.dash,  host: '127.0.0.1', label: '用户后台',      url: `http://localhost:${PORTS.dash}` },
-  site:  { port: PORTS.site,  host: 'localhost', label: '官网/首登站',   url: `http://localhost:${PORTS.site}` },
+  api:   { port: PORTS.api,   host: '127.0.0.1', label: 'geo-api 后端',  url: `http://127.0.0.1:${PORTS.api}` },
+  dash:  { port: PORTS.dashV2, host: '127.0.0.1', label: '用户后台 v2',  url: `http://127.0.0.1:${PORTS.dashV2}` },
+  site:  { port: PORTS.site,  host: 'localhost', label: '用户前台(外)', url: `http://localhost:${PORTS.site}` },
   test:  { port: PORTS.test,  host: '127.0.0.1', label: '测试程序',      url: `http://localhost:${PORTS.test}` },
   admin: { port: PORTS.admin, host: '127.0.0.1', label: '管理总后台',    url: `http://localhost:${PORTS.admin}` },
 };
@@ -186,7 +187,7 @@ async function startIfFree(name, start) {
   } else {
     try {
       await run('mongo', process.execPath,
-        [path.join(ROOT, 'apps/gen-api/scripts/dev-mongo-fixed.js'), String(MONGO_PORT)],
+        [path.join(ROOT, 'apps/geo-api/scripts/dev-mongo-fixed.js'), String(MONGO_PORT)],
         { waitFor: 'mongod 已启动' });
       console.log('[mongo] ✅ 已就绪 → ' + MONGO_URL);
     } catch (e) {
@@ -195,11 +196,11 @@ async function startIfFree(name, start) {
     }
   }
 
-  // 内存库被复用但数据已空时：旧 gen-api 占着 6001 会跳过启动 → 套餐种子不跑 → 测试第 19 步只剩 2 张卡。
+  // 内存库被复用但数据已空时：旧 geo-api 占着 6001 会跳过启动 → 套餐种子不跑 → 测试第 19 步只剩 2 张卡。
   // 发现套餐为空时强制重启 api，让 seed.js 重新写入 19 档价目。
   const planCount = await countPlans();
   if (planCount === 0 && await portInUse(SERVICES.api.port, SERVICES.api.host)) {
-    console.log('[api] ⚠️  套餐价目为空（plans=0），强制重启 gen-api 以重新 seed…');
+    console.log('[api] ⚠️  套餐价目为空（plans=0），强制重启 geo-api 以重新 seed…');
     killPortListeners(SERVICES.api.port);
     await new Promise(r => setTimeout(r, 1200));
   } else if (planCount > 0) {
@@ -208,28 +209,30 @@ async function startIfFree(name, start) {
 
   // 2) 其余服务（各自等待就绪标记）
   try {
-    await startIfFree('api', () => run('api', PNPM, ['--filter', '@geo-admin/gen-api', 'dev'],
+    await startIfFree('api', () => run('api', PNPM, ['--filter', '@geo-admin/geo-api', 'dev'],
       { env: { MONGO_URL, PORT: String(SERVICES.api.port) }, waitFor: 'egg started' }));
   } catch (e) { console.error('[api] ❌ ' + e.message); }
 
   try {
-    await startIfFree('dash', () => run('dash', PNPM, ['--filter', '@geo-admin/gen-user-dash', 'dev'],
+    await startIfFree('dash', () => run('dash', PNPM, ['--filter', '@geo-admin/geo-user-dash-v2', 'dev'],
       { waitFor: 'ready in' }));
   } catch (e) { console.error('[dash] ❌ ' + e.message); }
 
-  try {
-    await startIfFree('site', () => run('site', PNPM, ['--filter', '@geo-admin/gen-user-site', 'dev'],
-      { waitFor: 'Local:' }));
-  } catch (e) { console.error('[site] ❌ ' + e.message); }
+  // 用户前台在 site-manage-monorepo；此处只提示，不阻塞
+  if (await portInUse(SERVICES.site.port, SERVICES.site.host)) {
+    console.log(`[site] ✅ 已检测到用户前台 → ${SERVICES.site.url}`);
+  } else {
+    console.log(`[site] ⚠️  未检测到 ${SERVICES.site.url}，请另开终端：cd ../site-manage-monorepo && pnpm dev:web`);
+  }
 
   try {
-    await startIfFree('test', () => run('test', PNPM, ['--filter', '@geo-admin/gen-test', 'dev'],
+    await startIfFree('test', () => run('test', PNPM, ['--filter', '@geo-admin/geo-test', 'dev'],
       {
         env: {
           TEST_MONGO_URL: MONGO_URL,
           PORT: String(SERVICES.test.port),
-          DASH_URL: SERVICES.dash.url.replace('localhost', '127.0.0.1'),
-          SITE_URL: SERVICES.site.url,
+          DASH_URL: SERVICES.dash.url,
+          SITE_URL: process.env.SITE_URL || SERVICES.site.url,
           API_URL: SERVICES.api.url,
           ADMIN_URL: SERVICES.admin.url,
         },
@@ -238,7 +241,7 @@ async function startIfFree(name, start) {
   } catch (e) { console.error('[test] ❌ ' + e.message); }
 
   try {
-    await startIfFree('admin', () => run('admin', PNPM, ['--filter', '@geo-admin/gen-admin', 'dev'],
+    await startIfFree('admin', () => run('admin', PNPM, ['--filter', '@geo-admin/geo-admin', 'dev'],
       { waitFor: 'ready in' }));
   } catch (e) { console.error('[admin] ❌ ' + e.message); }
 
@@ -252,10 +255,12 @@ async function startIfFree(name, start) {
   console.log('  按 Ctrl+C 停止全部服务。');
   console.log('');
 
-  // 自动在默认浏览器打开网页（dash / site / test / admin）
+  // 自动在默认浏览器打开网页（dash / test / admin；site 若已起则一并打开）
   if (AUTO_OPEN) {
     console.log('  🌐 正在默认浏览器打开网页…');
-    for (const k of ['dash', 'site', 'test', 'admin']) {
+    const openKeys = ['dash', 'test', 'admin'];
+    if (await portInUse(SERVICES.site.port, SERVICES.site.host)) openKeys.splice(1, 0, 'site');
+    for (const k of openKeys) {
       const ok = await openBrowser(SERVICES[k].url);
       console.log(`     ${ok ? '✅' : '⚠️ '}${SERVICES[k].label.padEnd(12, '　')} ${SERVICES[k].url}${ok ? '' : '（无法自动打开，请手动访问）'}`);
     }

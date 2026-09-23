@@ -2,9 +2,9 @@
  * 全平台共享枚举（单一事实源）
  * ------------------------------------------------------------------
  * 全部用 `as const` 数组 + `typeof[number]` 联合类型，不用 TS `enum`：
- *  - 运行时 JS（gen-api / geo-agent / 采集程序）拿到的是数组/对象
+ *  - 运行时 JS（geo-api / geo-agent / 采集程序）拿到的是数组/对象
  *  - TS 消费方拿到字面量联合类型，改一处全仓生效
- * 来源：apps/gen-api/app/model/*.js 的 Mongoose enum + 线上实测契约。
+ * 来源：apps/geo-api/app/model/*.js 的 Mongoose enum + 线上实测契约。
  */
 
 // ==================== 平台 / 引擎 ====================
@@ -14,7 +14,7 @@
  * 【千问 qwen 暂移除 · 待后续接入】TODO(qwen)：
  *   - 对标站 geoapi.timus.cn 展示 5 家引擎：doubao / wenxin / deepseek / qwen / yuanbao。
  *   - 我方采集与计分当前仅 4 家（doubao/deepseek/wenxin/yuanbao），通义千问 qwen 暂不采集、暂不计分。
- *   - API 响应（summary/source 域）仍按对标 5 家形状输出，qwen 以空列呈现（未提及/0），见 apps/gen-api/app/controller/{summary,source}.js 的 PLATFORMS / ENGINE_ORDER。
+ *   - API 响应（summary/source 域）仍按对标 5 家形状输出，qwen 以空列呈现（未提及/0），见 apps/geo-api/app/controller/{summary,source}.js 的 PLATFORMS / ENGINE_ORDER。
  *   - 后续接 qwen 时：① 本文件与 constants.ts 的 ENGINE_KEYS/PLATFORMS 加回 'qwen'；② 恢复采集平台与 gen-caigi/src/shared/platforms.json；③ 同步 contracts/test/smoke.{cjs,mjs} 断言。
  */
 export const ENGINE_KEYS = ['doubao', 'deepseek', 'wenxin', 'yuanbao'] as const;

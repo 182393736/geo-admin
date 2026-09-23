@@ -1,0 +1,21 @@
+# geo-user-site 独立一键部署
+# 用法：cp .env.example .env && docker compose up -d --build
+name: geo-site
+
+services:
+  site:
+    build:
+      context: ../..
+      dockerfile: apps/geo-user-site/Dockerfile
+      args:
+        NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-/geo-api}
+        NUXT_PUBLIC_CONSOLE_URL: ${NUXT_PUBLIC_CONSOLE_URL}
+        NUXT_GEO_API_TARGET: ${NUXT_GEO_API_TARGET:-http://host.docker.internal:6001}
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-/geo-api}
+      NUXT_PUBLIC_CONSOLE_URL: ${NUXT_PUBLIC_CONSOLE_URL}
+    ports:
+      - "${SITE_PORT:-6003}:3000"

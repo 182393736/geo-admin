@@ -1,7 +1,7 @@
 /**
- * 管理员总后台（gen-admin）契约类型
+ * 管理员总后台（geo-admin）契约类型
  * ------------------------------------------------------------------
- * 数据源：apps/gen-api/app/controller/admin.js（只读监控 API，/admin/**）
+ * 数据源：apps/geo-api/app/controller/admin.js（只读监控 API，/admin/**）
  * 响应统一壳 { code: 200, msg, data }；列表统一 { list, total, page, page_size }。
  */
 export interface AdminMe {

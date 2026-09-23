@@ -1,0 +1,29 @@
+{
+  "name": "@geo-admin/geo-user-site",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "deprecated": "用户网页端已迁移至 site-manage-monorepo/apps/web；本包过期无效，勿再启动或部署。",
+  "description": "[DEPRECATED] 原透镜GEO 官网 —— 已迁移至 site-manage-monorepo/apps/web",
+  "scripts": {
+    "dev": "node ../../scripts/deprecated-user-site.js",
+    "build": "node ../../scripts/deprecated-user-site.js",
+    "generate": "node ../../scripts/deprecated-user-site.js",
+    "preview": "node ../../scripts/deprecated-user-site.js",
+    "dev:legacy": "nuxt dev --port 6003",
+    "build:legacy": "nuxt build",
+    "preview:legacy": "nuxt preview --port 6003",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "^3.21.11",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

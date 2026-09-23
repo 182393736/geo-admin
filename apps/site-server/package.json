@@ -1,0 +1,38 @@
+{
+  "name": "@site-manage/server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "多网站管理系统 - 后台 API (Egg.js + Mongoose)",
+  "egg": {
+    "declarations": true
+  },
+  "scripts": {
+    "dev": "egg-bin dev --port 5001",
+    "start": "egg-scripts start --daemon --title=site-manage-server --port 5001",
+    "start:docker": "egg-scripts start --daemon=false --title=site-manage-server --workers=1 --port 5001",
+    "stop": "egg-scripts stop --title=site-manage-server",
+    "build": "echo \"eggjs no build step\"",
+    "lint": "eslint . || true",
+    "seed": "node scripts/seed.js",
+    "seed:flagship": "node scripts/seed-flagship-pages.js",
+    "seed:cms": "node scripts/seed-cms-localhost.js",
+    "seed:samples": "node scripts/seed-cms-samples.js",
+    "test": "egg-bin test"
+  },
+  "dependencies": {
+    "egg": "^3.27.1",
+    "egg-cors": "^3.0.1",
+    "egg-mongoose": "^4.0.1",
+    "egg-scripts": "^2.17.0",
+    "mongoose": "^8.9.0"
+  },
+  "devDependencies": {
+    "egg-bin": "^6.13.0",
+    "egg-mock": "^5.13.0",
+    "eslint": "^8.57.0",
+    "eslint-config-egg": "^14.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

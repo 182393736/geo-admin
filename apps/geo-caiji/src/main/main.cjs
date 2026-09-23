@@ -1,0 +1,731 @@
+'use strict';
+/**
+ * 采集应用主进程
+ *  - 渲染窗口：首页 IP 列表（Element Plus 表格）
+ *  - IP 列表拉取：Node fetch 调公开 POST http://api.tupianseo.com/daili/daili_list（规避渲染层 CORS）
+ *  - 会话隔离：每个 IP 一个独立浏览器（playwright launchPersistentContext，userDataDir=profiles/<ip>）
+ *  - 平台标签页：同一 IP 会话内 newPage 打开 5 个 AI 平台（同窗口多 tab）
+ *
+ * 本轮：IP 列表 + 浏览器会话 + 平台对话测试 + 测试拉取（pull→采集→submit）
+ */
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('node:path');
+const fs = require('node:fs');
+const { chromium } = require('playwright');
+const PLATFORMS = require('../shared/platforms.json');
+const { detectAuth, watchUsername } = require('./login-detect.cjs');
+const { runChat, saveResult, buildJsonPreviewHtml, buildSubmitJson } = require('./chat/index.cjs');
+const { captureConversationScreenshot } = require('./chat/common.cjs');
+const { pullSlot, submitSlot, getConfig: getCollectorConfig, loadTarget, setTarget, listTargets } = require('./collector-api.cjs');
+const { uploadShotPair, getOssConfig } = require('./oss/upload.cjs');
+
+const IP_LIST_URL = 'http://api.tupianseo.com/daili/daili_list';
+
+/** 反自动化指纹脚本：注入到每个平台页面，削弱风控对 webdriver / 自动化特征的识别 */
+const STEALTH_INIT = `(() => {
+  if (window.__geoStealthApplied) return;
+  window.__geoStealthApplied = true;
+  try { Object.defineProperty(navigator, 'webdriver', { get: () => undefined }); } catch (e) {}
+  try { window.chrome = window.chrome || { runtime: {} }; } catch (e) {}
+  try { Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en'] }); } catch (e) {}
+  try {
+    const makePlugins = () => {
+      const arr = [1, 2, 3, 4, 5];
+      arr.item = () => null;
+      arr.namedItem = () => null;
+      arr.refresh = () => {};
+      return arr;
+    };
+    Object.defineProperty(navigator, 'plugins', { get: makePlugins });
+  } catch (e) {}
+  try {
+    const gp = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function (p) {
+      if (p === 37445) return 'Intel Inc.';
+      if (p === 37446) return 'Intel Iris OpenGL Engine';
+      return gp.call(this, p);
+    };
+  } catch (e) {}
+})();`;
+
+// 应用名固定，保证 userData 目录稳定（与包名里的 @scope/ 无关）
+app.setName('geo-caiji');
+
+/** ip -> { context, pages: Map<platform, Page>, dir } */
+const sessions = new Map();
+
+/** 对话测试：最近一次结果 `${ip}:${platform}` -> { htmlPath, jsonPath, shotPath } */
+const lastResults = new Map();
+/** 对话测试：进行中的 `${ip}:${platform}` 集合（防重入） */
+const runningChats = new Set();
+/** 测试拉取：按 `${ip}:${platform}` 防重入（一次只拉一个平台槽位） */
+const runningPulls = new Set();
+
+/** 对话/采集硬超时：整个流程超过即中止并返回错误（须短于服务端 runningTtl 15 分钟） */
+const CHAT_TIMEOUT_MS = 600_000; // 10 分钟
+
+/**
+ * 在指定 IP 会话上执行一次平台对话（打开/复用 tab → goto 初始 URL → runChat → 落盘）
+ * @returns {{ openedPlatform, answer, sources, htmlPath, jsonPath, shotPath, submitBody }}
+ */
+async function executePlatformChat(ip, platform, prompt, log, startedAt = new Date()) {
+  const cfg = PLATFORMS.find(p => p.key === platform);
+  if (!cfg) throw new Error(`未知平台：${platform}`);
+  const q = String(prompt || '').trim();
+  if (!q) throw new Error('请输入测试问题');
+
+  let openedPlatform = false;
+  const s = await getSession(ip);
+  let page = s.pages.get(platform);
+  if (!page || page.isClosed()) {
+    page = await s.context.newPage();
+    s.pages.set(platform, page);
+    bindPlatformPageClose(ip, platform, page);
+    openedPlatform = true;
+  }
+  log('info', `打开新对话：${cfg.url}`);
+  await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  log('info', `开始 ${cfg.name} 对话：${q}`);
+  const r = await runChat(page, platform, q, log);
+
+  // 对话结束后截完整回答（撑开内部滚动容器，不只截当前视口）
+  let screenshot = null;
+  try {
+    // 文心：先展开上方「共参考N篇资料」，与回答一并入镜
+    if (platform === 'wenxin') {
+      try {
+        const { openSourcesPanel } = require('./chat/wenxin.cjs');
+        await openSourcesPanel(page, log, { force: true });
+        await new Promise(r => setTimeout(r, 600));
+      } catch (e) {
+        log('warn', `展开文心参考资料失败：${(e && e.message) || e}`);
+      }
+    }
+    screenshot = await captureConversationScreenshot(page, { platform, log });
+  } catch (e) {
+    log('warn', `对话截图失败：${(e && e.message) || e}`);
+  }
+
+  const saved = await saveResult(resultsDirFor(ip), {
+    ip,
+    platform,
+    platformName: cfg.name,
+    prompt: q,
+    answer: r.answer || '',
+    answerHtml: r.answerHtml || '',
+    sources: r.sources || [],
+    startedAt,
+    screenshot,
+  });
+  lastResults.set(`${ip}:${platform}`, saved);
+  const shotTip = saved.shotPath
+    ? ` / 截图 ${saved.shotRawBytes || 0}→${saved.shotBytes || 0}B (${saved.shotEngine || '-'})`
+    : '';
+  log(
+    'success',
+    `对话完成：回答 ${(r.answer || '').length} 字，信源 ${(r.sources || []).length} 条，已保存 ${saved.htmlPath} / ${saved.jsonPath}${shotTip}`
+  );
+  let submitBody = null;
+  try {
+    submitBody = JSON.parse(fs.readFileSync(saved.jsonPath, 'utf8'));
+  } catch {
+    submitBody = buildSubmitJson({
+      ip,
+      platform,
+      platformName: cfg.name,
+      prompt: q,
+      answer: r.answer || '',
+      sources: r.sources || [],
+      startedAt,
+      finishedAt: new Date(),
+    });
+  }
+  return {
+    openedPlatform,
+    answer: r.answer || '',
+    sources: r.sources || [],
+    htmlPath: saved.htmlPath,
+    jsonPath: saved.jsonPath,
+    shotPath: saved.shotPath || null,
+    shotRawPath: saved.shotRawPath || null,
+    shotComparePath: saved.shotComparePath || null,
+    shotBytes: saved.shotBytes || 0,
+    shotRawBytes: saved.shotRawBytes || 0,
+    shotEngine: saved.shotEngine || 'none',
+    shotExt: saved.shotExt || '',
+    submitBody,
+  };
+}
+
+/** 给 Promise 加硬超时：超时后无论底层是否结束，都立刻 reject（并在结束时清定时器） */
+function withTimeout(promise, ms, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** 渲染主窗口（用于主动推送平台登录态变化） */
+let mainWindow = null;
+
+function pushAuth(ip, platform, auth) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('platform-auth-changed', { ip, platform, loggedIn: !!auth.loggedIn, username: auth.username || '' });
+  }
+}
+
+/** 把对话测试日志推送到渲染层（页面下方日志区） */
+function makeChatLog(ip, platform) {
+  return (level, message) => {
+    const entry = { ip, platform, level, message, time: Date.now() };
+    console.log(`[chat:${platform}@${ip}] [${level}] ${message}`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('chat-log', entry);
+    }
+  };
+}
+
+/** IP 等字符串 → 文件系统安全名（Windows 非法字符替换为 _） */
+function safeName(v) {
+  return String(v || '').trim().replace(/[\\/:*?"<>|\s]/g, '_') || 'default';
+}
+
+/** 以 IP 作为会话文件夹名 */
+function profileDirFor(ip) {
+  return path.join(app.getPath('userData'), 'profiles', safeName(ip));
+}
+
+/** 对话结果 HTML 保存目录 */
+function resultsDirFor(ip) {
+  return path.join(app.getPath('userData'), 'results', safeName(ip));
+}
+
+/** 获取（或首次创建）该 IP 的独立浏览器会话；若窗口已被手动关闭则自动重建 */
+async function getSession(ip) {
+  const existing = sessions.get(ip);
+  if (existing) {
+    try {
+      existing.context.pages(); // 已关闭的 context 会抛错，以此探活
+      return existing;
+    } catch {
+      sessions.delete(ip); // 用户手动关掉了窗口 → 重建
+    }
+  }
+  const dir = profileDirFor(ip);
+  const base = {
+    headless: false,   // 真实窗口
+    viewport: null,    // 视口跟随窗口大小
+    locale: 'zh-CN',   // 中文语言环境（Accept-Language 对齐真实用户）
+    ignoreDefaultArgs: ['--enable-automation'],                     // 去掉「受自动化控制」标记
+    args: [
+      '--disable-blink-features=AutomationControlled',              // 关闭自动化提示条
+      '--no-first-run',
+      '--no-default-browser-check',
+    ],
+    // 后续接代理时在此注入：proxy: { server: `http://${ip}:${port}` }（本轮不做）
+  };
+  let context = null;
+  let kernel = 'chrome';
+  // 优先用系统 Chrome（UA/客户端提示/指纹与真实 Chrome 完全一致，最不易触发风控）；
+  // 未安装 Google Chrome 时回退到 Playwright 自带 Chromium（仍带上面的反自动化参数）
+  try {
+    context = await chromium.launchPersistentContext(dir, { ...base, channel: 'chrome' });
+  } catch (err) {
+    if (/chromium|chrome|executable/i.test(String((err && err.message) || err))) {
+      kernel = 'chromium';
+      context = await chromium.launchPersistentContext(dir, { ...base });
+    } else {
+      throw err;
+    }
+  }
+  // 反自动化指纹：对会话内所有页面（含之后 newPage 的）在每次导航前注入
+  await context.addInitScript(STEALTH_INIT);
+  const s = { context, pages: new Map(), dir };
+  sessions.set(ip, s);
+  console.log(`[collector] 已打开浏览器会话 ${ip}（内核 ${kernel}）→ ${dir}`);
+  return s;
+}
+
+/** 把「找不到 chromium」这类错误翻译成可执行的提示 */
+function friendlyErr(err) {
+  const msg = String((err && err.message) || err);
+  if (/Executable doesn't exist|chromium|browser/i.test(msg)) {
+    return `${msg}（请先运行：pnpm --filter @geo-admin/geo-caiji install:browsers）`;
+  }
+  return msg;
+}
+
+/** 该 IP 会话上某平台 tab 是否真实存在且未关闭 */
+function isPlatformTabOpen(ip, platform) {
+  const s = sessions.get(ip);
+  if (!s) return false;
+  const page = s.pages.get(platform);
+  return !!(page && !page.isClosed());
+}
+
+/** tab 被关（UI 关闭 / 用户点浏览器 X）时清理 map 并通知渲染层，避免定时器仍去拉该平台任务 */
+function bindPlatformPageClose(ip, platform, page) {
+  page.once('close', () => {
+    const s = sessions.get(ip);
+    if (s && s.pages.get(platform) === page) s.pages.delete(platform);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('platform-closed', { ip, platform });
+    }
+  });
+}
+
+function registerIpc() {
+  // —— API 目标：本地 / 测试服务器 ——
+  ipcMain.handle('collector:get-api-target', async () => {
+    return { ok: true, ...getCollectorConfig(), targets: listTargets() };
+  });
+  ipcMain.handle('collector:set-api-target', async (_e, targetId) => {
+    try {
+      const cfg = setTarget(String(targetId || '').trim());
+      console.log(`[collector] API 目标切换为 ${cfg.label} → ${cfg.baseUrl}`);
+      return { ok: true, ...cfg, targets: listTargets() };
+    } catch (e) {
+      return { ok: false, error: String((e && e.message) || e) };
+    }
+  });
+
+  // —— 拉取 IP 列表 ——
+  ipcMain.handle('ip-list:fetch', async () => {
+    try {
+      const resp = await fetch(IP_LIST_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!resp.ok) return { ok: false, error: `HTTP ${resp.status}` };
+      const data = await resp.json();
+      const list = Array.isArray(data && data.list) ? data.list : [];
+      return {
+        ok: true,
+        count: data && data.count != null ? data.count : list.length,
+        list: list.map(r => ({ ip: r.ip, port: r.port })),
+      };
+    } catch (e) {
+      return { ok: false, error: String((e && e.message) || e) };
+    }
+  });
+
+  // —— 打开该 IP 的独立浏览器会话 ——
+  ipcMain.handle('browser:open', async (_e, ip) => {
+    try {
+      const s = await getSession(ip);
+      return { ok: true, ip, userDataDir: s.dir };
+    } catch (err) {
+      return { ok: false, error: friendlyErr(err) };
+    }
+  });
+
+  // —— 在该 IP 会话内打开平台标签页（浏览器未开则自动开；打开时检测登录态）——
+  ipcMain.handle('browser:open-platform', async (_e, { ip, platform }) => {
+    try {
+      const cfg = PLATFORMS.find(p => p.key === platform);
+      if (!cfg) return { ok: false, error: `未知平台：${platform}` };
+      const s = await getSession(ip);
+      let page = s.pages.get(platform);
+      let auth = { loggedIn: false, username: '' };
+      if (!page || page.isClosed()) {
+        page = await s.context.newPage();
+        s.pages.set(platform, page);
+        bindPlatformPageClose(ip, platform, page);
+        // 打开即检测：先挂 response 监听兜底（覆盖导航期接口），再 goto，再读凭证判定
+        const watch = watchUsername(page, platform);
+        await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+        auth = await detectAuth(page, s.context, platform);
+        if (!auth.username) auth.username = await watch.promise;
+        watch.stop();
+        // 页面后续跳转/登录成功刷新 → 自动复检并推送到渲染层
+        page.on('load', async () => {
+          const re = await detectAuth(page, s.context, platform).catch(() => ({ loggedIn: false, username: '' }));
+          pushAuth(ip, platform, re);
+        });
+      } else {
+        await page.bringToFront().catch(() => {});
+        auth = await detectAuth(page, s.context, platform).catch(() => ({ loggedIn: false, username: '' }));
+      }
+      return { ok: true, ip, platform, name: cfg.name, url: cfg.url, loggedIn: auth.loggedIn, username: auth.username };
+    } catch (err) {
+      return { ok: false, error: friendlyErr(err) };
+    }
+  });
+
+  // —— 关闭该 IP 会话内的某个平台标签页 ——
+  ipcMain.handle('platform:close', async (_e, { ip, platform }) => {
+    try {
+      const s = sessions.get(ip);
+      if (!s) return { ok: true, ip, platform, closed: false };
+      const page = s.pages.get(platform);
+      if (page && !page.isClosed()) await page.close().catch(() => {});
+      s.pages.delete(platform);
+      return { ok: true, ip, platform, closed: true };
+    } catch (err) {
+      return { ok: false, error: friendlyErr(err) };
+    }
+  });
+
+  // —— 关闭该 IP 的整个浏览器会话（持久化数据保留在磁盘，可再次打开）——
+  ipcMain.handle('browser:close', async (_e, ip) => {
+    try {
+      const s = sessions.get(ip);
+      if (!s) return { ok: true, ip, closed: false };
+      await s.context.close().catch(() => {});
+      sessions.delete(ip);
+      console.log(`[collector] 已关闭浏览器会话 ${ip}`);
+      return { ok: true, ip, closed: true };
+    } catch (err) {
+      return { ok: false, error: friendlyErr(err) };
+    }
+  });
+
+  // —— 对话测试：在对应平台 tab 上执行一次对话，输出回答+信源并保存 HTML ——
+  ipcMain.handle('chat:run', async (_e, { ip, platform, prompt }) => {
+    const key = `${ip}:${platform}`;
+    if (runningChats.has(key)) return { ok: false, error: '该平台正在对话中，请稍候' };
+    const cfg = PLATFORMS.find(p => p.key === platform);
+    if (!cfg) return { ok: false, error: `未知平台：${platform}` };
+    const q = String(prompt || '').trim();
+    if (!q) return { ok: false, error: '请输入测试问题' };
+
+    const log = makeChatLog(ip, platform);
+    const startedAt = new Date();
+    runningChats.add(key);
+    try {
+      const result = await withTimeout(
+        (async () => {
+          const r = await executePlatformChat(ip, platform, q, log, startedAt);
+          return {
+            ok: true,
+            ip,
+            platform,
+            openedPlatform: r.openedPlatform,
+            answer: r.answer,
+            sources: r.sources,
+            htmlPath: r.htmlPath,
+            jsonPath: r.jsonPath,
+            shotPath: r.shotPath,
+            hasShot: !!r.shotPath,
+            shotBytes: r.shotBytes || 0,
+            shotRawBytes: r.shotRawBytes || 0,
+            shotEngine: r.shotEngine || 'none',
+          };
+        })(),
+        CHAT_TIMEOUT_MS,
+        `${cfg.name} 对话超时（${Math.round(CHAT_TIMEOUT_MS / 1000)} 秒），已中止`
+      );
+      return result;
+    } catch (err) {
+      const msg = String((err && err.message) || err);
+      log('error', `对话失败：${msg}`);
+      return { ok: false, error: msg };
+    } finally {
+      runningChats.delete(key);
+    }
+  });
+
+  // —— 测试拉取：向 geo-api 领「指定平台」一条槽位 → 本机 IP 对应 tab 采集 → 提交 ——
+  // requireOpenTab=true（自动调度）：tab 未打开则不请求后台，避免空拉占槽
+  ipcMain.handle('collector:pull-run', async (_e, { ip, platform, requireOpenTab = false } = {}) => {
+    if (!ip) return { ok: false, error: '缺少 IP' };
+    if (!platform) return { ok: false, error: '缺少平台' };
+    const cfg = PLATFORMS.find(p => p.key === platform);
+    if (!cfg) return { ok: false, error: `未知平台：${platform}` };
+
+    const pullKey = `${ip}:${platform}`;
+    if (runningPulls.has(pullKey)) return { ok: false, error: `${cfg.name} 正在拉取采集中，请稍候` };
+    if (runningChats.has(pullKey)) return { ok: false, error: `${cfg.name} 正在对话中，请稍候` };
+
+    if (requireOpenTab && !isPlatformTabOpen(ip, platform)) {
+      return {
+        ok: true,
+        skipped: true,
+        empty: false,
+        message: `${cfg.name} 标签页未打开，跳过拉取`,
+        platform,
+      };
+    }
+
+    const apiCfg = getCollectorConfig();
+    const logPull = (level, message) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('chat-log', {
+          ip,
+          platform,
+          level,
+          message,
+          time: Date.now(),
+        });
+      }
+      console[level === 'error' ? 'error' : 'log'](`[collector-pull@${pullKey}] [${level}] ${message}`);
+    };
+
+    runningPulls.add(pullKey);
+    let slot = null;
+    try {
+      logPull('info', `向后台拉取 ${cfg.name} 槽位…（${apiCfg.baseUrl}）`);
+      const data = await pullSlot({ platform });
+      slot = data && data.slot ? data.slot : null;
+
+      if (!slot) {
+        logPull('info', `${cfg.name} 当前无待采集任务`);
+        return { ok: true, empty: true, message: `${cfg.name} 当前无待采集任务`, platform };
+      }
+
+      // 防御：后台偶发返回其它平台时拒绝执行并交还 fail
+      if (slot.platform && slot.platform !== platform) {
+        const msg = `领到的槽位平台为 ${slot.platform}，与请求的 ${platform} 不一致`;
+        await submitSlot(slot.slot_id, { status: 'fail', error: msg }).catch(() => {});
+        return { ok: false, error: msg, slot };
+      }
+
+      const question = String(slot.question_sent || '').trim();
+      if (!question) {
+        await submitSlot(slot.slot_id, { status: 'fail', error: '槽位缺少 question_sent' }).catch(() => {});
+        return { ok: false, error: '槽位缺少 question_sent', slot };
+      }
+
+      logPull(
+        'info',
+        `领到槽位 ${slot.slot_id} · ${cfg.name} · ${question.slice(0, 60)}${question.length > 60 ? '…' : ''}`
+      );
+
+      const log = makeChatLog(ip, platform);
+      const startedAt = new Date();
+      runningChats.add(pullKey);
+
+      try {
+        const r = await withTimeout(
+          executePlatformChat(ip, platform, question, log, startedAt),
+          CHAT_TIMEOUT_MS,
+          `${cfg.name} 对话超时（${Math.round(CHAT_TIMEOUT_MS / 1000)} 秒），已中止`
+        );
+
+        const payload = {
+          ...(r.submitBody || {}),
+          model_meta: {
+            ...((r.submitBody && r.submitBody.model_meta) || {}),
+            slot_id: slot.slot_id,
+            task_id: slot.task_id,
+            brand_id: slot.brand_id,
+            query_id: slot.query_id,
+            date: slot.date,
+            end: slot.end,
+            source: 'collector:pull-run',
+          },
+        };
+
+        // 截图直传 OSS（压缩图 + raw），同槽覆盖；失败不阻断提交，但记日志
+        if (r.shotPath) {
+          const ossCfg = getOssConfig();
+          if (!ossCfg.enabled) {
+            logPull('warn', `OSS 未配置，跳过上传（可复制 oss.local.example.json → oss.local.json）`);
+          } else {
+            try {
+              logPull('info', '上传截图到阿里云 OSS…');
+              const uploaded = await uploadShotPair({
+                brandId: slot.brand_id,
+                execDate: slot.date,
+                platform: slot.platform || platform,
+                slotId: slot.slot_id,
+                compressedPath: r.shotPath,
+                rawPath: r.shotRawPath,
+                compressedExt: r.shotExt,
+              });
+              if (uploaded) {
+                Object.assign(payload, {
+                  photo_url: uploaded.photo_url,
+                  oss_key: uploaded.oss_key,
+                  size: uploaded.size,
+                });
+                if (uploaded.oss_raw_key) {
+                  payload.photo_raw_url = uploaded.photo_raw_url;
+                  payload.oss_raw_key = uploaded.oss_raw_key;
+                  payload.size_raw = uploaded.size_raw;
+                  payload.model_meta = {
+                    ...payload.model_meta,
+                    oss_raw_key: uploaded.oss_raw_key,
+                    photo_raw_url: uploaded.photo_raw_url,
+                    size_raw: uploaded.size_raw,
+                  };
+                }
+                logPull(
+                  'success',
+                  `OSS 上传完成：${uploaded.oss_key}（${uploaded.size}B）` +
+                    (uploaded.oss_raw_key ? ` + raw ${uploaded.size_raw}B` : ''),
+                );
+              }
+            } catch (ossErr) {
+              logPull('warn', `OSS 上传失败（仍提交回答）：${(ossErr && ossErr.message) || ossErr}`);
+            }
+          }
+        }
+
+        logPull('info', `提交结果到后台（status=${payload.status}）…`);
+        const submitRes = await submitSlot(slot.slot_id, payload);
+        logPull(
+          'success',
+          `已提交：slot=${slot.slot_id} status=${submitRes && submitRes.status} answer_id=${submitRes && submitRes.answer_id}`
+        );
+
+        return {
+          ok: true,
+          empty: false,
+          ip,
+          platform,
+          openedPlatform: r.openedPlatform,
+          slot,
+          answer: r.answer,
+          sources: r.sources,
+          htmlPath: r.htmlPath,
+          jsonPath: r.jsonPath,
+          shotPath: r.shotPath,
+          hasShot: !!r.shotPath,
+          shotBytes: r.shotBytes || 0,
+          shotRawBytes: r.shotRawBytes || 0,
+          shotEngine: r.shotEngine || 'none',
+          photo_url: payload.photo_url || null,
+          oss_key: payload.oss_key || null,
+          submit: submitRes,
+        };
+      } catch (err) {
+        const msg = String((err && err.message) || err);
+        log('error', `采集失败：${msg}`);
+        try {
+          await submitSlot(slot.slot_id, { status: 'fail', error: msg });
+          logPull('warn', `已向后台提交 fail：${msg}`);
+        } catch (submitErr) {
+          logPull('error', `提交 fail 也失败：${(submitErr && submitErr.message) || submitErr}`);
+        }
+        return { ok: false, error: msg, slot };
+      } finally {
+        runningChats.delete(pullKey);
+      }
+    } catch (err) {
+      const msg = String((err && err.message) || err);
+      logPull('error', `拉取失败：${msg}`);
+      return { ok: false, error: msg, platform };
+    } finally {
+      runningPulls.delete(pullKey);
+    }
+  });
+
+  // —— 预览：打开该 IP/平台最近一次对话结果 HTML ——
+  ipcMain.handle('chat:preview', async (_e, { ip, platform }) => {
+    const p = lastResults.get(`${ip}:${platform}`);
+    if (!p || !fs.existsSync(p.htmlPath)) return { ok: false, error: '暂无对话结果，请先执行测试' };
+    try {
+      const win = new BrowserWindow({
+        width: 900,
+        height: 760,
+        title: `对话结果 · ${platform}`,
+        webPreferences: { contextIsolation: true, nodeIntegration: false },
+      });
+      win.loadFile(p.htmlPath);
+      return { ok: true, htmlPath: p.htmlPath };
+    } catch (err) {
+      return { ok: false, error: String((err && err.message) || err) };
+    }
+  });
+
+  // —— 预览：打开该 IP/平台最近一次模拟提交 JSON ——
+  ipcMain.handle('chat:preview-json', async (_e, { ip, platform }) => {
+    const p = lastResults.get(`${ip}:${platform}`);
+    if (!p || !fs.existsSync(p.jsonPath)) return { ok: false, error: '暂无对话结果，请先执行测试' };
+    try {
+      const content = fs.readFileSync(p.jsonPath, 'utf8');
+      const win = new BrowserWindow({
+        width: 900,
+        height: 760,
+        title: `提交 JSON · ${platform}`,
+        webPreferences: { contextIsolation: true, nodeIntegration: false },
+      });
+      win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(buildJsonPreviewHtml(content)));
+      return { ok: true, jsonPath: p.jsonPath };
+    } catch (err) {
+      return { ok: false, error: String((err && err.message) || err) };
+    }
+  });
+
+  // —— 预览：打开该 IP/平台最近一次对话截图（压缩前后对比） ——
+  ipcMain.handle('chat:preview-shot', async (_e, { ip, platform }) => {
+    const p = lastResults.get(`${ip}:${platform}`);
+    if (!p || !p.shotPath || !fs.existsSync(p.shotPath)) {
+      return { ok: false, error: '暂无对话截图，请先执行测试或拉取' };
+    }
+    try {
+      const win = new BrowserWindow({
+        width: 1280,
+        height: 900,
+        title: `截图压缩对比 · ${platform}`,
+        backgroundColor: '#0f172a',
+        webPreferences: { contextIsolation: true, nodeIntegration: false },
+      });
+      if (p.shotComparePath && fs.existsSync(p.shotComparePath)) {
+        await win.loadFile(p.shotComparePath);
+      } else {
+        await win.loadFile(p.shotPath);
+      }
+      let shotBytes = p.shotBytes || 0;
+      let shotRawBytes = p.shotRawBytes || 0;
+      try {
+        if (!shotBytes) shotBytes = fs.statSync(p.shotPath).size;
+        if (!shotRawBytes && p.shotRawPath && fs.existsSync(p.shotRawPath)) {
+          shotRawBytes = fs.statSync(p.shotRawPath).size;
+        }
+      } catch { /* ignore */ }
+      return {
+        ok: true,
+        shotPath: p.shotPath,
+        shotRawPath: p.shotRawPath || null,
+        shotComparePath: p.shotComparePath || null,
+        shotBytes,
+        shotRawBytes,
+        shotEngine: p.shotEngine || 'none',
+      };
+    } catch (err) {
+      return { ok: false, error: String((err && err.message) || err) };
+    }
+  });
+}
+
+function createWindow() {
+  const win = new BrowserWindow({
+    width: 1280,
+    height: 860,
+    title: '采集应用',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  mainWindow = win;
+  win.on('closed', () => { mainWindow = null; });
+  if (process.env.VITE_DEV_SERVER_URL) {
+    win.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    win.loadFile(path.join(__dirname, '..', '..', 'dist', 'index.html'));
+  }
+}
+
+app.whenReady().then(() => {
+  loadTarget(app.getPath('userData'));
+  const cfg = getCollectorConfig();
+  console.log(`[collector] API 目标：${cfg.label} → ${cfg.baseUrl}`);
+  registerIpc();
+  createWindow();
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on('window-all-closed', () => {
+  for (const s of sessions.values()) s.context.close().catch(() => {});
+  sessions.clear();
+  if (process.platform !== 'darwin') app.quit();
+});

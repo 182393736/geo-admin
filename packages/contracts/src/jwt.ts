@@ -1,11 +1,11 @@
 /**
  * JWT 载荷与解码（单一事实源）
  * ------------------------------------------------------------------
- * 载荷形状由 apps/gen-api/app/service/auth.js 签发：
+ * 载荷形状由 apps/geo-api/app/service/auth.js 签发：
  *   { sub: user._id, jti: uuid, name: user.account }，HS256，7 天。
  * 消费方：
- *  - gen-user-dash src/utils/site.ts（吸收 #token= 解出 id/username）
- *  - gen-user-site composables/useAuth.ts（解出 account）
+ *  - geo-user-dash src/utils/site.ts（吸收 #token= 解出 id/username）
+ *  - geo-user-site composables/useAuth.ts（解出 account）
  * 改载荷字段时，只改这里，两处消费方随之生效。
  */
 

@@ -1,0 +1,5 @@
+# 已迁移到 deploy/web/
+# 请执行：
+#   cd deploy/web
+#   docker compose up -d --build
+services: {}

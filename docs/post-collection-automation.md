@@ -7,7 +7,7 @@
 ## 0. 先给一张全景图
 
 ```
-采集端 gen-caiji（自动调度：总控开关 + 2s/平台 轮询）
+采集端 geo-caiji（自动调度：总控开关 + 2s/平台 轮询）
    │  pull /collector/slots/pull  ── 领取 running 槽位
    │  对话 → 回答 + 信源（cited_urls）
    │  submit /collector/slots/:id/submit
@@ -37,12 +37,12 @@ raw_answer（parsed=false） + collect_slot 状态机 + collect_task 汇总   �
 
 | 触发 | 时间 / 条件 | 做什么 | 状态 |
 |---|---|---|---|
-| `daily_collect` | 每天 00:30 | 为每个 active 品牌展开当日 `collect_tasks` + `collect_slots`（幂等），并把 `task_id` 推入队列 | ✅（队列为内存 backlog；实际由 gen-caiji **主动 pull**，不依赖队列消费者） |
+| `daily_collect` | 每天 00:30 | 为每个 active 品牌展开当日 `collect_tasks` + `collect_slots`（幂等），并把 `task_id` 推入队列 | ✅（队列为内存 backlog；实际由 geo-caiji **主动 pull**，不依赖队列消费者） |
 | `realtime_parse` | 轮询（默认开启） | `PARSE_MODE=realtime` 时扫 `raw_answers(parsed:false)` → 三流水线 → `aggregate` | ✅ 默认 |
 | `daily_parse` | 每天 04:00 | 同上批处理；仅当 `PARSE_MODE=daily` 时生效 | ✅ 备用 |
 | `report_generate` | 每周日 05:00 | `reportBuild.run({period_type:'weekly'})` | ✅（月报 cron 未配） |
 | `POST /user/generate_today` | 手动 | 与 daily_collect 同源的手动展槽 | ✅ |
-| 采集 worker pull/submit | 实时 | gen-caiji 按平台 pull→对话→submit | ✅ |
+| 采集 worker pull/submit | 实时 | geo-caiji 按平台 pull→对话→submit | ✅ |
 | `_reclaimTimedOut` | 每次 pull 前 | running 超时（默认 15 分钟）→ attempts+1 → 终态 fail（默认不再回退 pending） | ✅ |
 | Admin 重置失败槽 | 手动 | `POST /admin/collect/slots/:slotId/reset`、`POST /admin/collect/tasks/:id/reset-failed` | ✅ |
 

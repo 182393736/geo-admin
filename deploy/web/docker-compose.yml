@@ -1,0 +1,39 @@
+# 官网 + 用户后台
+# 用法：
+#   cd deploy/web
+#   cp .env.example .env   # 仅首次
+#   docker compose up -d --build
+
+name: geo-web
+
+services:
+  site-web:
+    build:
+      context: ../..
+      dockerfile: apps/site-web/Dockerfile
+      args:
+        NUXT_API_BASE: ${NUXT_API_BASE}
+        NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE}
+        NUXT_PUBLIC_SITE_URL: ${NUXT_PUBLIC_SITE_URL}
+        NUXT_PUBLIC_CONSOLE_URL: ${NUXT_PUBLIC_CONSOLE_URL}
+        NUXT_PUBLIC_GEO_API_BASE: ${NUXT_PUBLIC_GEO_API_BASE:-/geo-api}
+        NUXT_GEO_API_TARGET: ${NUXT_GEO_API_TARGET}
+    restart: unless-stopped
+    ports:
+      - "${SITE_WEB_PORT:-5003}:3000"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+
+  dash-v2:
+    build:
+      context: ../..
+      dockerfile: apps/geo-user-dash-v2/Dockerfile
+      args:
+        VITE_API_BASE: ${VITE_API_BASE}
+        VITE_ARTICLE_BASE: ${VITE_ARTICLE_BASE}
+        VITE_SITE_URL: ${VITE_SITE_URL}
+    restart: unless-stopped
+    ports:
+      - "${DASH_PORT:-5180}:80"

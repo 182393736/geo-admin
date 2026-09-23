@@ -1,6 +1,6 @@
 /**
  * 全平台共享常量（单一事实源）
- * 来源：apps/gen-api/config/config.default.js、app.js SEED_PLANS、model/*.js 注释。
+ * 来源：apps/geo-api/config/config.default.js、app.js SEED_PLANS、model/*.js 注释。
  */
 import type { EngineKey, PlanType, PlanBillingCycle } from './enums';
 

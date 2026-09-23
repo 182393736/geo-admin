@@ -2,7 +2,7 @@
 
 GEO 平台共享契约**单一事实源**：枚举 / 常量 / 实体数据结构 / zod schema / 接口契约 / JWT 载荷。
 
-- 消费方（现状）：`gen-api`（Node CJS）、`gen-user-dash`（Vite ESM）、`gen-user-site`（Nuxt ESM）
+- 消费方（现状）：`geo-api`（Node CJS）、`geo-user-dash`（Vite ESM）、`geo-user-site`（Nuxt ESM）
 - 消费方（未来）：采集程序应用、管理员总后台、测试程序应用
 - 零业务逻辑、零 UI、零密钥 —— 只有「定义」。
 
@@ -13,7 +13,7 @@ src/
 ├── index.ts       统一导出
 ├── enums.ts       全平台枚举（as const 数组 + 联合类型，不用 TS enum）
 ├── constants.ts   平台列表 / 位次权重 / 套餐目录 / 阈值锚点
-├── entities.ts    实体数据结构（对齐 apps/gen-api/app/model/*.js 字段）
+├── entities.ts    实体数据结构（对齐 apps/geo-api/app/model/*.js 字段）
 ├── schemas.ts     核心实体 zod schema（z.infer 反推类型；契约测试用）
 ├── api.ts         接口请求/响应类型（对齐线上实测契约）
 └── jwt.ts         JWT 载荷 { sub, jti, name } + 解码助手
@@ -40,5 +40,5 @@ pnpm --filter @geo-admin/contracts test        # CJS + ESM 冒烟
 
 ## 迁移状态
 
-- ✅ 已接入：`gen-user-dash/src/api/types.ts` → `export * from '@geo-admin/contracts'`
-- ⏳ 待接入（Phase 2）：gen-api model 的 enum 引用本包常量；官网 useAuth 改用 `decodeJwtPayload`
+- ✅ 已接入：`geo-user-dash/src/api/types.ts` → `export * from '@geo-admin/contracts'`
+- ⏳ 待接入（Phase 2）：geo-api model 的 enum 引用本包常量；官网 useAuth 改用 `decodeJwtPayload`

@@ -1,0 +1,22 @@
+{
+  "name": "@site-manage/web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "多网站管理系统 - 前台网站 (Nuxt3 SSR)",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --port 5003",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "lint": "echo \"no lint configured\""
+  },
+  "dependencies": {
+    "@site-manage/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "nuxt": "^3.15.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  }
+}

@@ -1,6 +1,6 @@
 'use strict';
 // 总后台冒烟：登录 → 驾驶舱 → 各页路由可渲染
-const { chromium } = require('/home/user/geo-admin/apps/gen-test/node_modules/playwright');
+const { chromium } = require('/home/user/geo-admin/apps/geo-test/node_modules/playwright');
 
 (async () => {
   const browser = await chromium.launch();

@@ -1,5 +1,5 @@
 /**
- * 采集 worker 协议（gen-api <-> 采集程序，机器对机器）
+ * 采集 worker 协议（geo-api <-> 采集程序，机器对机器）
  * ------------------------------------------------------------------
  * 鉴权：请求头 Authorization: Bearer <COLLECTOR_API_KEY>（或 X-Collector-Key）
  * 范围（当前阶段）：

@@ -1,8 +1,8 @@
 /**
  * 接口契约类型（对齐线上实测响应，逐字段）
  * ------------------------------------------------------------------
- * 原为 apps/gen-user-dash/src/api/types.ts（已改为对本包的重导出）。
- * 端点清单见 apps/gen-api/app/router.js；样本见 docs/透镜GEO-接口分析报告.md。
+ * 原为 apps/geo-user-dash/src/api/types.ts（已改为对本包的重导出）。
+ * 端点清单见 apps/geo-api/app/router.js；样本见 docs/透镜GEO-接口分析报告.md。
  */
 import type { EngineKey, QueryType } from './enums';
 

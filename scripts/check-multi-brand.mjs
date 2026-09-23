@@ -19,14 +19,14 @@ function assert(cond, msg) {
 
 // 禁止静默 brands[0] 回落
 for (const rel of [
-  'apps/gen-api/app/controller/summary.js',
-  'apps/gen-api/app/controller/source.js',
-  'apps/gen-api/app/controller/query.js',
-  'apps/gen-api/app/controller/brand.js',
-  'apps/gen-api/app/controller/payment.js',
-  'apps/gen-api/app/controller/publish.js',
-  'apps/gen-api/app/controller/report.js',
-  'apps/gen-api/app/controller/brandArticle.js',
+  'apps/geo-api/app/controller/summary.js',
+  'apps/geo-api/app/controller/source.js',
+  'apps/geo-api/app/controller/query.js',
+  'apps/geo-api/app/controller/brand.js',
+  'apps/geo-api/app/controller/payment.js',
+  'apps/geo-api/app/controller/publish.js',
+  'apps/geo-api/app/controller/report.js',
+  'apps/geo-api/app/controller/brandArticle.js',
 ]) {
   const t = read(rel);
   assert(!t.includes('_resolveBrand'), `${rel} 仍含 _resolveBrand`);
@@ -34,24 +34,24 @@ for (const rel of [
   assert(t.includes('brandScope.requireBrand') || t.includes('_requireBrand'), `${rel} 未使用 requireBrand`);
 }
 
-assert(fs.existsSync(path.join(root, 'apps/gen-api/app/service/brand_scope.js')), '缺少 brand_scope.js');
-assert(fs.existsSync(path.join(root, 'apps/gen-user-dash/src/components/BrandSwitcher.vue')), '缺少 BrandSwitcher.vue');
+assert(fs.existsSync(path.join(root, 'apps/geo-api/app/service/brand_scope.js')), '缺少 brand_scope.js');
+assert(fs.existsSync(path.join(root, 'apps/geo-user-dash/src/components/BrandSwitcher.vue')), '缺少 BrandSwitcher.vue');
 
-const http = read('apps/gen-user-dash/src/api/http.ts');
+const http = read('apps/geo-user-dash/src/api/http.ts');
 assert(http.includes('injectBrand') || http.includes('brand_id'), 'dash http 未注入 brand_id');
 
-const site = read('apps/gen-user-dash/src/utils/site.ts');
+const site = read('apps/geo-user-dash/src/utils/site.ts');
 assert(site.includes('add_brand'), 'siteTrialUrl 缺 from=add_brand');
 assert(site.includes('brand_id'), 'ingest 未处理 brand_id');
 
-const trial = read('apps/gen-user-site/components/trial/TrialChat.vue');
+const trial = read('apps/geo-user-site/components/trial/TrialChat.vue');
 assert(trial.includes('savedBrandId'), 'TrialChat 未回传 savedBrandId');
 assert(trial.includes('isAddBrand'), 'TrialChat 未识别 add_brand');
 
 const persist = read('packages/geo-agent/src/persist.js');
 assert(persist.includes('user_id: opts.userId'), 'persist 更新路径缺 user_id 归属校验');
 
-const runner = read('apps/gen-api/app/service/agent_runner.js');
+const runner = read('apps/geo-api/app/service/agent_runner.js');
 assert(runner.includes('ensureFreeSubscription'), 'confirm 后未 ensureFreeSubscription');
 
 if (fails.length) {

@@ -6,44 +6,54 @@
 
 ```
 apps/
-├── gen-user-dash  @geo-admin/gen-user-dash  用户后台控制台（Vue3 + Vite + Pinia + Arco Design + ECharts；多品牌切换与添加品牌→/trial 建档）
-├── gen-api        @geo-admin/gen-api        Egg.js + Mongoose 后台（46 model + 3 schedule + 7 pipeline service + LLM 封装）
-├── gen-user-site  @geo-admin/gen-user-site  官网首页 / 首登分析站（Nuxt，/trial 为唯一建档入口）
-├── gen-test       @geo-admin/gen-test       端到端测试程序（网页添加任务 → Playwright 执行 → 一键删除任务数据）
-└── gen-admin      @geo-admin/gen-admin      管理员总后台（Vue3 + Arco 浅色，只读监控全平台：用户/品牌/采集/解析/LLM/计费/内容/报告/首登/行为/消息/系统）
+├── geo-user-dash / geo-user-dash-v2   用户后台控制台（工作台）
+├── geo-api                            Egg.js + Mongoose 业务 API
+├── site-web / site-admin / site-server  用户官网 + CMS（自 site-manage 迁入）
+├── geo-user-site / geo-user-site-v2   ⚠️ DEPRECATED 旧官网
+├── geo-test                           端到端测试程序
+└── geo-admin                          管理员总后台
 packages/
-├── geo-agent   @geo-admin/geo-agent  首登分析 Agent（纯 CJS 零依赖，硅基流动 + 联网取证）
-└── contracts   @geo-admin/contracts  共享契约包（枚举/常量/实体/zod schema/接口/JWT，单一事实源）
-scripts/
-├── dev-all.js     本地一键启动（仅限本地使用）
-└── dev-ports.js   本地端口约定（600x）
-docs/              接口分析 · 域名约定 · 业务闭环 · 数据库设计 · 施工清单
+├── geo-agent   首登分析 Agent
+├── contracts   共享契约包
+└── site-shared 官网/CMS 共享类型（@site-manage/shared）
+scripts/        本地一键启动与端口约定
+docs/           接口分析 · 域名约定 · 业务闭环等
 ```
 
-## 域名（hanyuai.com）
+> **用户网页端**：`apps/site-web`（CMS：`site-admin` / `site-server`）。见 [`docs/site-apps.md`](./docs/site-apps.md)。  
+> 本仓库 `geo-user-site*` 已标记过期；旧站请用 `pnpm dev:site`。
 
-| 用途 | 域名 |
-|------|------|
-| 官网 / 首登 | `https://test-gen-user-site.hanyuai.com` |
-| 用户后台 | `https://test-gen-user-dash.hanyuai.com` |
-| 共用 API | `https://test-gen-api.hanyuai.com` |
-| 管理后台 | `https://test-gen-admin.hanyuai.com`（暂本地跑） |
+## 环境（local / test / prod）
 
-采集本机连同一 API。详情见 [`docs/domains.md`](./docs/domains.md)。
+**改域名只改** [`config/environments.json`](./config/environments.json)，然后：
 
-## Docker 一键部署（三端独立，命令相同）
+```bash
+pnpm env:local   # 本地（dev 命令会自动执行）
+pnpm env:test    # 测试服 test-geo-*.hanyuai.com
+pnpm env:prod    # 生产
+```
 
-改域名只改各应用 `.env`，**没有** test/prod 两套命令：
+脚本会写出各应用 `.env`，一般不用手填变量。详情见 [`docs/domains.md`](./docs/domains.md)。
+
+| 用途 | local | test | prod |
+|------|-------|------|------|
+| 用户官网 | `http://localhost:5003`（site-web） | `test-geo.hanyuai.com` | `geo.hanyuai.com` |
+| 用户后台 | `http://127.0.0.1:5180` | `test-geo-user-dash.hanyuai.com` | `geo-user-dash.hanyuai.com` |
+| API | `http://127.0.0.1:6001` | `test-geo-api.hanyuai.com` | `geo-api.hanyuai.com` |
+| 管理总后台 | `http://localhost:6004` | `test-geo-admin.hanyuai.com` | `geo-admin.hanyuai.com` |
+
+## Docker 一键部署
+
+先 `pnpm env:test` 或 `pnpm env:prod` 写出域名，再 compose：
 
 ```bash
 # API（含 Mongo）
-cd apps/gen-api && cp .env.example .env && docker compose up -d --build
+cd apps/geo-api && docker compose up -d --build
 
 # 用户后台
-cd apps/gen-user-dash && cp .env.example .env && docker compose up -d --build
+cd apps/geo-user-dash && docker compose up -d --build
 
-# 官网
-cd apps/gen-user-site && cp .env.example .env && docker compose up -d --build
+# 官网已废弃 —— 请用 site-manage-monorepo/apps/web
 ```
 
 各目录另有 `DOCKER.md`。
@@ -52,43 +62,41 @@ cd apps/gen-user-site && cp .env.example .env && docker compose up -d --build
 
 ```bash
 pnpm install
-pnpm dev:all        # ★ 本地开发一键启动（仅限本地使用！）
-                    #   依次拉起：MongoDB(内存,6007) → gen-api(:6001) → 用户后台(:6002) → 官网(:6003) → 测试程序(:6005) → 管理总后台(:6004)
-                    #   全部共用同一个 MongoDB，保证测试程序的「删除任务数据」能清理业务库
-                    #   端口约定见 scripts/dev-ports.js（全部 600x，避免与其它项目冲突）
-                    #   ⚠️ NODE_ENV=production 时脚本会拒绝启动
-pnpm dev:web        # 用户后台 web（http://localhost:6002）
-pnpm dev:api        # 后端（需 MONGO_URL，或 node scripts/dev-memory.js 内存库）
-                    #   LLM/联网取证密钥已内置于 packages/geo-agent/src/dev-keys.js（私有仓库测试用，开箱即用）
-                    #   生产：设置 SILICONFLOW_API_KEY / TAVILY_API_KEY 环境变量即自动覆盖内置值
-pnpm dev:site       # 官网 gen-user-site（http://localhost:6003）
-pnpm dev:test       # 端到端测试程序（http://localhost:6005，需先 playwright install chromium）
-pnpm dev:admin      # 管理总后台（http://localhost:6004，管理员 123456/123456）
-pnpm dev:caiji      # 采集桌面端（Vite :6006 + Electron）
+pnpm env:local      # 可选；下面的 dev:* 会自动执行
+pnpm dev:all        # ★ 一键：Mongo(内存,6007) → geo-api(:6001) → dash-v2(:5180) → 测试(:6005) → 管理(:6004)
+                    #   官网 CMS：另开 pnpm dev:site（site-web:5003 / site-admin:5002 / site-server:5001）
+pnpm dev:site       # 官网三端并行（迁入的 site-*）
+pnpm dev:site-web   # 仅官网 Nuxt :5003
+pnpm dev:web-v2     # 用户后台 v2（:5180）
+pnpm dev:api        # geo-api（:6001）
+pnpm seed:cms       # CMS 演示数据
 ```
 
-### 本地端口一览（600x）
+### 本地端口一览
 
 | 端口 | 服务 |
 |------|------|
-| 6001 | gen-api |
-| 6002 | gen-user-dash 用户后台 |
-| 6003 | gen-user-site 官网 |
-| 6004 | gen-admin 管理总后台 |
-| 6005 | gen-test |
-| 6006 | gen-caiji Vite |
+| 6001 | geo-api |
+| 5180 | geo-user-dash-v2 用户后台（测试程序默认） |
+| 6002 | geo-user-dash v1（旧） |
+| 5003 | apps/site-web 用户官网 |
+| 5002 | apps/site-admin CMS 管理端 |
+| 5001 | apps/site-server CMS API |
+| 6004 | geo-admin 管理总后台 |
+| 6005 | geo-test |
+| 6006 | geo-caiji Vite |
 | 6007 | MongoDB 内存实例（dev:all） |
 
 ## 本地端到端测试（完整操作指南）
 
-测试程序 `gen-test` 的作用：在网页里添加测试任务（账号密码 + 首次用户输入），
+测试程序 `geo-test` 的作用：在网页里添加测试任务（账号密码 + 首次用户输入），
 由 Playwright 打开浏览器一步步执行「登录 → 首登建档 → 后台采集前数据展示验证」，
 结束后可一键删除该任务产生的所有数据（任务记录 + 日志截图 + 业务库数据）。
 
 ### 1. 前置条件
 
 - Node.js ≥ 20、pnpm（仓库用 corepack，`packageManager` 已锁定 9.12.0）
-- 首次安装浏览器：`pnpm --filter @geo-admin/gen-test exec playwright install chromium`
+- 首次安装浏览器：`pnpm --filter @geo-admin/geo-test exec playwright install chromium`
 
 ### 2. 一键启动全部服务
 
@@ -104,8 +112,8 @@ pnpm dev:all
 > 生产环境不经过 `dev:all`，不设 `LLM_PROXY` 即直连，不受影响。
 
 > 也可以分开启动：`pnpm dev:api` + `pnpm dev:web` + `pnpm dev:site` + `pnpm dev:test`，
-> 但 **MongoDB 必须共用同一个库**（gen-test 删除数据时要清理 gen-api 的业务库），
-> 因此推荐用 `pnpm dev:all` 或 `node apps/gen-api/scripts/dev-mongo-fixed.js`（固定端口 6007）。
+> 但 **MongoDB 必须共用同一个库**（geo-test 删除数据时要清理 geo-api 的业务库），
+> 因此推荐用 `pnpm dev:all` 或 `node apps/geo-api/scripts/dev-mongo-fixed.js`（固定端口 6007）。
 
 ### 3. 添加测试任务
 
@@ -147,15 +155,15 @@ pnpm dev:all
 
 - 点任务行的 **删除** → 确认 → 一次性清理：
   - 任务记录、步骤日志、截图目录
-  - 该任务在 gen-api 业务库创建的数据（账号 / 品牌 / 订阅 / 积分 / 监控词 / 订单 / 采集 / 指标等 40+ 集合，按执行时记录的 user_id / brand_id 锚点精确清理）
+  - 该任务在 geo-api 业务库创建的数据（账号 / 品牌 / 订阅 / 积分 / 监控词 / 订单 / 采集 / 指标等 40+ 集合，按执行时记录的 user_id / brand_id 锚点精确清理）
 - 执行中的任务不能删除（避免清到一半）
 
 ### 7. 测试账号
 
 | 账号 | 密码 | 说明 |
 |---|---|---|
-| `123456` | `123456` | 种子管理员（gen-api 启动自动创建） |
-| `newbie` | `123456` | 无品牌新用户（`node apps/gen-api/scripts/e2e-seed-fresh-user.js` 创建），走建档链路 |
+| `123456` | `123456` | 种子管理员（geo-api 启动自动创建） |
+| `newbie` | `123456` | 无品牌新用户（`node apps/geo-api/scripts/e2e-seed-fresh-user.js` 创建），走建档链路 |
 | 任意 | 自设 | 已有品牌账号：先在后台完成一次建档后即可复用 |
 
 ### 8. 已知注意事项
@@ -170,23 +178,23 @@ pnpm dev:all
 用户后台 web（默认 mock 驱动，联调真实 API 时）：
 
 ```bash
-cp apps/gen-user-dash/.env.example apps/gen-user-dash/.env.local
+cp apps/geo-user-dash/.env.example apps/geo-user-dash/.env.local
 # 设置 VITE_USE_MOCK=false + VITE_API_BASE / VITE_ARTICLE_BASE（置空走 vite proxy → 127.0.0.1:6001）
 ```
 
-API 契约层类型已收口到 `packages/contracts`（`apps/gen-user-dash/src/api/types.ts` 仅做重导出）。
+API 契约层类型已收口到 `packages/contracts`（`apps/geo-user-dash/src/api/types.ts` 仅做重导出）。
 后端 model 的枚举与常量可引用 `@geo-admin/contracts`，避免前后端各写一份。
 
-官网 gen-user-site 通过同域代理 `/geo-api/**` 转发到 API（默认 `http://127.0.0.1:6001`，
+官网 geo-user-site 通过同域代理 `/geo-api/**` 转发到 API（默认 `http://127.0.0.1:6001`，
 用 `NUXT_GEO_API_TARGET` 覆盖）；静态部署时用 `NUXT_PUBLIC_API_BASE` 直指 API 地址。
 
 ## 后端关键文档
 
-- 建表与数据流向：`docs/数据库设计文档.md`（配合 `apps/gen-api/app/model/*.js`）
-- 每日流水线：`apps/gen-api/app/schedule/*.js`（00:30 展槽 → 默认 realtime 解析聚合 / 或 `PARSE_MODE=daily` 的 04:00 批 → 周日 05:00 周报）；盘点见 `docs/post-collection-automation.md`
+- 建表与数据流向：`docs/数据库设计文档.md`（配合 `apps/geo-api/app/model/*.js`）
+- 每日流水线：`apps/geo-api/app/schedule/*.js`（00:30 展槽 → 默认 realtime 解析聚合 / 或 `PARSE_MODE=daily` 的 04:00 批 → 周日 05:00 周报）；盘点见 `docs/post-collection-automation.md`
 - 所有 LLM 调用（DeepSeek）的提示词与输出结构：`docs/LLM调用点设计与提示词.md`
 
-## 管理员总后台（gen-admin）
+## 管理员总后台（geo-admin）
 
 只读监控全平台，独立应用，Arco 浅色主题，默认单角色管理员（`users.is_superuser=true`）。
 
@@ -197,8 +205,8 @@ pnpm dev:admin     # http://localhost:6004，本地管理员账号 123456/123456
 - **鉴权**：复用 `/user/login` 登录，后端 `/admin/**` 全部走 `jwtAuth + adminAuth`（非管理员 403）。
 - **页面**：运营驾驶舱 / 用户 / 品牌 / 采集监控 / 解析监控 / LLM 调用 / 计费中心 / 内容与发稿 /
   报告中心 / 首登漏斗 / 行为埋点 / 诊断任务 / Agent 会话 / 站内消息 / 系统观测（共 15 页）。
-- **接口**：`apps/gen-api/app/controller/admin.js`（聚合查询 + 采集失败槽重置等；契约在 `packages/contracts/src/admin.ts`）。
+- **接口**：`apps/geo-api/app/controller/admin.js`（聚合查询 + 采集失败槽重置等；契约在 `packages/contracts/src/admin.ts`）。
 - **演示数据**（可选，让每个监控页有内容）：
-  `MONGO_URL=mongodb://127.0.0.1:6007/geo_dev node apps/gen-api/scripts/seed-admin-demo.js`
+  `MONGO_URL=mongodb://127.0.0.1:6007/geo_dev node apps/geo-api/scripts/seed-admin-demo.js`
 - **冒烟脚本**（登录 → 14 页路由渲染 → 退出）：`node scripts/smoke-admin.cjs`
 - 部分运营写操作（封号 / 改套餐 / 退款 / 渠道管理）暂未实现，后续按需放开。

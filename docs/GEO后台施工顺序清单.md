@@ -2,7 +2,7 @@
 
 > 使用方法：从上往下按编号执行，每步都是独立可提交的最小改动（一次 MR 一步）。
 > 表中 **「为什么」= 依赖理由**，若你想调整顺序，先看该列确认下游没东西等它。
-> 表结构：见 `apps/gen-api/app/model/*.js`（原路径 `egg-geo-backend` 已迁入 monorepo）。
+> 表结构：见 `apps/geo-api/app/model/*.js`（原路径 `egg-geo-backend` 已迁入 monorepo）。
 >
 > **相对本文进度（2026-09）**：W0–W3 主体（采集 pull/submit、解析 A/B/C、aggregate、周报 `report` 装配、Admin 监控与失败槽重置、`llm_call_logs`）已在代码中落地；默认 `PARSE_MODE=realtime`。下文仍按「从零施工」保留，便于回溯依赖，勿当作「尚未开工」清单。现状盘点见 `docs/post-collection-automation.md`。
 

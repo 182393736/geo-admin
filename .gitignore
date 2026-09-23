@@ -8,6 +8,7 @@ dist-ssr
 .env.*
 !.env.example
 !**/.env.example
+config/.current-env
 .local-secrets/
 **/oss.local.json
 *.log
@@ -17,11 +18,13 @@ dist-ssr
 .pnpm-store
 coverage
 *.tsbuildinfo
-apps/gen-api/run
+apps/geo-api/run
 **/run/
 .nuxt/
 .output/
 noetBrett-onboarding/
 .tmp-geo
 .tmp/
-apps/gen-api/logs/
+apps/geo-api/logs/
+apps/site-server/logs/
+apps/site-server/run/

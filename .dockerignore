@@ -13,8 +13,8 @@ node_modules
 .env.local
 **/.env
 !**/.env.example
-apps/gen-caiji
-apps/gen-test
+apps/geo-caiji
+apps/geo-test
 docs
 *.md
 !**/DOCKER.md

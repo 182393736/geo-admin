@@ -1,5 +1,5 @@
 'use strict';
-/** CJS 冒烟：gen-api / geo-agent / 采集程序（Node require）消费面 */
+/** CJS 冒烟：geo-api / geo-agent / 采集程序（Node require）消费面 */
 const assert = require('node:assert');
 const c = require('../dist/index.cjs');
 

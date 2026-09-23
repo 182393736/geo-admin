@@ -1,0 +1,42 @@
+# 业务 API (geo-api) + CMS API (site-server)
+# 用法：
+#   cd deploy/server
+#   cp .env.example .env   # 仅首次，改密钥与 Mongo
+#   docker compose up -d --build
+
+name: geo-server
+
+services:
+  geo-api:
+    build:
+      context: ../..
+      dockerfile: apps/geo-api/Dockerfile
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      NODE_ENV: production
+      EGG_SERVER_ENV: prod
+      PORT: "6001"
+      BIND_HOST: "0.0.0.0"
+      MONGO_URL: ${MONGO_URL}
+      PUBLIC_API_URL: ${PUBLIC_API_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      COLLECTOR_API_KEY: ${COLLECTOR_API_KEY}
+    ports:
+      - "${API_PORT:-6001}:6001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  site-server:
+    build:
+      context: ../..
+      dockerfile: apps/site-server/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      EGG_SERVER_ENV: prod
+      MONGODB_URL: ${MONGODB_URL}
+    ports:
+      - "${CMS_PORT:-5001}:5001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

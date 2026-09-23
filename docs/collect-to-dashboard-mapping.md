@@ -1,14 +1,14 @@
 # 品牌采集完成后：可分析入库的数据 → 用户后台页面 / Panel 映射
 
-> 分析范围：以 `apps/gen-api`（Egg 后端）的真实数据流为准，页面以 `apps/gen-user-dash`（用户后台）的真实代码为准。
-> 当前状态：**采集（gen-caiji）已就绪；解析 A/B/C + aggregate + report 装配已实现**（默认 `PARSE_MODE=realtime`）。用户后台部分数据面板仍是「等待首次采集」占位（`PreCollectionEmpty`），真实查询接入仍是后续工作。
+> 分析范围：以 `apps/geo-api`（Egg 后端）的真实数据流为准，页面以 `apps/geo-user-dash`（用户后台）的真实代码为准。
+> 当前状态：**采集（geo-caiji）已就绪；解析 A/B/C + aggregate + report 装配已实现**（默认 `PARSE_MODE=realtime`）。用户后台部分数据面板仍是「等待首次采集」占位（`PreCollectionEmpty`），真实查询接入仍是后续工作。
 
 ---
 
 ## 一、数据链路总览（一条回答 → 最终面板）
 
 ```
-采集 worker（gen-caiji 对话测试）
+采集 worker（geo-caiji 对话测试）
    │  submit {status, answer_text, cited_urls, model_meta}
    ▼
 raw_answer（parsed=false）─────────────────────────── 采集提交落库
@@ -132,7 +132,7 @@ raw_answer（parsed=false）─────────────────�
 1. **采集 → 解析 → 聚合 → 报告装配**：后端链路已通（含任务 `partial`、失败槽 Admin 重置、`llm_call_logs`）。默认实时解析；量大可切 `PARSE_MODE=daily`。
 2. **用户后台多数数据面板仍为「等待首次采集」占位**：`ranking` / `sentiment` 各 Tab 多为 `PreCollectionEmpty`；`overview` 部分模块仍有 mock ref。
 3. **`snapshot` / `evidence_item`**：模型已建，截图上传按计划暂不做。
-4. **`/summary/*`、`/source_intelligence/*`、`/snapshot/export/list` 等**：前端契约已有，gen-api 未必全挂载（线上 geoapi 可能承接）——「能入库、用户侧查询待补」。
+4. **`/summary/*`、`/source_intelligence/*`、`/snapshot/export/list` 等**：前端契约已有，geo-api 未必全挂载（线上 geoapi 可能承接）——「能入库、用户侧查询待补」。
 
 ---
 
