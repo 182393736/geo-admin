@@ -51,10 +51,9 @@ const DEV_KEYS = {
   ],
   MISTRAL_BASE_URL: 'https://api.mistral.ai/v1',
   MISTRAL_MODEL: 'ministral-3b-2512',
-  // 采集 worker 服务鉴权密钥（生产用 COLLECTOR_API_KEY 环境变量覆盖）
-  COLLECTOR_API_KEY: 'collector-dev-key-8f3a1c2e9d7b4a5f',
+  // 采集 worker 服务鉴权（与 deploy/server docker-compose / gen-caiji 默认一致）
+  COLLECTOR_API_KEY: 'geo-prod-collector-3e9b1c7a5d2f8e4b0a6c9d1e7f2a5b8c',
 };
-
 /** @type {Record<string, any>|null|undefined} */
 let localSecretsCache;
 
