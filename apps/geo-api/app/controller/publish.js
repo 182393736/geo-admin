@@ -907,7 +907,7 @@ class PublishController extends Controller {
     };
   }
 
-  /** POST /article/library/cites — 单篇引用明细 */
+  /** POST /article/library/cites — 单篇引用明细（对标 /article/library/citations） */
   async articleCites() {
     const { ctx } = this;
     const b = ctx.request.body || {};
@@ -924,7 +924,7 @@ class PublishController extends Controller {
     const q = { brand_id: brand.brand_id, article_id: articleId };
     if (start && end) q.date = { $gte: start, $lte: end };
     const edges = await ctx.model.CitationEdge.find(q)
-      .select('platform query_id query_type date is_own mentioned_entity')
+      .select('platform query_id query_type date is_own mentioned_entity source_id')
       .sort({ date: -1 })
       .limit(200)
       .lean();
@@ -934,21 +934,73 @@ class PublishController extends Controller {
       ? await ctx.model.MonitorQuery.find({ query_id: { $in: qids } }).select('query_id query query_type').lean()
       : [];
     const qMap = Object.fromEntries(queries.map(x => [ x.query_id, x ]));
+
+    // 发布媒体：文章/边 → canonical_sources；发稿同步再回填 publish_orders.media_name
+    const article = await ctx.model.CitedArticle.findOne({ article_id: articleId }).lean();
+    const sourceIds = [ ...new Set([
+      ...(article && article.source_id ? [ article.source_id ] : []),
+      ...edges.map(e => e.source_id).filter(Boolean),
+    ]) ];
+    const sources = sourceIds.length
+      ? await ctx.model.CanonicalSource.find({ source_id: { $in: sourceIds } }).select('source_id canonical_source').lean()
+      : [];
+    const srcMap = Object.fromEntries(sources.map(s => [ s.source_id, s.canonical_source || '' ]));
+    let articleMedia = (article && article.source_id && srcMap[article.source_id]) || '';
+    if (!articleMedia) {
+      const crypto = require('crypto');
+      const norm = raw => {
+        const s = String(raw || '').trim();
+        if (!s) return '';
+        try {
+          const u = new URL(s);
+          u.hash = '';
+          return u.toString();
+        } catch {
+          return s;
+        }
+      };
+      const artCanon = article ? norm(article.canonical_url || article.url) : '';
+      const orders = await ctx.model.PublishOrder.find({
+        brand_id: brand.brand_id,
+        status: 'ok',
+        published_url: { $nin: [ null, '' ] },
+      }).select('published_url media_name').lean();
+      for (const o of orders) {
+        const canon = norm(o.published_url);
+        if (!canon) continue;
+        const oid = crypto.createHash('sha1').update(canon).digest('hex').slice(0, 16);
+        if (oid === articleId || (artCanon && canon === artCanon)) {
+          if (o.media_name) {
+            articleMedia = o.media_name;
+            break;
+          }
+        }
+      }
+    }
+
     const ENGINE = { doubao: '豆包', wenxin: '文心一言', deepseek: 'DeepSeek', qwen: '通义千问', yuanbao: '元宝' };
     ctx.body = {
       code: 200, msg: 'ok',
       data: {
         article_id: articleId,
+        media: articleMedia || '',
         total: edges.length,
-        list: edges.map(e => ({
-          date: e.date,
-          platform: e.platform,
-          platform_label: ENGINE[e.platform] || e.platform,
-          query_id: e.query_id,
-          query_text: (qMap[e.query_id] && qMap[e.query_id].query) || '',
-          query_type: e.query_type || (qMap[e.query_id] && qMap[e.query_id].query_type) || null,
-          mentioned_entity: e.mentioned_entity || '',
-        })),
+        list: edges.map(e => {
+          const media = (e.source_id && srcMap[e.source_id]) || articleMedia || '';
+          return {
+            date: e.date,
+            cited_at: e.date,
+            platform: e.platform,
+            platform_label: ENGINE[e.platform] || e.platform,
+            query_id: e.query_id,
+            query_text: (qMap[e.query_id] && qMap[e.query_id].query) || '',
+            question: (qMap[e.query_id] && qMap[e.query_id].query) || '',
+            query_type: e.query_type || (qMap[e.query_id] && qMap[e.query_id].query_type) || null,
+            mentioned_entity: e.mentioned_entity || '',
+            media,
+            media_name: media,
+          };
+        }),
       },
     };
   }

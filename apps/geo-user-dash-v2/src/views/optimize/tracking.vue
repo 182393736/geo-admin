@@ -213,7 +213,10 @@
               class="border-b last:border-0 hover:bg-muted/45"
             >
               <td class="min-w-0 px-4 py-3">
-                <div class="text-sm font-semibold leading-snug">{{ row.title || '未命名文章' }}</div>
+                <div
+                  class="line-clamp-2 text-sm font-semibold leading-snug"
+                  :title="row.title || '未命名文章'"
+                >{{ row.title || '未命名文章' }}</div>
                 <a
                   v-if="row.url"
                   class="mt-1 block truncate text-[11.5px] text-primary hover:underline"
@@ -402,7 +405,7 @@
         class="fixed inset-0 z-[3000] flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
         @click.self="citesOpen = false"
       >
-        <Card class="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden shadow-lg">
+        <Card class="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden shadow-lg">
           <div class="flex items-start justify-between border-b px-5 py-4">
             <div class="flex items-center gap-2.5">
               <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -421,22 +424,26 @@
           <div class="overflow-auto p-5">
             <div v-if="citesLoading" class="py-10 text-center text-sm text-muted-foreground">加载中…</div>
             <div v-else-if="!citesList.length" class="py-10 text-center text-sm text-muted-foreground">周期内暂无引用记录</div>
-            <table v-else class="w-full text-sm">
+            <table v-else class="w-full min-w-[720px] text-sm">
               <thead>
                 <tr class="border-b bg-muted text-xs text-muted-foreground">
                   <th class="px-3 py-2 text-left font-medium">日期</th>
                   <th class="px-3 py-2 text-left font-medium">引擎</th>
                   <th class="px-3 py-2 text-left font-medium">监控问题</th>
+                  <th class="px-3 py-2 text-left font-medium">发布媒体</th>
                   <th class="px-3 py-2 text-left font-medium">类型</th>
                   <th class="px-3 py-2 text-left font-medium">提及对象</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(c, i) in citesList" :key="i" class="border-b last:border-0">
-                  <td class="whitespace-nowrap px-3 py-2 text-xs">{{ c.date }}</td>
+                  <td class="whitespace-nowrap px-3 py-2 text-xs">{{ c.date || c.cited_at }}</td>
                   <td class="whitespace-nowrap px-3 py-2 text-xs">{{ c.platform_label || c.platform }}</td>
-                  <td class="max-w-[280px] px-3 py-2 text-xs" :title="c.query_text || ''">
-                    <span class="line-clamp-2">{{ c.query_text || '—' }}</span>
+                  <td class="max-w-[240px] px-3 py-2 text-xs" :title="c.query_text || c.question || ''">
+                    <span class="line-clamp-2">{{ c.query_text || c.question || '—' }}</span>
+                  </td>
+                  <td class="max-w-[140px] truncate px-3 py-2 text-xs" :title="c.media || c.media_name || ''">
+                    {{ c.media || c.media_name || '—' }}
                   </td>
                   <td class="whitespace-nowrap px-3 py-2 text-xs">
                     {{ c.query_type === 'brand' ? '口碑词' : c.query_type === 'industry' ? '排行词' : '—' }}
