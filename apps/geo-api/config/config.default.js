@@ -69,6 +69,20 @@ module.exports = () => {
     },
   },
   security: { csrf: { enable: false } }, // API 走 JWT Bearer，无表单 CSRF 面
+  // 微信公众号回调为 text/xml
+  bodyParser: {
+    enableTypes: [ 'json', 'form', 'text' ],
+    extendTypes: {
+      text: [ 'text/xml', 'application/xml' ],
+    },
+  },
+  // 公众号登录 / 消息推送（临时明文默认值，后续改回纯环境变量）
+  wechatMp: {
+    appId: String(process.env.WX_MP_APPID || 'wxc6a698ad1b33d08f').trim(),
+    appSecret: String(process.env.WX_MP_SECRET || '366fc3f642f3a42cb1eeb37c7d9a1224').trim(),
+    token: String(process.env.WX_MP_TOKEN || 'geo_wx_token').trim(),
+    replyLoginOk: String(process.env.WX_MP_REPLY_LOGIN || '登录成功，请回网页继续').trim(),
+  },
   keys: 'geo-secret',
   // 本地默认 6001（见 scripts/dev-ports.js）；可用 PORT / BIND_HOST 覆盖
   // Docker 部署请设 BIND_HOST=0.0.0.0

@@ -12,6 +12,10 @@ module.exports = app => {
   router.post('/user/change_password', jwtAuth, controller.auth.changePassword);
   router.post('/api/auth/logout', jwtAuth, controller.auth.logout);
 
+  // 微信公众号消息推送（服务器配置 URL 校验 + 事件接收；无 JWT）
+  router.get('/user/wx/callback', controller.wx.callback);
+  router.post('/user/wx/callback', controller.wx.callback);
+
   // ============ 品牌列表 ============
   // 注：旧 POST /user/brands/analyze、GET /user/onboarding/status 已废弃移除（见提交
   //     《chore(geo-api): 移除废弃的 /user/brands/analyze 首登建档路径》，git 历史可恢复）；
