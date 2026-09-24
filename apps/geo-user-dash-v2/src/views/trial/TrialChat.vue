@@ -177,9 +177,6 @@
           <p class="text-xs font-medium text-foreground">
             确认品牌词、识别名与监控问题（最多 {{ limit }} 个）· 已选 {{ selected.size }}/{{ limit }}
           </p>
-          <button type="button" class="shrink-0 text-xs text-muted-foreground hover:text-foreground" @click="skipConfirm">
-            暂不选择
-          </button>
         </div>
 
         <div class="max-h-[46vh] space-y-4 overflow-y-auto px-4 py-4">
@@ -285,7 +282,6 @@
           >
             {{ saving ? '保存中…' : `确认监控 ${selected.size} 个问题` }}
           </Button>
-          <Button type="button" variant="outline" :disabled="saving" @click="skipConfirm">跳过</Button>
         </div>
       </div>
 
@@ -895,21 +891,6 @@ async function doConfirm() {
   } finally {
     saving.value = false
   }
-}
-
-function skipConfirm() {
-  phase.value = 'done'
-  push({ type: 'ai', text: '好的，本次不保存监控问题。完整画像与候选已生成，可随时重新分析。' })
-  push({
-    type: 'report',
-    summary: {
-      brand: preview.value?.brand?.name || '—',
-      industry: preview.value?.brand?.industry || '',
-      aliases: preview.value?.aliases?.length ?? 0,
-      competitors: preview.value?.competitors?.length ?? 0,
-      queries: 0,
-    },
-  })
 }
 
 function reset() {

@@ -402,15 +402,16 @@
         class="fixed inset-0 z-[3000] flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
         @click.self="citesOpen = false"
       >
-        <Card class="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden shadow-lg">
+        <Card class="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden shadow-lg">
           <div class="flex items-start justify-between border-b px-5 py-4">
             <div class="flex items-center gap-2.5">
               <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Quote class="h-4 w-4" />
               </div>
-              <div>
+              <div class="min-w-0">
                 <h3 class="text-sm font-semibold">引用明细</h3>
-                <p class="mt-0.5 text-xs text-muted-foreground">{{ citesRow?.title }}</p>
+                <p class="mt-0.5 truncate text-xs text-muted-foreground" :title="citesRow?.title || ''">{{ citesRow?.title }}</p>
+                <p v-if="citesList.length" class="mt-0.5 text-[11px] text-muted-foreground">共 {{ citesList.length }} 条引用记录</p>
               </div>
             </div>
             <Button variant="ghost" size="icon" class="h-8 w-8" @click="citesOpen = false">
@@ -425,17 +426,23 @@
                 <tr class="border-b bg-muted text-xs text-muted-foreground">
                   <th class="px-3 py-2 text-left font-medium">日期</th>
                   <th class="px-3 py-2 text-left font-medium">引擎</th>
-                  <th class="px-3 py-2 text-left font-medium">问题</th>
+                  <th class="px-3 py-2 text-left font-medium">监控问题</th>
                   <th class="px-3 py-2 text-left font-medium">类型</th>
+                  <th class="px-3 py-2 text-left font-medium">提及对象</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(c, i) in citesList" :key="i" class="border-b last:border-0">
-                  <td class="px-3 py-2 text-xs">{{ c.date }}</td>
-                  <td class="px-3 py-2 text-xs">{{ c.platform_label || c.platform }}</td>
-                  <td class="px-3 py-2 text-xs">{{ c.query_text || c.query_id || '—' }}</td>
-                  <td class="px-3 py-2 text-xs">
+                  <td class="whitespace-nowrap px-3 py-2 text-xs">{{ c.date }}</td>
+                  <td class="whitespace-nowrap px-3 py-2 text-xs">{{ c.platform_label || c.platform }}</td>
+                  <td class="max-w-[280px] px-3 py-2 text-xs" :title="c.query_text || ''">
+                    <span class="line-clamp-2">{{ c.query_text || '—' }}</span>
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-2 text-xs">
                     {{ c.query_type === 'brand' ? '口碑词' : c.query_type === 'industry' ? '排行词' : '—' }}
+                  </td>
+                  <td class="max-w-[120px] truncate px-3 py-2 text-xs text-muted-foreground" :title="c.mentioned_entity || ''">
+                    {{ c.mentioned_entity || '—' }}
                   </td>
                 </tr>
               </tbody>

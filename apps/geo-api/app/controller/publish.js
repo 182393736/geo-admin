@@ -924,13 +924,14 @@ class PublishController extends Controller {
     const q = { brand_id: brand.brand_id, article_id: articleId };
     if (start && end) q.date = { $gte: start, $lte: end };
     const edges = await ctx.model.CitationEdge.find(q)
-      .select('platform query_id query_type date is_own')
+      .select('platform query_id query_type date is_own mentioned_entity')
       .sort({ date: -1 })
       .limit(200)
       .lean();
     const qids = [ ...new Set(edges.map(e => e.query_id).filter(x => x != null)) ];
+    // MonitorQuery 正文字段是 query（不是 query_text）
     const queries = qids.length
-      ? await ctx.model.MonitorQuery.find({ query_id: { $in: qids } }).select('query_id query_text query_type').lean()
+      ? await ctx.model.MonitorQuery.find({ query_id: { $in: qids } }).select('query_id query query_type').lean()
       : [];
     const qMap = Object.fromEntries(queries.map(x => [ x.query_id, x ]));
     const ENGINE = { doubao: '豆包', wenxin: '文心一言', deepseek: 'DeepSeek', qwen: '通义千问', yuanbao: '元宝' };
@@ -944,8 +945,9 @@ class PublishController extends Controller {
           platform: e.platform,
           platform_label: ENGINE[e.platform] || e.platform,
           query_id: e.query_id,
-          query_text: qMap[e.query_id]?.query_text || '',
-          query_type: e.query_type || qMap[e.query_id]?.query_type || null,
+          query_text: (qMap[e.query_id] && qMap[e.query_id].query) || '',
+          query_type: e.query_type || (qMap[e.query_id] && qMap[e.query_id].query_type) || null,
+          mentioned_entity: e.mentioned_entity || '',
         })),
       },
     };
