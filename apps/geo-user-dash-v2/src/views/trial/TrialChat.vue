@@ -74,8 +74,8 @@
   </div>
 
   <!-- 对话态 -->
-  <div v-else class="mx-auto flex h-[min(100vh,900px)] w-full max-w-2xl flex-col px-4 pb-4 pt-6">
-    <div ref="wrapEl" class="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+  <div v-else class="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col px-4 pb-4 pt-6">
+    <div ref="wrapEl" class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1">
       <template v-for="m in msgs" :key="m.id">
         <div
           v-if="m.type === 'user'"
@@ -171,7 +171,7 @@
     </div>
 
     <!-- 底部确认 / 状态 -->
-    <div class="mt-3 shrink-0">
+    <div ref="footerEl" class="mt-3 shrink-0">
       <div v-if="phase === 'confirm' && preview" data-testid="trial-confirm-panel" class="overflow-hidden rounded-xl border bg-card shadow-sm">
         <div class="flex items-center justify-between gap-3 border-b bg-muted/40 px-4 py-2.5">
           <p class="text-xs font-medium text-foreground">
@@ -367,6 +367,34 @@ const editDraft = ref('')
 const editHint = ref('')
 const editInputEl = ref<HTMLInputElement | null>(null)
 const wrapEl = ref<HTMLElement | null>(null)
+const footerEl = ref<HTMLElement | null>(null)
+let scrollRaf = 0
+
+function scrollToBottom(force = false) {
+  if (scrollRaf) cancelAnimationFrame(scrollRaf)
+  scrollRaf = requestAnimationFrame(() => {
+    scrollRaf = 0
+    nextTick(() => {
+      const el = wrapEl.value
+      if (el) {
+        const gap = el.scrollHeight - el.scrollTop - el.clientHeight
+        if (force || gap < 120) el.scrollTop = el.scrollHeight
+      }
+      footerEl.value?.scrollIntoView?.({ block: 'nearest', behavior: 'auto' })
+    })
+  })
+}
+
+function scroll() {
+  scrollToBottom(phase.value === 'running' || phase.value === 'confirm' || phase.value === 'done')
+}
+
+watch(
+  () => [msgs.length, phase.value, msgs.reduce((n, m) => n + (m.items?.length || 0), 0)] as const,
+  () => scroll(),
+)
+watch(preview, () => scroll())
+
 const runningTip = ref('分析进行中…')
 const doneTip = computed(() => (
   isAddBrand.value
@@ -459,12 +487,6 @@ function push(m: Omit<Msg, 'id'>): Msg {
   msgs.push(msg)
   scroll()
   return msg
-}
-function scroll() {
-  nextTick(() => {
-    const el = wrapEl.value
-    if (el) el.scrollTop = el.scrollHeight
-  })
 }
 
 function openBlock(title: string, items: ThinkItem[] = []): Msg {

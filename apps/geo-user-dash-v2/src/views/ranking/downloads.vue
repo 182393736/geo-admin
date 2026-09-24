@@ -168,7 +168,7 @@
       </div>
     </Card>
 
-    <!-- 预览灯箱：放大后可拖拽 / 滚轮平移 -->
+    <!-- 预览灯箱：滚轮缩放 · 按住拖动平移 -->
     <Teleport to="body">
       <div
         v-if="previewVisible"
@@ -238,7 +238,7 @@
               </button>
             </div>
           </div>
-          <p v-if="previewScale > 1" class="mt-2 text-xs text-white/55">放大后可拖动或滚轮平移查看</p>
+          <p class="mt-2 text-xs text-white/55">滚轮缩放 · 放大后按住拖动可平移</p>
         </div>
       </div>
     </Teleport>
@@ -493,6 +493,7 @@ function togglePreviewZoom() {
   }
 }
 
+/** 放大后按住拖动平移（上下左右均可） */
 function onPreviewPointerDown(e: PointerEvent) {
   if (previewScale.value <= 1) return;
   if (e.button != null && e.button !== 0) return;
@@ -528,13 +529,10 @@ function onPreviewClick() {
   togglePreviewZoom();
 }
 
+/** 滚轮放大 / 缩小 */
 function onPreviewWheel(e: WheelEvent) {
-  if (previewScale.value <= 1) {
-    if (e.deltaY < 0) previewZoomIn();
-    return;
-  }
-  previewOffset.x -= e.deltaX;
-  previewOffset.y -= e.deltaY;
+  if (e.deltaY < 0) previewZoomIn();
+  else if (e.deltaY > 0) previewZoomOut();
 }
 
 async function openAnswer(s: SnapshotItem) {
