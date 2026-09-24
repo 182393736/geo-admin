@@ -7,7 +7,7 @@
     const path = require('path');
     const file = path.join(__dirname, '../.env');
     if (!fs.existsSync(file)) return;
-    for (const line of fs.readFileSync(file, 'utf8').split(/\n')) {
+    for (const line of fs.readFileSync(file, 'utf8').split(/\n/)) {
       const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
       if (!m || m[1].startsWith('#')) continue;
       if (process.env[m[1]] === undefined) process.env[m[1]] = m[2];
