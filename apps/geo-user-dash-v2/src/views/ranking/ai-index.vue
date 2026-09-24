@@ -577,13 +577,15 @@ function cellCls() {
 function cellStyle(v: any) {
   const dark = document.documentElement.classList.contains('dark')
   if (Number.isFinite(Number(v))) {
+    // 上榜：品牌橘，加强对比
     return dark
-      ? { background: 'hsl(var(--primary) / 0.22)', color: 'hsl(24 100% 78%)' }
-      : { background: 'hsl(var(--primary) / 0.12)', color: 'hsl(var(--primary))' }
+      ? { background: 'hsl(var(--primary) / 0.38)', color: 'hsl(24 100% 86%)' }
+      : { background: 'hsl(var(--primary) / 0.16)', color: 'hsl(var(--primary))', boxShadow: 'inset 0 0 0 1px hsl(var(--primary) / 0.28)' }
   }
+  // 未上榜：冷灰中性，避免与橘色上榜相近
   return dark
-    ? { background: 'hsl(0 63% 30% / 0.25)', color: 'hsl(0 90% 75%)' }
-    : { background: 'hsl(0 84% 96%)', color: 'hsl(0 72% 40%)' }
+    ? { background: 'hsl(240 4% 18%)', color: 'hsl(240 5% 58%)' }
+    : { background: 'hsl(240 6% 95%)', color: 'hsl(240 4% 52%)' }
 }
 function cellText(v: any) {
   if (Number.isFinite(Number(v))) return `#${v}`;
