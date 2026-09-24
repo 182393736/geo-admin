@@ -5,6 +5,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  /** 当前采集机器名（os.hostname） */
+  getMachineName: () => ipcRenderer.invoke('collector:get-machine-name'),
   /** 当前 geo-api 目标（local / test / prod） */
   getCollectorApiTarget: () => ipcRenderer.invoke('collector:get-api-target'),
   /** 切换 geo-api 目标 */

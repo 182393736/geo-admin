@@ -260,6 +260,16 @@ class CollectorController extends Controller {
     // 汇总所属任务进度
     await ctx.service.collect.syncTask(slot.task_id);
 
+    // 旁路：采集 IP 台账（失败不影响主流程）
+    await ctx.service.collectorIp.recordSubmit({
+      machine_name: b.machine_name,
+      ip: b.ip,
+      port: b.port,
+      status, // 用提交态，非 nextStatus（pending 重试仍计 fail）
+      platform: slot.platform || b.platform,
+      date: slot.date,
+    });
+
     ctx.body = {
       code: 200, msg: 'ok',
       data: { slot_id: slotId, status: nextStatus, attempts: attemptsAfter, answer_id: answerId },

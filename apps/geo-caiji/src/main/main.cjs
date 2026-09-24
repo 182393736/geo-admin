@@ -11,6 +11,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const os = require('node:os');
 const { chromium } = require('playwright');
 const PLATFORMS = require('../shared/platforms.json');
 const { detectAuth, watchUsername } = require('./login-detect.cjs');
@@ -53,6 +54,8 @@ app.setName('geo-caiji');
 
 /** ip -> { context, pages: Map<platform, Page>, dir } */
 const sessions = new Map();
+/** ip -> port（来自 IP 列表，submit 时附带） */
+const ipPorts = new Map();
 
 /** 对话测试：最近一次结果 `${ip}:${platform}` -> { htmlPath, jsonPath, shotPath } */
 const lastResults = new Map();
@@ -63,6 +66,17 @@ const runningPulls = new Set();
 
 /** 对话/采集硬超时：整个流程超过即中止并返回错误（须短于服务端 runningTtl 15 分钟） */
 const CHAT_TIMEOUT_MS = 600_000; // 10 分钟
+
+/** 提交时附带本机身份 + IP/端口，供服务端 collector_ips 台账 */
+function submitWithIdentity(slotId, ip, payload) {
+  const body = { ...(payload || {}), ip: String(ip || '').trim() };
+  const port = ipPorts.get(ip);
+  if (port != null && port !== '') {
+    const n = Number(port);
+    if (Number.isFinite(n) && n > 0) body.port = n;
+  }
+  return submitSlot(slotId, body);
+}
 
 /**
  * 在指定 IP 会话上执行一次平台对话（打开/复用 tab → goto 初始 URL → runChat → 落盘）
@@ -277,6 +291,11 @@ function bindPlatformPageClose(ip, platform, page) {
 
 function registerIpc() {
   // —— API 目标：本地 / 测试 / 生产 ——
+  ipcMain.handle('collector:get-machine-name', async () => {
+    const machineName = String(os.hostname() || '').trim() || 'unknown';
+    return { ok: true, machine_name: machineName };
+  });
+
   ipcMain.handle('collector:get-api-target', async () => {
     return { ok: true, ...getCollectorConfig(), targets: listTargets() };
   });
@@ -302,6 +321,10 @@ function registerIpc() {
       if (!resp.ok) return { ok: false, error: `HTTP ${resp.status}` };
       const data = await resp.json();
       const list = Array.isArray(data && data.list) ? data.list : [];
+      ipPorts.clear();
+      for (const r of list) {
+        if (r && r.ip != null && r.port != null) ipPorts.set(String(r.ip), r.port);
+      }
       return {
         ok: true,
         count: data && data.count != null ? data.count : list.length,
@@ -479,13 +502,13 @@ function registerIpc() {
       // 防御：后台偶发返回其它平台时拒绝执行并交还 fail
       if (slot.platform && slot.platform !== platform) {
         const msg = `领到的槽位平台为 ${slot.platform}，与请求的 ${platform} 不一致`;
-        await submitSlot(slot.slot_id, { status: 'fail', error: msg }).catch(() => {});
+        await submitWithIdentity(slot.slot_id, ip, { status: 'fail', error: msg }).catch(() => {});
         return { ok: false, error: msg, slot };
       }
 
       const question = String(slot.question_sent || '').trim();
       if (!question) {
-        await submitSlot(slot.slot_id, { status: 'fail', error: '槽位缺少 question_sent' }).catch(() => {});
+        await submitWithIdentity(slot.slot_id, ip, { status: 'fail', error: '槽位缺少 question_sent' }).catch(() => {});
         return { ok: false, error: '槽位缺少 question_sent', slot };
       }
 
@@ -566,7 +589,7 @@ function registerIpc() {
         }
 
         logPull('info', `提交结果到后台（status=${payload.status}）…`);
-        const submitRes = await submitSlot(slot.slot_id, payload);
+        const submitRes = await submitWithIdentity(slot.slot_id, ip, payload);
         logPull(
           'success',
           `已提交：slot=${slot.slot_id} status=${submitRes && submitRes.status} answer_id=${submitRes && submitRes.answer_id}`
@@ -596,7 +619,7 @@ function registerIpc() {
         const msg = String((err && err.message) || err);
         log('error', `采集失败：${msg}`);
         try {
-          await submitSlot(slot.slot_id, { status: 'fail', error: msg });
+          await submitWithIdentity(slot.slot_id, ip, { status: 'fail', error: msg });
           logPull('warn', `已向后台提交 fail：${msg}`);
         } catch (submitErr) {
           logPull('error', `提交 fail 也失败：${(submitErr && submitErr.message) || submitErr}`);

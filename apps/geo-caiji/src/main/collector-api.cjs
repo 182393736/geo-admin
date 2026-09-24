@@ -9,6 +9,7 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 
 const TARGETS = {
   local: {
@@ -101,6 +102,10 @@ function getConfig() {
   };
 }
 
+function getMachineName() {
+  return String(os.hostname() || '').trim() || 'unknown';
+}
+
 async function collectorFetch(pathname, { method = 'POST', body } = {}) {
   const { baseUrl, apiKey } = getConfig();
   const url = `${baseUrl}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
@@ -146,11 +151,13 @@ async function pullSlot(params = {}) {
   return collectorFetch('/collector/slots/pull', { body });
 }
 
-/** 提交槽位结果（ok / empty / fail） */
+/** 提交槽位结果（ok / empty / fail）；自动附带 machine_name，可另传 ip/port */
 async function submitSlot(slotId, payload) {
   if (!slotId) throw new Error('缺少 slot_id');
+  const body = { ...(payload || {}) };
+  if (!body.machine_name) body.machine_name = getMachineName();
   return collectorFetch(`/collector/slots/${encodeURIComponent(slotId)}/submit`, {
-    body: payload || {},
+    body,
   });
 }
 
@@ -160,6 +167,7 @@ module.exports = {
   loadTarget,
   setTarget,
   getConfig,
+  getMachineName,
   pullSlot,
   submitSlot,
 };

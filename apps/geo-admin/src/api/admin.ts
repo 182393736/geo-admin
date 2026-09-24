@@ -77,6 +77,23 @@ export const adminApi = {
   collectAnswers: (p: Record<string, any> = {}) => get<AdminPaged<AdminAnswerRow>>(`/admin/collect/answers${qs(p)}`),
   collectAnswerDetail: (answerId: string) => get<AdminAnswerDetail>(`/admin/collect/answers/${encodeURIComponent(answerId)}`),
   collectSnapshots: (p: Record<string, any> = {}) => get<AdminPaged<AdminSnapshotRow>>(`/admin/collect/snapshots${qs(p)}`),
+  /** 采集 IP 台账（机器名 + IP） */
+  collectIps: (p: Record<string, any> = {}) => get<AdminPaged<{
+    id: string
+    machine_name: string
+    ip: string
+    port: number | null
+    ok_count: number
+    fail_count: number
+    empty_count: number
+    total_count: number
+    by_platform: Record<string, { ok?: number; fail?: number; empty?: number; total?: number }>
+    by_day: Record<string, { ok?: number; fail?: number; empty?: number; total?: number; by_platform?: Record<string, any> }>
+    last_seen_at: string | null
+    last_ok_at: string | null
+    last_fail_at: string | null
+    last_empty_at: string | null
+  }>>(`/admin/collect/ips${qs(p)}`),
 
   // 解析
   parseOverview: () => get<AdminParseOverview>('/admin/parse/overview'),

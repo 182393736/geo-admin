@@ -3,7 +3,11 @@
     <header class="hd">
       <div>
         <h1 class="title">采集应用</h1>
-        <p class="sub">IP 代理列表 · 每个 IP 一个独立浏览器会话 · 4 平台标签页 · 拉取对接 geo-api</p>
+        <p class="sub">
+          <span v-if="machineName" class="machine">机器名 {{ machineName }}</span>
+          <span v-if="machineName" class="sub-sep">·</span>
+          IP 代理列表 · 每个 IP 一个独立浏览器会话 · 4 平台标签页 · 拉取对接 geo-api
+        </p>
       </div>
       <div class="hd-actions">
         <div class="api-target" title="拉取 / 提交数据的 geo-api 地址">
@@ -201,6 +205,7 @@ const COLLECT_TICK_MS = 2000;
 const COLLECT_COOLDOWN_MS = 10_000;
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
+const machineName = ref('');
 const rows = ref([]);
 const total = ref(0);
 const loading = ref(false);
@@ -315,6 +320,14 @@ function authTextClass(ip, platform) {
 function authTitle(ip, platform) {
   const a = authOf(ip, platform);
   return a && a.loggedIn ? a.username || '' : '';
+}
+
+async function loadMachineName() {
+  if (!isElectron || !window.electronAPI.getMachineName) return;
+  try {
+    const r = await window.electronAPI.getMachineName();
+    if (r && r.ok) machineName.value = String(r.machine_name || '').trim();
+  } catch { /* ignore */ }
 }
 
 async function load() {
@@ -657,6 +670,7 @@ function stopCollectTimer() {
 }
 
 onMounted(() => {
+  loadMachineName();
   loadApiTarget();
   load();
   // 订阅主进程推送的登录态变化（打开时检测 + 页面 load 复检）
@@ -715,6 +729,14 @@ body {
   margin: 6px 0 0;
   font-size: 13px;
   color: #6b7280;
+}
+.machine {
+  font-weight: 600;
+  color: #334155;
+}
+.sub-sep {
+  margin: 0 6px;
+  color: #cbd5e1;
 }
 .hd-actions {
   display: flex;

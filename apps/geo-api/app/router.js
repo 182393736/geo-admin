@@ -164,6 +164,7 @@ module.exports = app => {
   router.get('/admin/collect/answers', jwtAuth, adminAuth, controller.admin.collectAnswers);
   router.get('/admin/collect/answers/:id', jwtAuth, adminAuth, controller.admin.collectAnswerDetail);
   router.get('/admin/collect/snapshots', jwtAuth, adminAuth, controller.admin.collectSnapshots);
+  router.get('/admin/collect/ips', jwtAuth, adminAuth, controller.admin.collectIps);
   // 解析监控
   router.get('/admin/parse/overview', jwtAuth, adminAuth, controller.admin.parseOverview);
   // 流水线时间轴（品牌×天：槽位→采集→解析→聚合→报告）

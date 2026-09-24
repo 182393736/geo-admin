@@ -731,6 +731,43 @@ class AdminController extends Controller {
     });
   }
 
+  /** 采集 IP 台账（机器名 + IP，累计 + 近 3 日 + 分平台） */
+  async collectIps() {
+    const { ctx } = this;
+    const M = ctx.model;
+    const { page, page_size } = this._page();
+    const q = {};
+    const machine = String(ctx.query.machine_name || '').trim();
+    const ip = String(ctx.query.ip || '').trim();
+    if (machine) q.machine_name = new RegExp(machine.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    if (ip) q.ip = new RegExp(ip.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const [total, rows] = await Promise.all([
+      M.CollectorIp.countDocuments(q),
+      M.CollectorIp.find(q).sort({ last_seen_at: -1, updated_at: -1 }).skip((page - 1) * page_size).limit(page_size).lean(),
+    ]);
+    this._ok({
+      list: rows.map(r => ({
+        id: `${r.machine_name}::${r.ip}`,
+        machine_name: r.machine_name,
+        ip: r.ip,
+        port: r.port || null,
+        ok_count: r.ok_count || 0,
+        fail_count: r.fail_count || 0,
+        empty_count: r.empty_count || 0,
+        total_count: r.total_count || 0,
+        by_platform: r.by_platform || {},
+        by_day: r.by_day || {},
+        last_seen_at: r.last_seen_at || null,
+        last_ok_at: r.last_ok_at || null,
+        last_fail_at: r.last_fail_at || null,
+        last_empty_at: r.last_empty_at || null,
+        created_at: r.created_at || null,
+        updated_at: r.updated_at || null,
+      })),
+      total, page, page_size,
+    });
+  }
+
   // ---------- 解析 ----------
   async parseOverview() {
     const { ctx } = this;

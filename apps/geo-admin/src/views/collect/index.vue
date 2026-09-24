@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <h2 class="page-title">采集监控</h2>
-    <p class="page-desc">每日采集任务 → 槽位 → 原始回答 → 截图；失败槽位可手动重置为 pending 供采集端重采（只读监控 + 重置）</p>
+    <p class="page-desc">每日采集任务 → 槽位 → 原始回答 → 截图；失败槽位可手动重置。采集 IP 台账在 submit 时旁路累计（含近 3 日 / 分平台）。</p>
 
     <a-tabs v-model:active-key="tab">
       <!-- 任务 -->
@@ -147,6 +147,51 @@
           </div>
         </div>
       </a-tab-pane>
+
+      <!-- 采集 IP -->
+      <a-tab-pane key="ips" title="采集 IP">
+        <div class="toolbar">
+          <a-input v-model="ipMachineQ" allow-clear placeholder="机器名" style="width: 180px" @press-enter="loadIps(1)" />
+          <a-input v-model="ipQ" allow-clear placeholder="IP" style="width: 160px" @press-enter="loadIps(1)" />
+          <a-button type="primary" @click="loadIps(1)">查询</a-button>
+          <span class="muted" style="margin-left: auto">共 {{ ipTotal }} 条 · 累计 + 近 3 日</span>
+        </div>
+        <div class="table-card">
+          <a-table
+            :data="ipRows"
+            :columns="ipCols"
+            :loading="ipLoading"
+            :pagination="false"
+            row-key="id"
+            size="medium"
+            :expandable="ipExpandable"
+          >
+            <template #expand-row="{ record }">
+              <div class="ip-expand">
+                <div class="sec">分平台（累计）</div>
+                <div class="ip-plat-grid">
+                  <div v-for="(st, plat) in (record.by_platform || {})" :key="plat" class="ip-plat-card">
+                    <div class="ip-plat-name">{{ platLabel(String(plat)) }}</div>
+                    <div class="muted">成功 {{ st.ok || 0 }} · 失败 {{ st.fail || 0 }} · 空答 {{ st.empty || 0 }} · 总计 {{ st.total || 0 }}</div>
+                  </div>
+                  <div v-if="!Object.keys(record.by_platform || {}).length" class="muted">暂无</div>
+                </div>
+                <div class="sec">近 3 日</div>
+                <a-table
+                  :data="dayRowsOf(record)"
+                  :columns="ipDayCols"
+                  :pagination="false"
+                  size="mini"
+                  row-key="date"
+                />
+              </div>
+            </template>
+          </a-table>
+          <div class="pager">
+            <a-pagination :total="ipTotal" :current="ipPage" :page-size="20" show-total @change="loadIps" />
+          </div>
+        </div>
+      </a-tab-pane>
     </a-tabs>
 
     <!-- 槽位抽屉 -->
@@ -262,12 +307,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { Message, Modal } from '@arco-design/web-vue';
 import { adminApi } from '@/api/admin';
 import type { AdminCollectTaskRow, AdminSlotRow, AdminAnswerRow, AdminAnswerDetail, AdminSnapshotRow } from '@geo-admin/contracts';
 
 const tab = ref('tasks');
+
+const PLAT_LABEL: Record<string, string> = {
+  doubao: '豆包',
+  deepseek: 'DeepSeek',
+  wenxin: '文心',
+  yuanbao: '元宝',
+  qwen: '通义千问',
+  kimi: 'Kimi',
+};
+function platLabel(p: string) {
+  return PLAT_LABEL[p] || p || '—';
+}
 
 // 任务
 const tasks = ref<AdminCollectTaskRow[]>([]);
@@ -367,6 +424,92 @@ const snapCols = [
   { title: '槽位', dataIndex: 'slot_id', ellipsis: true },
   { title: '截图', slotName: 'photo', width: 80 },
 ];
+
+// 采集 IP
+type IpRow = {
+  id: string
+  machine_name: string
+  ip: string
+  port: number | null
+  ok_count: number
+  fail_count: number
+  empty_count: number
+  total_count: number
+  by_platform: Record<string, { ok?: number; fail?: number; empty?: number; total?: number }>
+  by_day: Record<string, { ok?: number; fail?: number; empty?: number; total?: number; by_platform?: Record<string, any> }>
+  last_seen_at: string | null
+  last_ok_at: string | null
+  last_fail_at: string | null
+};
+const ipRows = ref<IpRow[]>([]);
+const ipTotal = ref(0);
+const ipPage = ref(1);
+const ipLoading = ref(false);
+const ipMachineQ = ref('');
+const ipQ = ref('');
+const ipExpandable = { title: '', width: 40 };
+function fmtTs(v: string | null | undefined) {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return String(v).slice(0, 19);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function dayRowsOf(record: IpRow) {
+  const days = Object.keys(record.by_day || {}).sort().reverse();
+  return days.map(date => {
+    const st = record.by_day[date] || {};
+    const plats = st.by_platform || {};
+    const platText = Object.keys(plats)
+      .map(p => `${platLabel(p)} ${plats[p].ok || 0}/${plats[p].fail || 0}/${plats[p].empty || 0}`)
+      .join(' · ');
+    return {
+      date,
+      ok: st.ok || 0,
+      fail: st.fail || 0,
+      empty: st.empty || 0,
+      total: st.total || 0,
+      platforms: platText || '—',
+    };
+  });
+}
+const ipCols = [
+  { title: '机器名', dataIndex: 'machine_name', width: 160, ellipsis: true },
+  { title: 'IP', dataIndex: 'ip', width: 140 },
+  { title: '端口', dataIndex: 'port', width: 80, render: ({ record }: any) => record.port ?? '—' },
+  { title: '成功', dataIndex: 'ok_count', width: 80 },
+  { title: '失败', dataIndex: 'fail_count', width: 80 },
+  { title: '空答', dataIndex: 'empty_count', width: 80 },
+  { title: '总计', dataIndex: 'total_count', width: 80 },
+  { title: '最近活跃', width: 160, render: ({ record }: any) => fmtTs(record.last_seen_at) },
+  { title: '最近成功', width: 160, render: ({ record }: any) => fmtTs(record.last_ok_at) },
+  { title: '最近失败', width: 160, render: ({ record }: any) => fmtTs(record.last_fail_at) },
+];
+const ipDayCols = [
+  { title: '日期', dataIndex: 'date', width: 110 },
+  { title: '成功', dataIndex: 'ok', width: 70 },
+  { title: '失败', dataIndex: 'fail', width: 70 },
+  { title: '空答', dataIndex: 'empty', width: 70 },
+  { title: '总计', dataIndex: 'total', width: 70 },
+  { title: '分平台(成/败/空)', dataIndex: 'platforms', ellipsis: true },
+];
+
+async function loadIps(p = 1) {
+  ipLoading.value = true;
+  ipPage.value = p;
+  try {
+    const d = await adminApi.collectIps({
+      page: p,
+      page_size: 20,
+      machine_name: ipMachineQ.value.trim() || undefined,
+      ip: ipQ.value.trim() || undefined,
+    });
+    ipRows.value = d.list as IpRow[];
+    ipTotal.value = d.total;
+  } finally {
+    ipLoading.value = false;
+  }
+}
 
 // 槽位
 const slotDrawer = ref(false);
@@ -604,6 +747,12 @@ onMounted(() => {
   loadTasks(1);
   loadSlotList(1);
 });
+
+watch(tab, (v) => {
+  if (v === 'ips' && !ipRows.value.length) loadIps(1);
+  if (v === 'answers' && !answers.value.length) loadAnswers(1);
+  if (v === 'snapshots' && !snaps.value.length) loadSnaps(1);
+});
 </script>
 
 <style scoped lang="scss">
@@ -634,6 +783,21 @@ onMounted(() => {
   max-height: 46vh;
   overflow: auto;
 }
+.ip-expand { padding: 4px 8px 12px; }
+.ip-plat-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ip-plat-card {
+  min-width: 160px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+}
+.ip-plat-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
 .cite-list { margin: 0; padding-left: 0; list-style: none; }
 .cite-item {
   padding: 10px 12px;
