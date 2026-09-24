@@ -1,12 +1,14 @@
 'use strict';
 /**
- * 开发环境专用：清空某用户在业务库中的全部关联数据（含账号本身）。
- * 仅允许 NODE_ENV≠production 且 egg env≠prod。
+ * 清空某用户在业务库中的全部关联数据（含账号本身）。
+ * 默认仅开发环境；生产可通过 ADMIN_ALLOW_USER_PURGE=1 临时放开。
  */
 const { Service } = require('egg');
 
 /** @returns {boolean} */
-function isDevPurgeAllowed(app) {
+function isPurgeAllowed(app) {
+  const flag = String(process.env.ADMIN_ALLOW_USER_PURGE || '').trim().toLowerCase();
+  if (flag === '1' || flag === 'true' || flag === 'yes' || flag === 'on') return true;
   const nodeEnv = String(process.env.NODE_ENV || '').toLowerCase();
   const eggEnv = String((app && app.config && app.config.env) || '').toLowerCase();
   if (nodeEnv === 'production' || eggEnv === 'prod') return false;
@@ -49,7 +51,7 @@ const BY_USER = [
 
 class UserPurgeService extends Service {
   isAllowed() {
-    return isDevPurgeAllowed(this.app);
+    return isPurgeAllowed(this.app);
   }
 
   /**
@@ -60,7 +62,7 @@ class UserPurgeService extends Service {
   async purgeAll(userId, opts = {}) {
     const { ctx } = this;
     if (!this.isAllowed()) {
-      const err = new Error('仅开发环境可用');
+      const err = new Error('未开启用户数据清空（需开发环境或 ADMIN_ALLOW_USER_PURGE=1）');
       err.status = 403;
       throw err;
     }

@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <h2 class="page-title">用户管理</h2>
-    <p class="page-desc">全平台用户账号 · 支持搜索 / 添加用户 / 状态筛选 / 详情下钻<span v-if="purgeEnabled"> · <b style="color:#c81e1e">开发环境可清空用户全部数据</b></span></p>
+    <p class="page-desc">全平台用户账号 · 支持搜索 / 添加用户 / 状态筛选 / 详情下钻<span v-if="purgeEnabled"> · <b style="color:#c81e1e">可清空用户全部数据（危险）</b></span></p>
 
     <div class="toolbar">
       <a-input v-model="kw" placeholder="搜索账号 / 手机号 / 姓名" style="width: 240px" allow-clear @press-enter="load(1)" />
@@ -132,7 +132,7 @@
           <p v-else class="muted">无行为记录</p>
 
           <div v-if="purgeEnabled" class="purge-box">
-            <h4 class="sec danger">危险操作（仅开发环境）</h4>
+            <h4 class="sec danger">危险操作</h4>
             <p class="muted">将永久删除该用户账号、品牌、监控、采集、积分、订单等全部业务数据，不可恢复。</p>
             <a-button type="primary" status="danger" :loading="purging" @click="openPurge(detail.user)">清空此用户全部数据</a-button>
           </div>
@@ -151,7 +151,7 @@
       @cancel="purgeOpen = false"
     >
       <a-alert type="error" style="margin-bottom: 12px">
-        仅开发环境可用。将删除账号「{{ purgeTarget?.account }}」及其全部品牌与业务数据，不可恢复。
+        将删除账号「{{ purgeTarget?.account }}」及其全部品牌与业务数据，不可恢复。
       </a-alert>
       <p class="muted" style="margin-bottom: 8px">请输入账号 <strong>{{ purgeTarget?.account }}</strong> 以确认：</p>
       <a-input v-model="purgeConfirm" placeholder="目标账号" allow-clear />
@@ -300,7 +300,7 @@ const purgeTarget = ref<{ user_id: string; account: string } | null>(null);
 
 function openPurge(row: { user_id: string; account: string }) {
   if (!purgeEnabled.value) {
-    Message.warning('仅开发环境可用');
+    Message.warning('当前未开启清空用户功能');
     return;
   }
   if (auth.admin?.user_id && row.user_id === auth.admin.user_id) {

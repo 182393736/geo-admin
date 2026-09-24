@@ -264,14 +264,14 @@ class AdminController extends Controller {
 
   /**
    * POST /admin/users/:id/purge
-   * 开发环境专用：删除该用户全部业务数据 + 账号本身。
+   * 开发环境默认可用；生产需 ADMIN_ALLOW_USER_PURGE=1。
    * body: { confirm_account: string } 必须与目标账号一致
    */
   async purgeUser() {
     const { ctx } = this;
     if (!ctx.service.userPurge.isAllowed()) {
       ctx.status = 403;
-      ctx.body = { code: 403, msg: '仅开发环境可用' };
+      ctx.body = { code: 403, msg: '未开启用户数据清空（需开发环境或 ADMIN_ALLOW_USER_PURGE=1）' };
       return;
     }
     const id = String(ctx.params.id || '').trim();
