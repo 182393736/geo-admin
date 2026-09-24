@@ -29,7 +29,7 @@ const TARGETS = {
 };
 
 const DEFAULT_KEY =
-  process.env.COLLECTOR_API_KEY || 'geo-prod-collector-3e9b1c7a5d2f8e4b0a6c9d1e7f2a5b8c';
+  process.env.COLLECTOR_API_KEY || 'change-me-collector-key';
 
 /** @type {'local'|'test'|'prod'} */
 let currentTargetId = 'local';

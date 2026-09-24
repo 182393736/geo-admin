@@ -22,7 +22,7 @@ services:
       PUBLIC_API_URL: ${PUBLIC_API_URL:-https://geo-api.hanyuai.com}
       MONGO_URL: ${MONGO_URL:-mongodb://127.0.0.1:27017/geo}
       JWT_SECRET: ${JWT_SECRET:-geo-prod-jwt-7f3a9c2e1b8d4e6f0a5c9d2e8b1f4a7c}
-      COLLECTOR_API_KEY: ${COLLECTOR_API_KEY:-geo-prod-collector-3e9b1c7a5d2f8e4b0a6c9d1e7f2a5b8c}
+      COLLECTOR_API_KEY: ${COLLECTOR_API_KEY:-change-me-collector-key}
       # 默认 deepseek；key 内置在 packages/geo-agent/src/dev-keys.js（可被 .env 覆盖）
       LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}

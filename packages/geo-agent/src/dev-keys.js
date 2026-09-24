@@ -51,10 +51,9 @@ const DEV_KEYS = {
   ],
   MISTRAL_BASE_URL: 'https://api.mistral.ai/v1',
   MISTRAL_MODEL: 'ministral-3b-2512',
-  // 采集 worker 服务鉴权（与 deploy/server docker-compose / gen-caiji 默认一致）
-  COLLECTOR_API_KEY: 'geo-prod-collector-3e9b1c7a5d2f8e4b0a6c9d1e7f2a5b8c',
-};
-/** @type {Record<string, any>|null|undefined} */
+  // 采集 worker 服务鉴权（与当前生产 deploy/server/.env 一致）
+  COLLECTOR_API_KEY: 'change-me-collector-key',
+};/** @type {Record<string, any>|null|undefined} */
 let localSecretsCache;
 
 function repoRoot() {
