@@ -102,20 +102,34 @@ async function persistResult(models, opts) {
     } }, { upsert: true }).then(() => { counts.library = 1; }).catch(() => {});
   }
 
-  // ---- 监控问题：勾选子集优先（用户确认文案为权威，已在 sanitize 跳过中立闸门）；受 confirmLimit 截断 ----
-  let selected = result.candidates || [];
+  // ---- 监控问题：用户勾选文案为权威来源（含手工改写），不再依赖 sanitize 后的 candidates 过滤 ----
   const picked = Array.isArray(opts.selectedQueries)
     ? opts.selectedQueries.map(q => String(q == null ? '' : q).trim()).filter(Boolean)
+      .map(q => q.slice(0, 80))
     : [];
+  let selected;
   if (picked.length) {
-    const wanted = new Set(picked.map(q => q.slice(0, 80)));
-    selected = selected.filter(c => wanted.has(c.query));
-    if (!selected.length) {
-      throw new Error('所选监控问题为空，请重新勾选后确认');
-    }
+    const byQuery = new Map((result.candidates || []).map(c => [c.query, c]));
+    selected = picked.map((q) => {
+      if (byQuery.has(q)) return byQuery.get(q);
+      return {
+        query: q,
+        query_type: 'industry',
+        weight: 1,
+        is_golden: false,
+        query_description: '',
+        platform_prompt: q,
+        question_list: [{ user_friendly: q, platform_query: q }],
+      };
+    });
+  } else {
+    selected = result.candidates || [];
   }
   if (opts.confirmLimit) selected = selected.slice(0, opts.confirmLimit);
+
   let order = 0;
+  let industrySaved = 0;
+  let lastQueryErr = null;
   for (const c of selected) {
     try {
       const qid = opts.nextSeq ? await opts.nextSeq('query_id') : undefined;
@@ -123,11 +137,23 @@ async function persistResult(models, opts) {
         query_id: qid, user_id: opts.userId, brand_id: brandId,
         query: c.query, question_list: c.question_list,
         platform_prompt: c.platform_prompt, query_description: c.query_description,
-        query_type: c.query_type, weight: c.weight, is_golden: !!c.is_golden,
+        query_type: c.query_type || 'industry', weight: c.weight, is_golden: !!c.is_golden,
         query_order: ++order, task_id: opts.taskId || undefined,
       });
       counts.queries++;
-    } catch (e) { /* 单条失败不阻断整体 */ }
+      industrySaved++;
+    } catch (e) {
+      lastQueryErr = e;
+    }
+  }
+  // 用户明确勾选却一条行业题都没落下：必须失败，禁止静默「已开启监控问题 0 个」
+  if (picked.length && industrySaved === 0) {
+    const tip = lastQueryErr && (lastQueryErr.message || String(lastQueryErr));
+    throw new Error(
+      tip
+        ? `监控问题保存失败：${String(tip).slice(0, 180)}`
+        : '监控问题保存失败，请重试',
+    );
   }
 
   // ---- 口碑题（query_type='brand'）：建档即落 1 条，刻意含品牌名 ----
@@ -146,8 +172,10 @@ async function persistResult(models, opts) {
         query_order: ++order, task_id: opts.taskId || undefined,
       });
       counts.queries++;
-    } catch (e) { /* 单条失败不阻断整体 */ }
+    } catch (e) { /* 口碑题失败不阻断主流程 */ }
   }
+
+  counts.industry_queries = industrySaved;
 
   // ---- 过程留痕 + 确认留痕 ----
   // 无 taskId 时自动建一条 OnboardingTask，保证管理后台「首登漏斗」能挂上留痕

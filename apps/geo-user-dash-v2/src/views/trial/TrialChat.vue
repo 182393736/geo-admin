@@ -843,6 +843,15 @@ async function doConfirm() {
     })
     const saved = res?.saved
     if (saved?.brand_id) savedBrandId.value = saved.brand_id
+    // 报告「监控问题」优先用 industry_queries（不含口碑题）；旧版 API 回退到本次勾选数
+    const industryN = Number(saved?.counts?.industry_queries)
+    const reportQueries = Number.isFinite(industryN) ? industryN : queries.length
+    if (queries.length > 0 && reportQueries === 0) {
+      push({
+        type: 'ai',
+        text: '品牌档案已写入，但监控问题未能保存（服务端返回 0 条）。请重试确认，或到控制台「监控问题管理」手动添加。',
+      })
+    }
     phase.value = 'done'
     const aliasTip = aliases.length ? `相似识别名：${aliases.join('、')}。` : ''
     push({
@@ -856,7 +865,7 @@ async function doConfirm() {
         industry: preview.value.brand?.industry || preview.value.profile?.industry?.[0] || '',
         aliases: saved?.counts?.aliases ?? aliases.length,
         competitors: saved?.counts?.competitors ?? preview.value.competitors?.length ?? 0,
-        queries: saved?.counts?.queries ?? queries.length,
+        queries: reportQueries > 0 ? reportQueries : queries.length,
       },
     })
   } catch (e) {
