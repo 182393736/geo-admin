@@ -164,19 +164,24 @@
             :pagination="false"
             row-key="id"
             size="medium"
+            :scroll="{ x: 1400 }"
             :expandable="ipExpandable"
           >
+            <template #platDoubao="{ record }">
+              <span class="ip-plat-cell" :title="platStatTitle(record, 'doubao')">{{ platStatText(record, 'doubao') }}</span>
+            </template>
+            <template #platDeepseek="{ record }">
+              <span class="ip-plat-cell" :title="platStatTitle(record, 'deepseek')">{{ platStatText(record, 'deepseek') }}</span>
+            </template>
+            <template #platWenxin="{ record }">
+              <span class="ip-plat-cell" :title="platStatTitle(record, 'wenxin')">{{ platStatText(record, 'wenxin') }}</span>
+            </template>
+            <template #platYuanbao="{ record }">
+              <span class="ip-plat-cell" :title="platStatTitle(record, 'yuanbao')">{{ platStatText(record, 'yuanbao') }}</span>
+            </template>
             <template #expand-row="{ record }">
               <div class="ip-expand">
-                <div class="sec">分平台（累计）</div>
-                <div class="ip-plat-grid">
-                  <div v-for="(st, plat) in (record.by_platform || {})" :key="plat" class="ip-plat-card">
-                    <div class="ip-plat-name">{{ platLabel(String(plat)) }}</div>
-                    <div class="muted">成功 {{ st.ok || 0 }} · 失败 {{ st.fail || 0 }} · 空答 {{ st.empty || 0 }} · 总计 {{ st.total || 0 }}</div>
-                  </div>
-                  <div v-if="!Object.keys(record.by_platform || {}).length" class="muted">暂无</div>
-                </div>
-                <div class="sec">近 3 日</div>
+                <div class="sec">近 3 日明细</div>
                 <a-table
                   :data="dayRowsOf(record)"
                   :columns="ipDayCols"
@@ -473,17 +478,39 @@ function dayRowsOf(record: IpRow) {
     };
   });
 }
+function platStatOf(record: IpRow, platform: string) {
+  const st = (record.by_platform || {})[platform] || {};
+  return {
+    ok: st.ok || 0,
+    fail: st.fail || 0,
+    empty: st.empty || 0,
+    total: st.total || 0,
+  };
+}
+function platStatText(record: IpRow, platform: string) {
+  const st = platStatOf(record, platform);
+  if (!st.total) return '—';
+  return `${st.ok}/${st.fail}/${st.empty}`;
+}
+function platStatTitle(record: IpRow, platform: string) {
+  const st = platStatOf(record, platform);
+  return `${platLabel(platform)}：成功 ${st.ok} · 失败 ${st.fail} · 空答 ${st.empty} · 总计 ${st.total}`;
+}
+
 const ipCols = [
-  { title: '机器名', dataIndex: 'machine_name', width: 160, ellipsis: true },
-  { title: 'IP', dataIndex: 'ip', width: 140 },
-  { title: '端口', dataIndex: 'port', width: 80, render: ({ record }: any) => record.port ?? '—' },
-  { title: '成功', dataIndex: 'ok_count', width: 80 },
-  { title: '失败', dataIndex: 'fail_count', width: 80 },
-  { title: '空答', dataIndex: 'empty_count', width: 80 },
-  { title: '总计', dataIndex: 'total_count', width: 80 },
-  { title: '最近活跃', width: 160, render: ({ record }: any) => fmtTs(record.last_seen_at) },
-  { title: '最近成功', width: 160, render: ({ record }: any) => fmtTs(record.last_ok_at) },
-  { title: '最近失败', width: 160, render: ({ record }: any) => fmtTs(record.last_fail_at) },
+  { title: '机器名', dataIndex: 'machine_name', width: 140, ellipsis: true, fixed: 'left' as const },
+  { title: 'IP', dataIndex: 'ip', width: 130, fixed: 'left' as const },
+  { title: '端口', dataIndex: 'port', width: 70, render: ({ record }: any) => record.port ?? '—' },
+  { title: '成功', dataIndex: 'ok_count', width: 70 },
+  { title: '失败', dataIndex: 'fail_count', width: 70 },
+  { title: '空答', dataIndex: 'empty_count', width: 70 },
+  { title: '总计', dataIndex: 'total_count', width: 70 },
+  { title: '豆包 成/败/空', width: 110, slotName: 'platDoubao' },
+  { title: 'DeepSeek', width: 100, slotName: 'platDeepseek' },
+  { title: '文心', width: 100, slotName: 'platWenxin' },
+  { title: '元宝', width: 100, slotName: 'platYuanbao' },
+  { title: '最近活跃', width: 150, render: ({ record }: any) => fmtTs(record.last_seen_at) },
+  { title: '最近失败', width: 150, render: ({ record }: any) => fmtTs(record.last_fail_at) },
 ];
 const ipDayCols = [
   { title: '日期', dataIndex: 'date', width: 110 },
@@ -784,20 +811,12 @@ watch(tab, (v) => {
   overflow: auto;
 }
 .ip-expand { padding: 4px 8px 12px; }
-.ip-plat-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 8px;
+.ip-plat-cell {
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  color: #334155;
+  white-space: nowrap;
 }
-.ip-plat-card {
-  min-width: 160px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid #eef2f7;
-}
-.ip-plat-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
 .cite-list { margin: 0; padding-left: 0; list-style: none; }
 .cite-item {
   padding: 10px 12px;
