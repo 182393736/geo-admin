@@ -1,5 +1,9 @@
 # 业务 API (geo-api) + CMS API (site-server)
-# 一键：bash deploy/up.sh
+# 一键：bash deploy/up-server.sh
+#
+# 使用 network_mode: host：宿主机 Mongo 常只绑 127.0.0.1，
+# 桥接网络经 host.docker.internal(172.17.0.1) 会 ECONNREFUSED。
+# host 网络下端口直接占用本机 6001 / 5001（无需 ports 映射）。
 
 name: geo-server
 
@@ -9,31 +13,25 @@ services:
       context: ../..
       dockerfile: apps/geo-api/Dockerfile
     restart: unless-stopped
+    network_mode: host
     environment:
       NODE_ENV: production
       EGG_SERVER_ENV: prod
       PORT: "6001"
       BIND_HOST: "0.0.0.0"
       PUBLIC_API_URL: ${PUBLIC_API_URL:-https://geo-api.hanyuai.com}
-      MONGO_URL: ${MONGO_URL:-mongodb://host.docker.internal:27017/geo}
+      MONGO_URL: ${MONGO_URL:-mongodb://127.0.0.1:27017/geo}
       JWT_SECRET: ${JWT_SECRET:-geo-prod-jwt-7f3a9c2e1b8d4e6f0a5c9d2e8b1f4a7c}
       COLLECTOR_API_KEY: ${COLLECTOR_API_KEY:-geo-prod-collector-3e9b1c7a5d2f8e4b0a6c9d1e7f2a5b8c}
       LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
-    ports:
-      - "${API_PORT:-6001}:6001"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   site-server:
     build:
       context: ../..
       dockerfile: apps/site-server/Dockerfile
     restart: unless-stopped
+    network_mode: host
     environment:
       NODE_ENV: production
       EGG_SERVER_ENV: prod
-      MONGODB_URL: ${MONGODB_URL:-mongodb://host.docker.internal:27017/site_manage}
-    ports:
-      - "${CMS_PORT:-5001}:5001"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      MONGODB_URL: ${MONGODB_URL:-mongodb://127.0.0.1:27017/site_manage}
