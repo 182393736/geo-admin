@@ -102,11 +102,17 @@ async function persistResult(models, opts) {
     } }, { upsert: true }).then(() => { counts.library = 1; }).catch(() => {});
   }
 
-  // ---- 监控问题：勾选子集优先；全部保存时受 confirmLimit 截断 ----
+  // ---- 监控问题：勾选子集优先（用户确认文案为权威，已在 sanitize 跳过中立闸门）；受 confirmLimit 截断 ----
   let selected = result.candidates || [];
-  if (Array.isArray(opts.selectedQueries) && opts.selectedQueries.length) {
-    const wanted = new Set(opts.selectedQueries);
+  const picked = Array.isArray(opts.selectedQueries)
+    ? opts.selectedQueries.map(q => String(q == null ? '' : q).trim()).filter(Boolean)
+    : [];
+  if (picked.length) {
+    const wanted = new Set(picked.map(q => q.slice(0, 80)));
     selected = selected.filter(c => wanted.has(c.query));
+    if (!selected.length) {
+      throw new Error('所选监控问题为空，请重新勾选后确认');
+    }
   }
   if (opts.confirmLimit) selected = selected.slice(0, opts.confirmLimit);
   let order = 0;

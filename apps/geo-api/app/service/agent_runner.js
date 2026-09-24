@@ -123,7 +123,7 @@ class AgentRunnerService extends Service {
    */
   async persistPreview(userId, preview, { brandId, taskId, brandName, selectedQueries, selectedAliases, confirmLimit } = {}) {
     const { ctx } = this;
-    const result = sanitizePreview(preview);
+    const result = sanitizePreview(preview, { selectedQueries });
     if (typeof brandName === 'string' && brandName.trim()) {
       const name = brandName.trim().slice(0, 60);
       result.brand.name = name;

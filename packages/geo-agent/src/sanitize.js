@@ -6,7 +6,7 @@
  */
 
 const { normalizeProfile, normalizeCandidates, normalizeLibraryDoc } = require('./normalize');
-const { buildBrandTokens } = require('./neutral');
+const { buildBrandTokens, pruneOverbroadBrandTokens } = require('./neutral');
 
 const TRACE_KINDS = new Set(['search_query', 'page_read', 'keyword_weight', 'llm_output', 'user_confirm']);
 const str = (x, max) => (typeof x === 'string' && x ? x.slice(0, max) : undefined);
@@ -53,10 +53,20 @@ function sanitizeMeta(meta) {
   return out;
 }
 
-function sanitizePreview(p) {
+/**
+ * @param {object} p  浏览器回传的 preview
+ * @param {object} [opts]
+ * @param {string[]} [opts.selectedQueries]  用户确认勾选（含手工改写）的问题。
+ *   传入时跳过品牌中立闸门：以用户选择为准；未传则仍过闸门（防未确认路径注入自问自答题）。
+ */
+function sanitizePreview(p, opts = {}) {
   p = p && typeof p === 'object' ? p : {};
   const brand = p.brand || {};
   const prof0 = p.profile || {};
+  const selectedQueries = Array.isArray(opts.selectedQueries)
+    ? opts.selectedQueries.map(q => String(q == null ? '' : q).trim()).filter(Boolean)
+    : [];
+  const userConfirmed = selectedQueries.length > 0;
 
   // 画像段重建：把 result 形状映射回 normalizeProfile 的原料形状
   const norm = normalizeProfile({
@@ -86,15 +96,43 @@ function sanitizePreview(p) {
     platform_query: (c && c.platform_query) || (c && c.question_list && c.question_list[0] && c.question_list[0].platform_query),
     user_friendly: (c && c.user_friendly) || (c && c.question_list && c.question_list[0] && c.question_list[0].user_friendly),
   }));
-  // 品牌中立闸门：浏览器回传的 preview 属不可信输入，按重建后的画像再过一遍黑名单
-  // （否则用户可在确认前手工塞进「XX品牌怎么样」这类自问自答题，把监测指标做假）
-  const brandTokens = buildBrandTokens({
-    name: norm.brand.name,
-    company: norm.brand.company,
-    aliases: norm.aliases,
-    website: norm.profile.website || norm.brand.website,
+
+  let brandTokens = null;
+  if (!userConfirmed) {
+    // 无用户勾选：preview 不可信，仍过品牌中立闸门；并剪掉品类别名过宽 token
+    brandTokens = pruneOverbroadBrandTokens(
+      buildBrandTokens({
+        name: norm.brand.name,
+        company: norm.brand.company,
+        aliases: norm.aliases,
+        website: norm.profile.website || norm.brand.website,
+      }),
+      rawCandidates.map(c => c && c.query),
+    );
+  }
+  // 用户已确认勾选/改写：跳过中立闸门，只做形状归一；最终以 selectedQueries 裁剪落库
+  let candidates = normalizeCandidates({ candidates: rawCandidates }, {
+    limit: userConfirmed ? Math.max(10, selectedQueries.length) : 10,
+    brandTokens,
   });
-  const candidates = normalizeCandidates({ candidates: rawCandidates }, { limit: 10, brandTokens });
+
+  // 勾选文案若因改写未出现在 candidates 里，按用户文案补一条（确认路径权威来源）
+  if (userConfirmed) {
+    const byQuery = new Map(candidates.map(c => [c.query, c]));
+    candidates = selectedQueries.map((text) => {
+      const q = text.slice(0, 80);
+      if (byQuery.has(q)) return byQuery.get(q);
+      return {
+        query: q,
+        query_type: 'industry',
+        weight: 1,
+        is_golden: false,
+        query_description: '',
+        platform_prompt: q,
+        question_list: [{ user_friendly: q, platform_query: q }],
+      };
+    });
+  }
 
   // 情报文段：正文重新计字数；slug 由品牌名重新生成（幂等 upsert 键）
   const lib0 = p.library_doc || {};

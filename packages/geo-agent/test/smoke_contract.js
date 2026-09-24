@@ -304,6 +304,39 @@ async function main() {
   assert.strictEqual(dirty.candidates[0].query, '免费AI绘图工具哪个好用');
   assert.strictEqual(dirty.candidates[0].query_type, 'industry');
 
+  // 用户确认勾选/改写：跳过中立闸门，以 selectedQueries 为准
+  const userPicked = sanitizePreview({
+    brand: { name: 'HANYUAI 图像助理', website: 'https://hanyuai.com' },
+    profile: { industry: ['AI图像工具'] },
+    aliases: ['涵语AI'],
+    candidates: [
+      { query: 'HANYUAI 图像助理怎么样，口碑好不好', weight: 9 },
+      { query: '免费AI绘图工具哪个好用选型', weight: 8 },
+    ],
+    traces: [],
+  }, { selectedQueries: ['HANYUAI 图像助理怎么样，口碑好不好', '免费AI绘图工具哪个好用选型'] });
+  assert.strictEqual(userPicked.candidates.length, 2, '用户确认的问题不过中立闸门');
+  assert.ok(userPicked.candidates.some(c => c.query.includes('HANYUAI')));
+
+  // 品类别名误入黑名单时不得把行业题杀光（无勾选的预览路径仍剪过宽 token）
+  const { pruneOverbroadBrandTokens } = require('../src/neutral');
+  const greeQs = ['家用空调哪个牌子好选型', '空调推荐性价比高的选型', '变频空调和定频空调哪个省电选型'];
+  const greeTokens = buildBrandTokens({ name: '格力空调', aliases: ['格力', 'Gree', '空调'] });
+  assert.ok(greeTokens.includes('空调'), '别名空调应进入原始黑名单');
+  const pruned = pruneOverbroadBrandTokens(greeTokens, greeQs);
+  assert.ok(!pruned.includes('空调'), '过宽品类 token 应被剪掉');
+  const greeClean = sanitizePreview({
+    brand: { name: '格力空调', industry: '家用电器' },
+    profile: { industry: ['家用电器'] },
+    aliases: ['格力', 'Gree', '空调'],
+    candidates: greeQs.map(q => ({
+      query: q, weight: 8,
+      question_list: [{ user_friendly: q, platform_query: q }],
+    })),
+    traces: [],
+  });
+  assert.strictEqual(greeClean.candidates.length, 3, `品类别名不得误杀行业题（实际 ${greeClean.candidates.length}）`);
+
   console.log('CONTRACT OK: 完整字段集 + 品牌中立闸门 + 联网工具循环 + 博查/Tavily 执行器全部通过');
 }
 

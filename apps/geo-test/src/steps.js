@@ -85,6 +85,107 @@ async function confirmTrialQueries(page) {
   await page.click('[data-testid="trial-confirm"]');
 }
 
+/**
+ * 确认前：对每个「已勾选」的监控问题点修改 → 改文案 → 保存。
+ * 改法保持行业中立（不插入品牌词），避免触发服务端品牌中立闸门误伤。
+ */
+async function editSelectedQueriesBeforeConfirm(page) {
+  await page.waitForSelector('[data-testid="trial-confirm-panel"]', { timeout: 15_000 });
+  const rows = page.locator('[data-testid="trial-confirm-panel"] section .rounded-lg.border');
+  await rows.first().waitFor({ state: 'visible', timeout: 10_000 });
+  const n = await rows.count();
+  const edited = [];
+  for (let i = 0; i < n; i++) {
+    const row = rows.nth(i);
+    const cls = (await row.getAttribute('class')) || '';
+    // 已选：border-primary
+    if (!/\bborder-primary\b/.test(cls)) continue;
+    await row.locator('button:has-text("修改")').click();
+    const input = row.locator('input');
+    await input.waitFor({ state: 'visible', timeout: 5_000 });
+    const oldVal = (await input.inputValue()).trim();
+    let next = oldVal.replace(/\s+/g, ' ');
+    if (!/选型/.test(next)) next = `${next}选型`;
+    else if (!/对比/.test(next)) next = `${next}对比`;
+    else next = `${next}指南`;
+    next = next.slice(0, 80);
+    await input.fill(next);
+    await row.locator('button:has-text("保存")').click();
+    await page.waitForFunction(
+      (idx) => {
+        const list = document.querySelectorAll('[data-testid="trial-confirm-panel"] section .rounded-lg.border');
+        const el = list[idx];
+        if (!el) return false;
+        return !el.querySelector('input') && /已修改/.test(el.innerText || '');
+      },
+      i,
+      { timeout: 8_000 },
+    ).catch(() => null);
+    edited.push({ index: i, from: oldVal, to: next });
+  }
+  if (!edited.length) throw new Error('未找到已勾选的监控问题，无法执行修改保存');
+  // 确认按钮应可点（无未保存的编辑态）
+  await page.waitForSelector('[data-testid="trial-confirm"]:not([disabled])', { timeout: 10_000 });
+  return edited;
+}
+
+/**
+ * 确认落库后核对：今日 collect_slots 数量（应 >0），并记录改写后的行业题是否落库。
+ */
+async function verifySlotsAfterConfirm(page, ctx) {
+  const token = await page.evaluate(() => localStorage.getItem('geo_token') || '');
+  if (!token) throw new Error('确认后无 geo_token');
+  const api = ctx.deps.API;
+  const brandsResp = await fetch(`${api}/user/brands`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const brandsJson = await brandsResp.json().catch(() => ({}));
+  const brands = brandsJson.data?.list || brandsJson.data || brandsJson.list || [];
+  const brandList = Array.isArray(brands) ? brands : [];
+  if (!brandList.length) throw new Error(`确认后无品牌：${JSON.stringify(brandsJson).slice(0, 200)}`);
+  const brand = brandList[0];
+  const brandId = brand.brand_id || brand.id;
+  ctx.brandId = brandId;
+  ctx.brandName = brand.name || ctx.brandName;
+
+  const qResp = await fetch(`${api}/query/list?brand_id=${encodeURIComponent(brandId)}&query_type=all`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const qJson = await qResp.json().catch(() => ({}));
+  const qList = qJson.data?.list || qJson.list || [];
+  ctx.queriesAfterConfirm = qList.map(q => ({
+    id: q.id ?? q.query_id,
+    query: q.query,
+    query_type: q.query_type,
+  }));
+
+  // 用 generate_today 触发幂等展槽，并返回当日 expected（若首登已展，应已有槽）
+  const genResp = await fetch(`${api}/user/generate_today`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ days: 1 }),
+  });
+  const genJson = await genResp.json().catch(() => ({}));
+  const tasks = genJson.data?.tasks || [];
+  const expected = tasks.reduce((s, t) => s + (t.expected_slots || 0), 0);
+  ctx.slotExpected = expected;
+  ctx.collectTasks = tasks;
+
+  const industry = ctx.queriesAfterConfirm.filter(q => q.query_type !== 'brand');
+  const editedHit = (ctx.editedQueries || []).filter(e =>
+    industry.some(q => q.query === e.to),
+  );
+  return {
+    brandId,
+    queryTotal: ctx.queriesAfterConfirm.length,
+    industryCount: industry.length,
+    editedSaved: editedHit.length,
+    editedTotal: (ctx.editedQueries || []).length,
+    expectedSlots: expected,
+    industrySample: industry.slice(0, 3).map(q => q.query),
+  };
+}
+
 async function waitTrialReportCard(page, ctx, ctxKey = 'brandName') {
   await page.waitForSelector('[data-testid="trial-report"]', { timeout: 30_000 });
   const text = (await page.locator('[data-testid="trial-report"]').innerText()).slice(0, 160).replace(/\n/g, ' ');
@@ -177,11 +278,33 @@ const steps = [
     },
   },
   {
+    name: '逐条修改已选监控问题并保存',
+    skip: ctx => ctx.route !== 'trial',
+    async run(page, ctx) {
+      const edited = await editSelectedQueriesBeforeConfirm(page);
+      ctx.editedQueries = edited;
+      const sample = edited.slice(0, 2).map(e => `${e.from.slice(0, 12)}→${e.to.slice(0, 16)}`).join('；');
+      return { status: 'ok', detail: `已改 ${edited.length} 条：${sample}` };
+    },
+  },
+  {
     name: '确认品牌 1 监控问题（落库）',
     skip: ctx => ctx.route !== 'trial',
     async run(page) {
       await confirmTrialQueries(page);
       return { status: 'ok', detail: '已点击「确认监控」' };
+    },
+  },
+  {
+    name: '核对落库问题与今日槽位',
+    skip: ctx => ctx.route !== 'trial',
+    async run(page, ctx) {
+      const v = await verifySlotsAfterConfirm(page, ctx);
+      const ok = v.industryCount >= 1 && v.editedSaved === v.editedTotal && v.expectedSlots > 0;
+      return {
+        status: ok ? 'ok' : 'fail',
+        detail: `行业题=${v.industryCount}，改写落库=${v.editedSaved}/${v.editedTotal}，今日槽位=${v.expectedSlots}，样例=${JSON.stringify(v.industrySample)}`,
+      };
     },
   },
   {

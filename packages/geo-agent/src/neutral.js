@@ -88,6 +88,30 @@ function findBrandToken(text, tokens) {
   return null;
 }
 
+/**
+ * 剔除「过宽」品牌指纹：若某 token 命中 ≥ ratio 比例的候选问法，视为品类词误入别名
+ * （例：品牌「格力空调」别名里塞了「空调」→ 所有「…空调…」行业题会被误杀成 0）。
+ * 品牌全称/主体名通常只命中自问自答写法，不会触发本剪枝。
+ * @param {string[]} tokens
+ * @param {string[]} texts  候选问法原文
+ * @param {number} [ratio=0.5]
+ * @returns {string[]}
+ */
+function pruneOverbroadBrandTokens(tokens, texts, ratio = 0.5) {
+  if (!Array.isArray(tokens) || !tokens.length) return [];
+  const corpus = (Array.isArray(texts) ? texts : []).map(t => String(t || '').trim()).filter(Boolean);
+  if (corpus.length < 2) return tokens.slice();
+  const threshold = Math.max(2, Math.ceil(corpus.length * ratio));
+  return tokens.filter(tok => {
+    let hits = 0;
+    for (const t of corpus) {
+      if (findBrandToken(t, [tok])) hits++;
+      if (hits >= threshold) return false;
+    }
+    return true;
+  });
+}
+
 /** 候选问题的全部可展示/可发问文本字段（query 与真正投喂引擎的 platform_query 都要查） */
 function candidateTexts(c) {
   const list = (c && Array.isArray(c.question_list) ? c.question_list : []);
@@ -142,6 +166,7 @@ module.exports = {
   normText,
   GENERIC,
   buildBrandTokens,
+  pruneOverbroadBrandTokens,
   findBrandToken,
   findBrandTokenInCandidate,
   filterBrandMentions,

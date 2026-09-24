@@ -14,7 +14,7 @@
 const { crawlPage } = require('./crawl');
 const { profilePrompts, queriesPrompts, libraryPrompts } = require('./prompts');
 const { normalizeProfile, normalizeCandidates, normalizeLibraryDoc } = require('./normalize');
-const { buildBrandTokens } = require('./neutral');
+const { buildBrandTokens, pruneOverbroadBrandTokens } = require('./neutral');
 const { reweightBySearch } = require('./search');
 
 const clip = (s, n) => (typeof s === 'string' ? s.slice(0, n) : '');
@@ -152,8 +152,13 @@ async function runOnboarding(deps, input, onEvent) {
       system: qp.sys, user: qp.user, schemaHint: qp.schemaHint,
       output: qr.content, usage: qr.usage,
     });
+    const rawList = (qr.data && Array.isArray(qr.data.candidates)) ? qr.data.candidates : [];
+    const gateTokens = pruneOverbroadBrandTokens(
+      brandTokens,
+      rawList.map(c => c && c.query),
+    );
     return normalizeCandidates(qr.data, {
-      limit, brandTokens,
+      limit, brandTokens: gateTokens,
       onDrop: (c, token) => drops.push({ query: c.query, token }),
     });
   };
