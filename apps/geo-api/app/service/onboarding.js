@@ -56,9 +56,14 @@ class OnboardingService extends Service {
     const legacySeq = (legacy && Number(legacy.seq)) || 0;
     const floor = Math.max(maxId, legacySeq);
     if (floor <= 0) return;
+    // 不用聚合管线 update（[{$set...}]）：部分生产 Mongo/驱动会报
+    // 「BSON field update.updates.u is the wrong type 'array'」
+    const cur = await coll.findOne({ _id: 'query_id' });
+    const curSeq = (cur && Number(cur.seq)) || 0;
+    if (curSeq >= floor) return;
     await coll.updateOne(
       { _id: 'query_id' },
-      [{ $set: { seq: { $max: [{ $ifNull: ['$seq', 0] }, floor] } } }],
+      { $set: { seq: floor } },
       { upsert: true },
     );
   }
