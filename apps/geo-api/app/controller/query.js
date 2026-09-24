@@ -164,7 +164,34 @@ class QueryController extends Controller {
     }
     const used = await ctx.model.MonitorQuery.countDocuments({ brand_id: brand.brand_id });
     await ctx.model.Subscription.updateMany({ brand_id: brand.brand_id, status: 'active' }, { $set: { query_count: used } }).catch(() => null);
-    ctx.body = { code: 200, msg: 'ok', data: { created, count: created.length, remain: Math.max(0, quota.limit - used) } };
+
+    // 当日新增：立即补展开今日采集槽（修改文案不走此路径，保持次日生效）
+    let today_slots = null;
+    if (created.length) {
+      try {
+        const fullBrand = await ctx.model.Brand.findOne({ brand_id: brand.brand_id }).lean() || brand;
+        const date = ctx.app.dayjs().format('YYYY-MM-DD');
+        const task = await ctx.service.collect.expandDailyTask(fullBrand, date, { trigger: 'manual' });
+        if (task && task.task_id) {
+          await ctx.service.collect.syncTask(task.task_id).catch(() => {});
+          await ctx.service.queue.push('geo.collect.slot', { task_id: task.task_id }).catch(() => {});
+          today_slots = { date, task_id: task.task_id, expected_slots: task.expected_slots || 0 };
+        }
+      } catch (e) {
+        ctx.logger.warn('[query.add] 展开今日槽位失败 brand=%s: %s', brand.brand_id, e && e.message);
+      }
+    }
+
+    ctx.body = {
+      code: 200,
+      msg: 'ok',
+      data: {
+        created,
+        count: created.length,
+        remain: Math.max(0, quota.limit - used),
+        today_slots,
+      },
+    };
   }
 
   /** POST /query/update — 更新问题文案 / 状态 */

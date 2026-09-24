@@ -39,7 +39,7 @@ class CollectService extends Service {
     const task_id = `CT-${brand.brand_id}-${date}`;
     await M.CollectTask.updateOne(
       { brand_id: brand.brand_id, date },
-      { $setOnInsert: { task_id, brand_id: brand.brand_id, date, trigger, expected_slots: slots.length, status: 'created' } },
+      { $setOnInsert: { task_id, brand_id: brand.brand_id, date, trigger, status: 'created' } },
       { upsert: true },
     );
     if (slots.length) {
@@ -47,12 +47,18 @@ class CollectService extends Service {
         updateOne: { filter: { slot_id: s.slot_id }, update: { $setOnInsert: { ...s, task_id } }, upsert: true },
       })));
     }
+    // 任务已存在时也要刷新 expected（例如当日新增监控词后补槽）
+    const expected = await M.CollectSlot.countDocuments({ task_id });
+    await M.CollectTask.updateOne(
+      { task_id },
+      { $set: { expected_slots: expected, finished_at: null } },
+    ).catch(() => {});
     // 流水线时间轴：expand 阶段事件
     await ctx.service.pipelineEvent.record({
       brand_id: brand.brand_id, date, stage: 'expand',
-      status: slots.length ? 'ok' : 'partial',
-      message: slots.length ? `展开 ${slots.length} 个槽位（${[...new Set(platforms)].join('/')}）` : '无启用且可执行的监控词，未展开槽位',
-      detail: { expected_slots: slots.length, queries: queries.length, platforms },
+      status: expected ? 'ok' : 'partial',
+      message: expected ? `展开 ${expected} 个槽位（${[...new Set(platforms)].join('/')}）` : '无启用且可执行的监控词，未展开槽位',
+      detail: { expected_slots: expected, queries: queries.length, platforms },
     });
     return M.CollectTask.findOne({ task_id }).lean();
   }
