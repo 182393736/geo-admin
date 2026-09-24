@@ -131,4 +131,6 @@ class UserPurgeService extends Service {
 }
 
 module.exports = UserPurgeService;
-module.exports.isDevPurgeAllowed = isDevPurgeAllowed;
+module.exports.isPurgeAllowed = isPurgeAllowed;
+// 兼容旧引用名
+module.exports.isDevPurgeAllowed = isPurgeAllowed;

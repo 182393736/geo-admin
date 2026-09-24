@@ -26,6 +26,7 @@ services:
       # 默认 deepseek；key 内置在 packages/geo-agent/src/dev-keys.js（可被 .env 覆盖）
       LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
       # 临时放开：管理后台可清空某账户全部数据（用完请改 0 或删除本行）
       ADMIN_ALLOW_USER_PURGE: ${ADMIN_ALLOW_USER_PURGE:-1}
 
