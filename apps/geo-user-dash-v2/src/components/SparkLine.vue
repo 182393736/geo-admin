@@ -177,14 +177,14 @@ const props = withDefaults(defineProps<{
   series?: SparkSeriesPoint[];
 }>(), {
   labels: () => [],
-  color: '#3B82F6',
+  color: 'hsl(var(--primary))',
   height: 120,
   unit: '',
   digits: 1,
   interactive: false,
   variant: 'rate',
   rateLabel: '提及率',
-  valueClass: 'text-blue-600',
+  valueClass: 'text-primary',
   series: () => [],
 });
 

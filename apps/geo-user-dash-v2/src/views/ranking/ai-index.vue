@@ -183,7 +183,7 @@
                   :points="rankTrendPoints"
                   :labels="rankTrendLabels"
                   :series="rankTrendSeries"
-                  color="hsl(221.2 83.2% 53.3%)"
+                  color="hsl(var(--primary))"
                   :height="380"
                   :digits="0"
                   :interactive="true"
@@ -528,7 +528,7 @@ const kpiCards = computed(() => {
   return [
   {
     key: 'mention', label: '品牌提及率', sub: '被提及采样占比（不限位次）',
-    color: 'text-primary', line: 'hsl(221.2 83.2% 53.3%)',
+    color: 'text-primary', line: 'hsl(var(--primary))',
     valueClass: 'text-primary', rateLabel: '提及率',
     value: (+(sumOf(mentionTrend.value).rate || 0)).toFixed(2),
     ratio: `${sumOf(mentionTrend.value).numerator || 0} / ${sumOf(mentionTrend.value).denominator || 0}`,
@@ -540,8 +540,8 @@ const kpiCards = computed(() => {
   },
   {
     key: 'top3', label: 'Top3 推荐率', sub: '进入前三名的采样占比',
-    color: 'text-sky-600 dark:text-sky-400', line: 'hsl(199 89% 48%)',
-    valueClass: 'text-sky-600 dark:text-sky-400', rateLabel: 'Top3率',
+    color: 'text-orange-600 dark:text-orange-400', line: 'hsl(24 95% 48%)',
+    valueClass: 'text-orange-600 dark:text-orange-400', rateLabel: 'Top3率',
     value: (+(sumOf(top3Trend.value).rate || 0)).toFixed(2),
     ratio: `${sumOf(top3Trend.value).numerator || 0} / ${sumOf(top3Trend.value).denominator || 0}`,
     tip: '品牌在 AI 答案中位列前三名的采样占比。',
@@ -552,8 +552,8 @@ const kpiCards = computed(() => {
   },
   {
     key: 'first', label: '首位推荐率', sub: '排到首位的采样占比',
-    color: 'text-blue-700 dark:text-blue-400', line: 'hsl(221.2 70% 48%)',
-    valueClass: 'text-blue-700 dark:text-blue-400', rateLabel: '首位率',
+    color: 'text-amber-800 dark:text-amber-400', line: 'hsl(15 87% 34%)',
+    valueClass: 'text-amber-800 dark:text-amber-400', rateLabel: '首位率',
     value: (+(sumOf(firstTrend.value).rate || 0)).toFixed(2),
     ratio: `${sumOf(firstTrend.value).numerator || 0} / ${sumOf(firstTrend.value).denominator || 0}`,
     tip: '品牌在 AI 答案中位列首位的采样占比。',
@@ -578,8 +578,8 @@ function cellStyle(v: any) {
   const dark = document.documentElement.classList.contains('dark')
   if (Number.isFinite(Number(v))) {
     return dark
-      ? { background: 'hsl(217.2 91.2% 59.8% / 0.18)', color: 'hsl(213 94% 78%)' }
-      : { background: 'hsl(221.2 83.2% 53.3% / 0.12)', color: 'hsl(221.2 83.2% 40%)' }
+      ? { background: 'hsl(var(--primary) / 0.22)', color: 'hsl(24 100% 78%)' }
+      : { background: 'hsl(var(--primary) / 0.12)', color: 'hsl(var(--primary))' }
   }
   return dark
     ? { background: 'hsl(0 63% 30% / 0.25)', color: 'hsl(0 90% 75%)' }
