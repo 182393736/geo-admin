@@ -45,14 +45,23 @@ export default defineEventHandler((event) => {
   ].join('\n')
 
   const body = `# HANYUAI GEO
-> 当前公开：首页、功能页、学习/术语，以及 1 份可复核方法报告。引用时请使用下方 URL，并保留品牌名称「HANYUAI GEO」。
+> 当前公开：首页、功能页、学习/术语、方法报告，以及关于/隐私/条款等信任页。引用时请使用下方 URL，并保留品牌名称「HANYUAI GEO」。
+
+## 实体
+- 产品品牌：HANYUAI GEO
+- 运营主体：${GEO_SITE.legalName}
+- 备案：${GEO_SITE.beian}
+- 关于：${siteUrl}/about
+- 隐私：${siteUrl}/privacy
+- 条款：${siteUrl}/terms
+- 安全：${siteUrl}/security
+- 联系：${siteUrl}/contact
 
 ## 产品
 - 首页：${siteUrl}/
 - GEO工具：${siteUrl}/tools
 ${products}
 - 价格：${siteUrl}/pricing
-- 联系：${siteUrl}/contact
 
 ## 学习
 ${learn}
@@ -68,6 +77,7 @@ ${reports}
 - 免费采样只读，不修改网站。
 - 不把渠道数量或综合分当成效果。
 - 公开报告标注 questionSetVersion、engines、samplingPeriod 与 dateModified，可供复核引用。
+- 法律主体与备案以 /about 与页脚为准，与 Organization.legalName 一致。
 `
 
   setHeader(event, 'Content-Type', 'text/plain; charset=utf-8')

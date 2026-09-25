@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { HubContactChannel, HubContactContent } from '@site-manage/shared'
 import { GEO_CONTACT_DEFAULT } from '~/utils/content/geo-contact'
+import { GEO_SITE } from '~/utils/geo-seo'
 
 const props = defineProps<{
   content?: HubContactContent | null
@@ -23,7 +24,9 @@ const page = computed(() => {
   }
 })
 
-const companyName = computed(() => sitePage.value?.site?.companyZh?.trim() || '')
+const companyName = computed(
+  () => sitePage.value?.site?.companyZh?.trim() || GEO_SITE.legalName,
+)
 const openFaq = ref(0)
 
 function channelHref(ch: HubContactChannel) {

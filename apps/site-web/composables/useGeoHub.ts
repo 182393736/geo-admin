@@ -96,12 +96,14 @@ function buildOrgNode(siteUrl: string, config: ReturnType<typeof useRuntimeConfi
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+    abs(siteUrl, '/about'),
   ]
   const org: Record<string, unknown> = {
     '@type': 'Organization',
     '@id': `${siteUrl}/#organization`,
     name: GEO_SITE.name,
     legalName: GEO_SITE.legalName,
+    alternateName: ['HANYUAI'],
     url: siteUrl,
     email: GEO_SITE.email,
     foundingDate: GEO_SITE.foundingDate,
@@ -111,8 +113,11 @@ function buildOrgNode(siteUrl: string, config: ReturnType<typeof useRuntimeConfi
       width: GEO_SITE.logo.width,
       height: GEO_SITE.logo.height,
     },
+    publishingPrinciples: abs(siteUrl, '/about'),
+    ethicsPolicy: abs(siteUrl, '/security'),
+    ownershipFundingInfo: abs(siteUrl, '/about'),
+    sameAs: [...new Set(sameAs)],
   }
-  if (sameAs.length) org.sameAs = sameAs
   return org
 }
 

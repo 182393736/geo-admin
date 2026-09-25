@@ -7,7 +7,9 @@ export type { GeoInsight }
 export const GEO_SITE = {
   name: 'HANYUAI GEO',
   brand: 'HANYUAI GEO',
-  legalName: 'HANYUAI',
+  /** 与 ICP 备案一致的运营主体；页脚 /about / Organization.legalName 共用 */
+  legalName: '成都云冕网络科技有限公司',
+  beian: '蜀ICP备2023013606号-7',
   email: 'hello@hanyuai.com',
   partnerEmail: 'partner@hanyuai.com',
   /** 默认站点 URL：本地开发用本机；上线用环境变量 NUXT_PUBLIC_SITE_URL */
@@ -20,7 +22,7 @@ export const GEO_SITE = {
     // 'https://weibo.com/hanyuai',
   ] as string[],
   foundingDate: '2024-01-01',
-  dateModified: '2026-09-20',
+  dateModified: '2026-09-25',
   datePublished: '2026-08-01',
   logo: {
     path: '/og-geo.png',

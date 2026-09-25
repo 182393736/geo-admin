@@ -16,10 +16,10 @@ const brandName = computed(
 )
 
 const companyName = computed(
-  () => sitePage.value?.site?.companyZh?.trim() || '',
+  () => sitePage.value?.site?.companyZh?.trim() || GEO_SITE.legalName,
 )
 
-const beian = computed(() => sitePage.value?.site?.beian?.trim() || '')
+const beian = computed(() => sitePage.value?.site?.beian?.trim() || GEO_SITE.beian)
 
 const year = new Date().getFullYear()
 </script>
@@ -56,15 +56,24 @@ const year = new Date().getFullYear()
             <li><NuxtLink to="/glossary">术语表</NuxtLink></li>
             <li><NuxtLink to="/reports/ai-visibility-baseline-2026-q3">方法报告</NuxtLink></li>
             <li><NuxtLink to="/pricing">价格</NuxtLink></li>
+          </ul>
+        </div>
+        <div>
+          <h4>信任</h4>
+          <ul>
+            <li><NuxtLink to="/about">关于我们</NuxtLink></li>
             <li><NuxtLink to="/contact">联系我们</NuxtLink></li>
+            <li><NuxtLink to="/privacy">隐私政策</NuxtLink></li>
+            <li><NuxtLink to="/terms">服务条款</NuxtLink></li>
+            <li><NuxtLink to="/security">安全说明</NuxtLink></li>
           </ul>
         </div>
       </div>
       <div class="footer-bottom">
         <div class="legal">
           <span>© {{ year }} {{ brandName }}</span>
-          <span v-if="companyName" class="sep" aria-hidden="true">·</span>
-          <span v-if="companyName">{{ companyName }}</span>
+          <span class="sep" aria-hidden="true">·</span>
+          <span>{{ companyName }}</span>
           <template v-if="beian">
             <span class="sep" aria-hidden="true">·</span>
             <a
@@ -75,6 +84,12 @@ const year = new Date().getFullYear()
             >{{ beian }}</a>
           </template>
         </div>
+        <nav aria-label="法律与信任">
+          <NuxtLink to="/about">关于</NuxtLink>
+          <NuxtLink to="/privacy">隐私</NuxtLink>
+          <NuxtLink to="/terms">条款</NuxtLink>
+          <NuxtLink to="/security">安全</NuxtLink>
+        </nav>
       </div>
     </div>
   </footer>
@@ -95,6 +110,15 @@ const year = new Date().getFullYear()
   text-decoration: none;
 }
 .beian:hover {
+  color: hsl(var(--foreground));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.footer-bottom nav a {
+  color: hsl(var(--muted-foreground));
+  text-decoration: none;
+}
+.footer-bottom nav a:hover {
   color: hsl(var(--foreground));
   text-decoration: underline;
   text-underline-offset: 3px;

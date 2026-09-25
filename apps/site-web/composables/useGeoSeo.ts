@@ -56,7 +56,7 @@ function buildOrganization(
     '@id': `${siteUrl}/#organization`,
     name: orgName,
     legalName,
-    alternateName: [ 'HANYUAI', 'HANYUAI GEO助手' ].filter((n) => n !== orgName),
+    alternateName: ['HANYUAI'].filter((n) => n !== orgName),
     url: siteUrl,
     email: GEO_SITE.email,
     foundingDate: GEO_SITE.foundingDate,
@@ -87,9 +87,16 @@ function buildOrganization(
       'AI搜索可见性',
       'AI引用源分析',
     ],
+    // 信任页锚点：便于 AI / 搜索把实体与政策页关联
+    publishingPrinciples: absoluteUrl(siteUrl, '/about'),
+    ethicsPolicy: absoluteUrl(siteUrl, '/security'),
+    ownershipFundingInfo: absoluteUrl(siteUrl, '/about'),
   }
 
-  if (sameAs.length) org.sameAs = sameAs
+  // sameAs 只挂实体事实页与外部主页；隐私/条款用页脚与 publishingPrinciples，避免稀释身份信号
+  const identitySameAs = [...sameAs, absoluteUrl(siteUrl, '/about')]
+  const mergedSameAs = [...new Set(identitySameAs)]
+  if (mergedSameAs.length) org.sameAs = mergedSameAs
 
   if (GEO_SITE.address) {
     org.address = {

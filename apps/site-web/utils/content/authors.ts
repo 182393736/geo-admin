@@ -17,7 +17,7 @@ export const GEO_AUTHOR_ORG: GeoAuthor = {
   kind: 'Organization',
   name: 'HANYUAI GEO',
   short: 'HANYUAI GEO 方法与产品团队',
-  urlPath: '/',
+  urlPath: '/about',
 }
 
 /**
