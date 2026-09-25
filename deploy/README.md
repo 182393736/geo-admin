@@ -32,7 +32,9 @@ cd ~/geo-admin/deploy/web    && docker compose down
 | 项目 | 命令 | 端口 | 域名 |
 |------|------|------|------|
 | server | `bash deploy/up-server.sh` | `6001:6001` / `5001:5001` | geo-api / geo-site-api |
-| web | `bash deploy/up-web.sh` | `5003:5003` / `5180:5180` / `5002:5002` | geo / geo-user-dash / geo-site-admin |
+| web | `bash deploy/up-web.sh` | `5003:5003` / `5180:5180` / `5002:5002` | geo（同域含后台路径）/ geo-site-admin |
+
+官网与用户后台同域分流：[`deploy/nginx/`](./nginx/README.md)。
 
 前提：本机 Mongo `:27017`（可只绑 `127.0.0.1`）；Nginx 已反代。
 

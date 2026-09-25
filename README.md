@@ -38,7 +38,7 @@ pnpm env:prod    # 生产
 | 用途 | local | test | prod |
 |------|-------|------|------|
 | 用户官网 | `http://localhost:5003`（site-web） | `test-geo.hanyuai.com` | `geo.hanyuai.com` |
-| 用户后台 | `http://127.0.0.1:5180` | `test-geo-user-dash.hanyuai.com` | `geo-user-dash.hanyuai.com` |
+| 用户后台 | `http://127.0.0.1:5180` | **同官网**（`/dashboard` 等） | **同官网** |
 | API | `http://127.0.0.1:6001` | `test-geo-api.hanyuai.com` | `geo-api.hanyuai.com` |
 | 管理总后台 | `http://localhost:6004` | `test-geo-admin.hanyuai.com` | `geo-admin.hanyuai.com` |
 

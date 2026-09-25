@@ -25,11 +25,15 @@ pnpm env:prod    # 生产
 | 用途 | local | test | prod |
 |------|-------|------|------|
 | 用户官网 | `http://localhost:5003` | `https://test-geo.hanyuai.com` | `https://geo.hanyuai.com` |
-| 用户后台 | `http://127.0.0.1:5180` | `https://test-geo-user-dash.hanyuai.com` | `https://geo-user-dash.hanyuai.com` |
+| 用户后台 | `http://127.0.0.1:5180` | **同官网**（路径 `/dashboard` `/login` `/trial`） | **同官网** |
 | 业务 API | `http://127.0.0.1:6001` | `https://test-geo-api.hanyuai.com` | `https://geo-api.hanyuai.com` |
 | 业务管理总后台 | `http://localhost:6004` | `https://test-geo-admin.hanyuai.com` | `https://geo-admin.hanyuai.com` |
 | CMS API | `http://127.0.0.1:5001` | `https://test-geo-site-api.hanyuai.com` | `https://geo-site-api.hanyuai.com` |
 | CMS 管理端 | `http://localhost:5002` | `https://test-geo-site-admin.hanyuai.com` | `https://geo-site-admin.hanyuai.com` |
+
+> **同域（方案①）**：test/prod 的 `geoDash` 与 `siteWeb` 相同。宿主机 Nginx 按路径分流，见 [`deploy/nginx/geo-same-origin.conf`](../deploy/nginx/geo-same-origin.conf)。  
+> local 仍分端口（5003 / 5180），便于本地开发。  
+> 旧独立后台域名 `geo-user-dash.hanyuai.com` / `test-geo-user-dash.hanyuai.com` 应 301 到同域路径。
 
 > local 下前端 `VITE_API_BASE` 为空，走 Vite 代理到本机 6001。  
 > `geo-user-site*` 已废弃；官网请用 `apps/site-web`。
@@ -38,14 +42,14 @@ pnpm env:prod    # 生产
 
 | 主机名 | 反代到 |
 |--------|--------|
-| `geo.hanyuai.com` | site-web `:5003` |
-| `geo-user-dash.hanyuai.com` | dash-v2 `:5180` |
+| `geo.hanyuai.com` | **路径分流**：`/dashboard` `/trial` `/login` `/assets/` → dash-v2 `:5180`；其余 → site-web `:5003` |
+| `geo-user-dash.hanyuai.com` | **301** → `https://geo.hanyuai.com$request_uri`（过渡期保留） |
 | `geo-api.hanyuai.com` | geo-api `:6001` |
 | `geo-admin.hanyuai.com` | geo-admin `:6004` |
 | `geo-site-api.hanyuai.com` | site-server `:5001` |
 | `geo-site-admin.hanyuai.com` | site-admin `:5002` |
-| `test-geo.hanyuai.com` | 测试官网 |
-| `test-geo-user-dash.hanyuai.com` | 测试后台 |
+| `test-geo.hanyuai.com` | 同生产路径分流（测试端口） |
+| `test-geo-user-dash.hanyuai.com` | **301** → `https://test-geo.hanyuai.com$request_uri` |
 | `test-geo-api.hanyuai.com` | 测试业务 API |
 | `test-geo-admin.hanyuai.com` | 测试管理端 |
 | `test-geo-site-api.hanyuai.com` / `test-geo-site-admin.hanyuai.com` | 测试 CMS |

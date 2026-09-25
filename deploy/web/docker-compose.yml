@@ -13,7 +13,7 @@ services:
         NUXT_API_BASE: ${NUXT_API_BASE:-https://geo-site-api.hanyuai.com}
         NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-https://geo-site-api.hanyuai.com}
         NUXT_PUBLIC_SITE_URL: ${NUXT_PUBLIC_SITE_URL:-https://geo.hanyuai.com}
-        NUXT_PUBLIC_CONSOLE_URL: ${NUXT_PUBLIC_CONSOLE_URL:-https://geo-user-dash.hanyuai.com}
+        NUXT_PUBLIC_CONSOLE_URL: ${NUXT_PUBLIC_CONSOLE_URL:-https://geo.hanyuai.com}
         NUXT_PUBLIC_GEO_API_BASE: ${NUXT_PUBLIC_GEO_API_BASE:-/geo-api}
         NUXT_GEO_API_TARGET: ${NUXT_GEO_API_TARGET:-https://geo-api.hanyuai.com}
     restart: unless-stopped

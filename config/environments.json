@@ -18,8 +18,9 @@
   "test": {
     "label": "测试",
     "geoApi": "https://test-geo-api.hanyuai.com",
-    "geoDash": "https://test-geo-user-dash.hanyuai.com",
-    "geoDashV1": "https://test-geo-user-dash.hanyuai.com",
+    "geoDash": "https://test-geo.hanyuai.com",
+    "geoDashV1": "https://test-geo.hanyuai.com",
+    "geoDashLegacy": "https://test-geo-user-dash.hanyuai.com",
     "geoAdmin": "https://test-geo-admin.hanyuai.com",
     "siteWeb": "https://test-geo.hanyuai.com",
     "siteCms": "https://test-geo-site-api.hanyuai.com",
@@ -33,8 +34,9 @@
   "prod": {
     "label": "生产",
     "geoApi": "https://geo-api.hanyuai.com",
-    "geoDash": "https://geo-user-dash.hanyuai.com",
-    "geoDashV1": "https://geo-user-dash.hanyuai.com",
+    "geoDash": "https://geo.hanyuai.com",
+    "geoDashV1": "https://geo.hanyuai.com",
+    "geoDashLegacy": "https://geo-user-dash.hanyuai.com",
     "geoAdmin": "https://geo-admin.hanyuai.com",
     "siteWeb": "https://geo.hanyuai.com",
     "siteCms": "https://geo-site-api.hanyuai.com",

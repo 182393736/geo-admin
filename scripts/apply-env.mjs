@@ -180,7 +180,7 @@ fs.writeFileSync(path.join(ROOT, 'config/.current-env'), ENV + '\n', 'utf8')
 
 console.log(`\n✅ 已切换到【${e.label}】环境 (${ENV})`)
 console.log(`   业务API=${e.geoApi}`)
-console.log(`   用户后台=${e.geoDash}`)
+console.log(`   用户后台=${e.geoDash}${e.geoDashLegacy ? `（旧域 ${e.geoDashLegacy} 应 301）` : ''}`)
 console.log(`   官网=${e.siteWeb}`)
 console.log(`   CMS API=${e.siteCms}`)
 console.log(`   之后: pnpm dev:all / pnpm dev:site`)
