@@ -54,6 +54,14 @@ const related = computed(() =>
       <h2>{{ term.term }} 的定义</h2>
       <p>{{ term.definition }}</p>
     </article>
+    <section v-if="term.why" class="hub-section">
+      <h2>为什么重要</h2>
+      <p>{{ term.why }}</p>
+    </section>
+    <section v-if="term.measure" class="hub-section">
+      <h2>怎么测 / 怎么落地</h2>
+      <p>{{ term.measure }}</p>
+    </section>
     <section v-if="related.length" class="hub-section">
       <h2>相关术语</h2>
       <ul class="related">
@@ -63,6 +71,12 @@ const related = computed(() =>
         </li>
       </ul>
     </section>
+    <p class="next">
+      想看这个概念在真实答案里的表现？去
+      <NuxtLink to="/tools">GEO 工具</NuxtLink>
+      或
+      <NuxtLink to="/diagnose">免费诊断</NuxtLink>。
+    </p>
   </GeoHubPage>
 </template>
 
@@ -82,4 +96,19 @@ const related = computed(() =>
 }
 .related a { margin-right: 6px; }
 .related span { color: #6e6a76; font-weight: 400; }
+.next {
+  margin: 2.5rem 0 0;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #fff4ec;
+  color: #6e6a76;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.next a {
+  color: #c2410c;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 </style>

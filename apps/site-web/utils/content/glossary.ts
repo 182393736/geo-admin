@@ -3,6 +3,10 @@ export type GlossaryTerm = {
   term: string
   short: string
   definition: string
+  /** 为何重要（可选，公开术语页展示） */
+  why?: string
+  /** 怎么测 / 怎么落地（可选） */
+  measure?: string
   related?: string[]
 }
 
@@ -14,6 +18,9 @@ export const GEO_GLOSSARY_EXTENDED: GlossaryTerm[] = [
     short: '生成式引擎优化',
     definition:
       'Generative Engine Optimization，关注品牌在生成式 AI 答案中的提及、排序、描述与引用，与传统 SEO 互补。',
+    why: '客户越来越多直接问 AI「怎么选 / 和谁比」。若答案里没有你或说错你，蓝链排名再好也会在决策现场缺席。',
+    measure:
+      '用固定问题集与引擎名单采样：看提及率、推荐位、描述是否正确、引用了哪类信源；改完一类证据后同口径复测。',
     related: ['generative-engine-optimization', 'ai-visibility', 'seo'],
   },
   {
@@ -21,6 +28,8 @@ export const GEO_GLOSSARY_EXTENDED: GlossaryTerm[] = [
     term: '生成式引擎优化',
     short: 'GEO 的中文全称',
     definition: '面向大模型/AI 搜索答案的品牌可见性与可引用性优化方法。',
+    why: '把「被 AI 说到、说对、被引用」写成可执行方法，避免只停留在概念口号。',
+    measure: '与 GEO 相同：题集基线 → 按引用缺口补证据 → 分引擎复测。成功单位是提及/引用，不是发稿量。',
     related: ['geo', 'llmo'],
   },
   {
@@ -28,6 +37,9 @@ export const GEO_GLOSSARY_EXTENDED: GlossaryTerm[] = [
     term: 'AI 搜索可见性',
     short: '品牌在 AI 答案中被看见的程度',
     definition: '通常用提及率、推荐位、引擎覆盖与问题覆盖等指标衡量。',
+    why: '可见性是 GEO 的总览指标。它提醒你：问题不只在「有没有流量」，而在「答案现场有没有你」。',
+    measure:
+      '不要压成一个神秘综合分。至少拆开看：高意图题提及、平均推荐位、引擎是否全空白、描述是否说混。',
     related: ['mention-rate', 'recommendation-rank', 'engine-coverage'],
   },
   {
@@ -35,6 +47,9 @@ export const GEO_GLOSSARY_EXTENDED: GlossaryTerm[] = [
     term: '品牌提及率',
     short: '问题采样中被提及的比例',
     definition: '在固定问题集与引擎下，品牌出现在答案中的次数占比。',
+    why: '最直观的「有没有被说到」。适合做基线与趋势，但不能单独当成功标准。',
+    measure:
+      '提及次数 ÷ 采样次数（按题或按引擎汇总）。务必同时看高意图子集；长尾题拉高的总提及率往往是假繁荣。',
     related: ['ai-visibility', 'question-set'],
   },
   {
@@ -49,6 +64,9 @@ export const GEO_GLOSSARY_EXTENDED: GlossaryTerm[] = [
     term: '引用源',
     short: 'AI 答案引用的信源',
     definition: '包括媒体、测评、问答、官网、白皮书等。类型分布能揭示缺口。',
+    why: '很多高意图题不是「没人写你」，而是「没有可被引用的那一类证据」。类型比条数更重要。',
+    measure:
+      '对每次采样记录引用 URL 的类型占比。若几乎全是官网，优先补测评/问答/行业媒体，而不是再堆首页软文。',
     related: ['citation-gap', 'third-party-evidence'],
   },
   {
@@ -63,6 +81,9 @@ export const GEO_GLOSSARY_EXTENDED: GlossaryTerm[] = [
     term: '品牌实体',
     short: '品牌在知识层的统一表达',
     definition: '名称、别名、产品与事实字段的一致性，影响 AI 是否正确识别与描述。',
+    why: '实体不一致时，监测会认错对象，答案也更容易把你和竞品或旧型号说混。',
+    measure:
+      '维护唯一品牌名 + 别名表 + 关键产品事实字段，并在站内、发稿与题集识别规则中共用。抽查答案描述是否对齐事实表。',
     related: ['entity-consistency', 'brand-alias'],
   },
   {
@@ -280,6 +301,9 @@ export const GEO_GLOSSARY_EXTENDED: GlossaryTerm[] = [
     term: 'llms.txt',
     short: '面向 AI 系统的站点说明文件',
     definition: '用纯文本列出站点主题与权威 URL，便于大模型优先引用正确页面。',
+    why: '给机器一条「权威入口清单」，减少只抓到营销首页或过时页的概率；它是辅助信号，不是银弹。',
+    measure:
+      '在站点根路径提供 llms.txt，列出主题说明与应优先引用的学习/产品/事实 URL，并随重要页面更新同步维护。',
     related: ['geo', 'answer-first'],
   },
   {
