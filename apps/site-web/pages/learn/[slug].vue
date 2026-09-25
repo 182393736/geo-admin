@@ -55,9 +55,9 @@ const { crumbs, author, published, modified } = useGeoHubPageSeo(computed(() => 
     <article>
       <section v-for="s in page.sections" :key="s.heading" class="hub-section">
         <h2>{{ s.heading }}</h2>
-        <p v-for="(para, i) in s.paragraphs" :key="i">{{ para }}</p>
+        <p v-for="(para, i) in s.paragraphs" :key="i"><GeoLinkedText :text="para" /></p>
         <ul v-if="s.bullets?.length" class="bullets">
-          <li v-for="(b, i) in s.bullets" :key="i">{{ b }}</li>
+          <li v-for="(b, i) in s.bullets" :key="i"><GeoLinkedText :text="b" /></li>
         </ul>
         <div
           v-if="s.table"
@@ -73,6 +73,21 @@ const { crumbs, author, published, modified } = useGeoHubPageSeo(computed(() => 
         </div>
       </section>
     </article>
+    <section v-if="page.sources?.length" class="hub-section sources">
+      <h2>参考与出处</h2>
+      <ul>
+        <li v-for="s in page.sources" :key="s.href">
+          <a
+            v-if="s.href.startsWith('http')"
+            :href="s.href"
+            target="_blank"
+            rel="noopener noreferrer"
+          >{{ s.title }}</a>
+          <NuxtLink v-else :to="s.href">{{ s.title }}</NuxtLink>
+          <span v-if="s.note"> — {{ s.note }}</span>
+        </li>
+      </ul>
+    </section>
     <p class="next">
       下一步：
       <NuxtLink :to="page.relatedProduct || '/tools'">打开对应 GEO 工具</NuxtLink>
@@ -130,6 +145,22 @@ const { crumbs, author, published, modified } = useGeoHubPageSeo(computed(() => 
   line-height: 1.7;
 }
 .next a {
+  color: #c2410c;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sources ul {
+  margin: 0;
+  padding: 0 0 0 1.15rem;
+  color: #6e6a76;
+}
+.sources li {
+  margin: 0 0 0.55rem;
+  line-height: 1.7;
+  font-size: 14px;
+}
+.sources a {
   color: #c2410c;
   font-weight: 650;
   text-decoration: underline;

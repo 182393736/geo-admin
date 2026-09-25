@@ -113,6 +113,8 @@ export const PUBLIC_LEARN_SLUGS = [
   'geo-vs-seo-deep-dive',
   'geo-metrics',
   'ai-engines',
+  'citation-strategy',
+  'measurement',
 ] as const
 
 export const PUBLIC_GLOSSARY_SLUGS = [
@@ -125,6 +127,11 @@ export const PUBLIC_GLOSSARY_SLUGS = [
   'llms-txt',
 ] as const
 
+/** 第 2 批起步：只开 1 份可复核方法报告（非排行榜） */
+export const PUBLIC_REPORT_SLUGS = [
+  'ai-visibility-baseline-2026-q3',
+] as const
+
 export function isPublicContentPath(path: string) {
   const normalized = path.replace(/\/+$/, '') || '/'
   if (
@@ -135,6 +142,7 @@ export function isPublicContentPath(path: string) {
     || normalized === '/contact'
     || normalized === '/learn'
     || normalized === '/glossary'
+    || normalized === '/reports'
   ) {
     return true
   }
@@ -144,6 +152,8 @@ export function isPublicContentPath(path: string) {
   if (learn && (PUBLIC_LEARN_SLUGS as readonly string[]).includes(learn[1])) return true
   const gloss = normalized.match(/^\/glossary\/([^/]+)$/)
   if (gloss && (PUBLIC_GLOSSARY_SLUGS as readonly string[]).includes(gloss[1])) return true
+  const report = normalized.match(/^\/reports\/([^/]+)$/)
+  if (report && (PUBLIC_REPORT_SLUGS as readonly string[]).includes(report[1])) return true
   return false
 }
 
@@ -538,6 +548,12 @@ export type HubLearnSection = {
   table?: { head: string[]; rows: string[][] }
 }
 
+export type HubLearnSource = {
+  title: string
+  href: string
+  note?: string
+}
+
 export type HubLearnPage = {
   slug: string
   title: string
@@ -546,6 +562,8 @@ export type HubLearnPage = {
   sections: HubLearnSection[]
   faq: HubPageFaq[]
   relatedProduct?: string
+  /** 正文外链出处（学术/官方文档等） */
+  sources?: HubLearnSource[]
 }
 
 export const GEO_LEARN_PAGES: HubLearnPage[] = [
@@ -561,7 +579,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         heading: 'GEO 是什么？',
         paragraphs: [
           'GEO（Generative Engine Optimization，生成式引擎优化）是一套可复核的实践：改进内容结构、可访问性与权威信号，提高品牌或页面在生成式 AI 答案中被提及、正确描述，或被当作引用信源的概率。',
-          '学术上，该术语由 Aggarwal 等人在 KDD 2024 论文中系统提出；商业实践范围更宽。Google 搜索中心也指出：针对生成式 AI 搜索体验的优化，从搜索角度看仍属于 SEO 的延伸，而不是另一套神秘算法。',
+          '学术上，该术语由 Aggarwal 等人在 [KDD 2024 论文（arXiv:2311.09735）](https://arxiv.org/abs/2311.09735) 中系统提出；商业实践范围更宽。[Google 搜索中心](https://developers.google.com/search/docs/fundamentals/creating-helpful-content) 亦强调：面向生成式 AI 搜索体验的优化，根基仍是对用户有帮助、可抓取、可信的内容——从搜索角度看属于 SEO 的延伸，而不是另一套神秘算法。',
           '对品牌团队更直白的说法是：当客户向豆包、DeepSeek、通义、元宝或 ChatGPT 提问「怎么选」「和谁比」「有没有替代」时，你有没有被说到、说对、以及答案依据了哪类页面。',
         ],
       },
@@ -569,7 +587,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         heading: 'GEO 和 SEO 有什么区别？',
         paragraphs: [
           'SEO 优化搜索结果页（蓝链）的排名与点击；GEO 优化生成式答案里的品牌占位、表述与信源。成功单位不同：一次点击 vs 一次提及/引用（很多场景是零点击）。',
-          '二者共用可抓取、清晰结构、权威与体验等基础，但 KPI 必须分流。共用品牌实体与事实底座，再分别排期，比「二选一」成本更低。',
+          '二者共用可抓取、清晰结构、权威与体验等基础，但 KPI 必须分流。共用品牌实体与事实底座，再分别排期，比「二选一」成本更低。更完整的并行排期见 [GEO 与 SEO 如何并行](/learn/geo-vs-seo-deep-dive)；可复核采样口径见 [2026 Q3 方法报告](/reports/ai-visibility-baseline-2026-q3)。',
         ],
         table: {
           head: ['维度', 'SEO', 'GEO'],
@@ -631,6 +649,23 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         a: '先用固定题集手工或工具采样建基线，把「未出现 / 说混 / 缺第三方」写成内容 brief，再交给写作与 PR；监测工具用来加速复测，而不是替代方法。',
       },
     ],
+    sources: [
+      {
+        title: 'GEO: Generative Engine Optimization（Aggarwal et al., arXiv:2311.09735）',
+        href: 'https://arxiv.org/abs/2311.09735',
+        note: '学术定义与实验设定的原始出处',
+      },
+      {
+        title: 'Google Search Central — Creating helpful, reliable, people-first content',
+        href: 'https://developers.google.com/search/docs/fundamentals/creating-helpful-content',
+        note: '面向搜索（含 AI 体验）的官方内容质量原则',
+      },
+      {
+        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        href: '/reports/ai-visibility-baseline-2026-q3',
+        note: '本站公开的采样与指标口径',
+      },
+    ],
   },
   {
     slug: 'geo-metrics',
@@ -644,7 +679,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         heading: 'GEO 核心指标有哪些？',
         paragraphs: [
           '把指标想成一张「决策表」，而不是一个打分条。至少同时看：品牌提及率、平均推荐位、品牌描述倾向、问题覆盖率、竞品差距、有效引用源数量与类型。',
-          '口径必须绑定：同一问题集、同一引擎名单、同一采样窗口。换题或换引擎后，历史曲线不可直接对比。',
+          '口径必须绑定：同一问题集、同一引擎名单、同一采样窗口。换题或换引擎后，历史曲线不可直接对比。公开可复核定义见 [2026 Q3 方法报告](/reports/ai-visibility-baseline-2026-q3)。',
         ],
         table: {
           head: ['指标', '看什么', '常见误读'],
@@ -673,7 +708,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         heading: '怎么放进周会',
         paragraphs: [
           '一张表即可：行是高意图题，列是引擎，单元格写「未出现 / 提及第 N / 引用类型」。附件留原件链接与日期。',
-          '行动项只写「补哪一类证据」，不要写「加强曝光」。下一次会议先看同一格有没有变化。',
+          '行动项只写「补哪一类证据」，不要写「加强曝光」。下一次会议先看同一格有没有变化。验证闭环见 [如何验证 GEO 优化有效](/learn/measurement)。',
         ],
       },
     ],
@@ -691,6 +726,13 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         a: '两套表：蓝链看关键词与落地页；GEO 看题集与引擎。共享的是品牌实体与事实字段，不是同一个分数。',
       },
     ],
+    sources: [
+      {
+        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        href: '/reports/ai-visibility-baseline-2026-q3',
+        note: '指标定义与采样声明的同口径出处',
+      },
+    ],
   },
   {
     slug: 'ai-engines',
@@ -704,7 +746,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         heading: '为什么要分引擎监测？',
         paragraphs: [
           '同一问题在不同引擎的提及率与引用源结构可以差很多。综合分会掩盖「某一引擎完全未出现」的风险——而这往往正是你目标客户每天在用的入口。',
-          '分引擎不是为了做更多报表，而是为了决定「下一篇证据投向哪类信源、优先修哪个入口」。',
+          '分引擎不是为了做更多报表，而是为了决定「下一篇证据投向哪类信源、优先修哪个入口」。本站公开窗口使用的引擎名单与采样原则见 [方法报告](/reports/ai-visibility-baseline-2026-q3)。',
         ],
         table: {
           head: ['观察点', '为什么重要', '落地动作'],
@@ -732,7 +774,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         heading: '采样时注意什么',
         paragraphs: [
           '尽量固定端（网页/App）、登录态与个性化干扰。公开监测应只读、可复现；个性化过强的结果不要当行业基线。',
-          '单次答案会波动。用周期均值 + 原件留存，比「今天截一张好看的」更可靠。',
+          '单次答案会波动。用周期均值 + 原件留存，比「今天截一张好看的」更可靠。站长侧可用 [IndexNow](https://www.indexnow.org/) 加速权威页被发现，但它不能替代题集复测。',
         ],
       },
     ],
@@ -750,11 +792,24 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         a: '入口会变，但「固定题集 + 分引擎 + 引用类型 + 复测」的方法仍然成立。变的是名单与信源偏好，不是要不要监测。',
       },
     ],
+    sources: [
+      {
+        title: 'IndexNow protocol',
+        href: 'https://www.indexnow.org/',
+        note: 'URL 变更主动通知（发现辅助，非 GEO 效果本身）',
+      },
+      {
+        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        href: '/reports/ai-visibility-baseline-2026-q3',
+        note: '公开采样窗口的引擎名单与局限声明',
+      },
+    ],
   },
   {
     slug: 'citation-strategy',
     title: '如何让品牌更容易被 AI 引用？',
-    description: '从信源类型、事实密度与第三方背书出发，给出可执行的引用优化策略。',
+    description:
+      '从信源类型、事实密度与第三方背书出发，给出可执行的引用优化策略。类型缺口比发稿量更能解释「为什么总不被引」。',
     keywords: 'AI引用,如何被AI引用,引用源策略,GEO引用优化',
     relatedProduct: '/tools/citation',
     sections: [
@@ -762,12 +817,41 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         heading: 'AI 更常引用什么？',
         paragraphs: [
           '常见高权重信源包括行业媒体、测评对比、问答社区高质量回答、白皮书与含结果指标的案例，而不仅是官网首页。',
+          '读引用结构时，先看类型分布，再看条数。若几乎全是官网，高意图对比题往往仍会输给「有测评的对手」。公开窗口里如何标注 citationTypes，见 [方法报告 · 证据样例](/reports/ai-visibility-baseline-2026-q3)。',
         ],
+        table: {
+          head: ['类型', '常见场景', '缺口时优先动作'],
+          rows: [
+            ['测评/对比', '怎么选、和谁比', '补可核对的对比维度与第三方测评'],
+            ['问答/社区', '有没有坑、值不值得买', '写真实问句下的可引用回答'],
+            ['行业媒体', '品类趋势、方案解读', '投有事实表的稿，不投空泛软文'],
+            ['官网事实页', '参数、实体、FAQ', '结论前置 + 表格化字段 + 日期'],
+            ['白皮书/案例', 'B2B 选型与替代', '写可验证指标与边界条件'],
+          ],
+        },
       },
       {
         heading: '内容怎么写才可引用？',
         paragraphs: [
           '用真实问句做标题，首段直接给结论，表格化事实字段，标注可验证数据与日期，并保持全站实体一致。',
+          '「可抽取」比「写得好听」更重要：模型更常截取答案前置段、对比表与带日期的数字，而不是抒情开头。写作原则与 [Google 的people-first 内容指南](https://developers.google.com/search/docs/fundamentals/creating-helpful-content) 同向——对用户有用的结构，也更利于被引用。',
+        ],
+        bullets: [
+          '标题 ≈ 用户原问题；首段给结论。',
+          '事实表：型号、适用条件、对比维度、更新日。',
+          '全站同一品牌名与别名，避免答案说混。',
+          '发完用同一题集复测：看引用类型有没有移动。',
+        ],
+      },
+      {
+        heading: '常见翻车',
+        paragraphs: [
+          '只堆品牌故事；把渠道数当效果；同一事实多套说法；改完不复测。',
+        ],
+        bullets: [
+          '翻车：发了 20 篇资讯，对比题引用类型仍是空。',
+          '翻车：官网改了参数，答案还在说旧型号。',
+          '正确：按类型缺口写 brief → 发一类证据 → 同口径复测。',
         ],
       },
     ],
@@ -775,6 +859,26 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
       {
         q: '只有官网可以吗？',
         a: '可以起步，但高价值问题通常需要第三方证据。建议官网事实页 + 外部测评/案例组合。',
+      },
+      {
+        q: '发得越多越好吗？',
+        a: '不是。无效类型上的产量几乎不移动引用结构。先看缺口类型，再决定写什么。',
+      },
+      {
+        q: '怎么知道补对了？',
+        a: '固定题集与引擎，看目标题的 citationTypes 是否出现你补的那一类，并核对描述是否仍准确。',
+      },
+    ],
+    sources: [
+      {
+        title: 'Google Search Central — Creating helpful, reliable, people-first content',
+        href: 'https://developers.google.com/search/docs/fundamentals/creating-helpful-content',
+        note: '可抽取、对人有用的内容结构原则',
+      },
+      {
+        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        href: '/reports/ai-visibility-baseline-2026-q3',
+        note: '引用类型与证据字段的公开口径',
       },
     ],
   },
@@ -802,7 +906,8 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
   {
     slug: 'measurement',
     title: '如何验证 GEO 优化有效？',
-    description: '用固定问题集、引擎与采样周期比较基线变化，避免单次截图误判。',
+    description:
+      '用固定问题集、引擎与采样周期比较基线变化，避免单次截图误判。有效验证是小实验，不是「感觉被提到更多了」。',
     keywords: 'GEO效果验证,GEO复测,AI搜索优化效果',
     relatedProduct: '/tools/visibility',
     sections: [
@@ -810,6 +915,34 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         heading: '有效验证的最小实验设计',
         paragraphs: [
           '固定问题集与引擎，每次只改一类变量（如补第三方测评），再比较提及率、推荐位与有效引用源。',
+          '实验记录至少包含：questionSetVersion、引擎名单、采样起止、改动了什么、改前/改后证据包位置。公开口径模板见 [方法报告](/reports/ai-visibility-baseline-2026-q3)。',
+        ],
+        table: {
+          head: ['步骤', '做什么', '不要做什么'],
+          rows: [
+            ['定基线', '同题同引擎采一轮并留原件', '挑好看的截图当基线'],
+            ['改一类变量', '只补一种证据类型或实体字段', '同时改题、改引擎、狂发稿'],
+            ['复测', '同一窗口规则再采', '换题后仍对比旧曲线'],
+            ['下结论', '看高意图格子是否移动', '用综合分掩盖单引擎空白'],
+          ],
+        },
+      },
+      {
+        heading: '波动怎么办？',
+        paragraphs: [
+          '生成式答案日内会抖。用窗口内聚合（如双周）与证据留存，而不是单次截图。趋势与竞品同题差距，比绝对分更可靠。',
+          '若必须对外沟通，写清采样周期与局限，禁止无法复核的「行业第 N」。',
+        ],
+        bullets: [
+          '波动是常态；无原件的「涨了」不可审计。',
+          '改题集必须升版本，旧数据归档。',
+          '成功单位：提及/推荐位/引用类型，不是发稿量。',
+        ],
+      },
+      {
+        heading: '和内容排期怎么对齐',
+        paragraphs: [
+          '复测窗口应写进 [引用策略](/learn/citation-strategy) 与内容 brief。发稿日不等于生效日；给发现与引用留时间，再采第二轮。',
         ],
       },
     ],
@@ -817,6 +950,21 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
       {
         q: 'AI 每天答案不一样怎么办？',
         a: '用周期均值与证据留存，而不是单次截图。波动是常态，趋势与差距才是决策依据。',
+      },
+      {
+        q: '多久复测一次？',
+        a: '常见双周；改完一类证据后至少完整跑一轮同口径采样再下结论。',
+      },
+      {
+        q: '怎样才算有效？',
+        a: '目标高意图题：未出现率下降，或推荐位改善，或出现你补的那类引用——且描述仍正确。',
+      },
+    ],
+    sources: [
+      {
+        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        href: '/reports/ai-visibility-baseline-2026-q3',
+        note: '采样周期、问题集版本与局限声明的模板',
       },
     ],
   },
@@ -888,6 +1036,23 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
       {
         q: '和内容营销是什么关系？',
         a: '内容营销可以服务传播；GEO 要求每篇都能回答具体题、可抽取、可复测。共享日历，但验收标准不同。',
+      },
+    ],
+    sources: [
+      {
+        title: 'Google Search Central — Creating helpful, reliable, people-first content',
+        href: 'https://developers.google.com/search/docs/fundamentals/creating-helpful-content',
+        note: '蓝链与 AI 体验共用的内容质量根基',
+      },
+      {
+        title: 'GEO: Generative Engine Optimization（arXiv:2311.09735）',
+        href: 'https://arxiv.org/abs/2311.09735',
+        note: 'GEO 学术定义出处',
+      },
+      {
+        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        href: '/reports/ai-visibility-baseline-2026-q3',
+        note: '并行体系下的 GEO 采样与指标口径',
       },
     ],
   },

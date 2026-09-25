@@ -64,7 +64,7 @@ export const GEO_QUARTERLY_REPORT_2026_Q3: HubReportContent = {
   description:
     '方法说明书而非行业排行榜：公开问题集版本、中国主流引擎名单、采样窗口、指标定义与脱敏证据结构。不与全球「亿级 prompt 指数」比体量；不发布未授权精确名次。',
   datePublished: '2026-09-20',
-  dateModified: '2026-09-20',
+  dateModified: '2026-09-25',
   method:
     '按行业模板抽取固定问题集；对列入引擎名单的入口做只读提问；记录是否提及、推荐位区间、引用源类型；保留原始回答与引用列表作为证据包。禁止换题刷分；问题集变更必须升版本。本窗口用于方法演示与结构观察，不声称全国普查。',
   engines: ['DeepSeek', '豆包', '通义千问', '元宝', 'Kimi'],
@@ -79,12 +79,13 @@ export const GEO_QUARTERLY_REPORT_2026_Q3: HubReportContent = {
     answers: 600,
     brands: 0,
   },
-  authors: ['HANYUAI Research'],
+  authors: ['HANYUAI GEO 方法与产品团队'],
   limitations: [
     '本报告以方法与结构观察为主；品类分册数值将在后续季度同口径追加。',
     '不跨品类直接比较提及率绝对值。',
     '不展示未获客户授权的精确分数或「排行榜名次」。',
     '生成式答案存在日内波动，结论基于窗口内聚合与证据留存，而非单次截图。',
+    '引用类型识别依赖可见链接/站点；无链接的口头提及不计入「有效引用源」。',
   ],
   metricsDefinitions: [
     {
@@ -141,21 +142,38 @@ export const GEO_QUARTERLY_REPORT_2026_Q3: HubReportContent = {
       heading: '本报告回答什么问题？',
       paragraphs: [
         '它回答「如何用可复核的方法读 GEO 基线」，而不是发布无法审计的行业第一名榜单。',
-        '你可以用同一口径理解自家诊断、评估供应商是否换题刷分，并为内容团队设立可验证 KPI。',
+        '你可以用同一口径理解自家诊断、评估供应商是否换题刷分，并为内容团队设立可验证 KPI。学术上 GEO 一词见 Aggarwal 等人工作（arXiv:2311.09735）；本报告讨论的是可落地的监测与引用口径，而非复现其实验。',
+        '相关入门：[什么是 GEO](/learn/what-is-geo)、[核心指标](/learn/geo-metrics)、[如何验证效果](/learn/measurement)。',
       ],
     },
     {
       heading: '采样设计',
       paragraphs: [
         '问题集版本 geo-qset-cn-core-v1：覆盖认知、对比、场景与风险四层；本窗口 prompts=120，按 5 引擎只读采样得到 answers=600。',
+        '引擎名单：DeepSeek、豆包、通义千问、元宝、Kimi。名单服务于方法演示；生产监测应以你的真实用户入口为准，并保持稳定以便时间序列可比。',
         '变更引擎名单或问题集时必须升版本，并更新 dateModified；旧版本归档，不与新版混比。',
+      ],
+    },
+    {
+      heading: '指标怎么读（禁止只看综合分）',
+      paragraphs: [
+        '先看高意图子集（选型/对比/替代）的提及与未出现率，再看平均推荐位，再看 citationTypes 是否缺测评/问答等类型。',
+        '竞品对照必须同题同引擎。跨品类直接比提及率绝对值没有意义。',
+        '对外沟通应同时给出：questionSetVersion、engines、samplingPeriod、dateModified，并保留证据包索引。',
       ],
     },
     {
       heading: '如何阅读证据样例',
       paragraphs: [
         '证据样例展示「问题—引擎—摘录—引用类型—采样时间」。生产环境应保留完整证据包供审计；公开页仅展示脱敏摘录。',
-        '若某类 citationTypes 长期缺失（如测评=0），应优先补该类内容，而不是增加同质软文产量。',
+        '若某类 citationTypes 长期缺失（如测评=0），应优先补该类内容，而不是增加同质软文产量。行动映射见 [引用策略](/learn/citation-strategy)。',
+      ],
+    },
+    {
+      heading: '引用本报告时请写清',
+      paragraphs: [
+        '标题 + questionSetVersion（geo-qset-cn-core-v1）+ engines + samplingPeriod（2026-09-01～2026-09-15）+ dateModified（以本页为准）+ canonical URL。',
+        '禁止把本页改写成「中国 GEO 排行榜」或伪造精确名次。',
       ],
     },
     {
@@ -163,6 +181,7 @@ export const GEO_QUARTERLY_REPORT_2026_Q3: HubReportContent = {
       paragraphs: [
         '品牌侧：用免费诊断建基线，再把高意图题转入持续监测。',
         '研究侧：下一季度在同一问题集版本上追加品类分册（仍禁止无方法排行榜）。',
+        '站长侧：权威页更新后可配合 IndexNow 与 sitemap；发现辅助不能替代题集复测。',
       ],
     },
   ],
@@ -178,6 +197,10 @@ export const GEO_QUARTERLY_REPORT_2026_Q3: HubReportContent = {
     {
       q: '能否把客户诊断直接公开？',
       a: '需脱敏并授权后走 /reports/shared/* 回流；禁止带出机密与未授权分数。',
+    },
+    {
+      q: '和学术 GEO 论文是什么关系？',
+      a: '论文提供术语与研究问题；本报告提供面向品牌团队的监测与引用口径。二者互补，不互相替代实验结果。',
     },
   ],
 }

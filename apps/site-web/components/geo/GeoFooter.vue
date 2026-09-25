@@ -54,6 +54,7 @@ const year = new Date().getFullYear()
             <li><NuxtLink to="/learn/what-is-geo">什么是 GEO</NuxtLink></li>
             <li><NuxtLink to="/learn/geo-vs-seo-deep-dive">GEO 与 SEO</NuxtLink></li>
             <li><NuxtLink to="/glossary">术语表</NuxtLink></li>
+            <li><NuxtLink to="/reports/ai-visibility-baseline-2026-q3">方法报告</NuxtLink></li>
             <li><NuxtLink to="/pricing">价格</NuxtLink></li>
             <li><NuxtLink to="/contact">联系我们</NuxtLink></li>
           </ul>

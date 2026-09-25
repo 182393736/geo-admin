@@ -80,6 +80,12 @@ function inferBreadcrumbs(path: string, title: string): GeoHubBreadcrumb[] {
     if (gloss[1]) crumbs.push({ name: title.split('｜')[0], path: normalized })
     return crumbs
   }
+  const report = normalized.match(/^\/reports(?:\/([^/]+))?$/)
+  if (report) {
+    const crumbs: GeoHubBreadcrumb[] = [{ name: '公开报告', path: '/reports' }]
+    if (report[1]) crumbs.push({ name: title.split('｜')[0], path: normalized })
+    return crumbs
+  }
   return [{ name: title.split('｜')[0], path: normalized }]
 }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { GEO_REPORTS, GEO_CONTENT_PIPELINE, getReport } from '~/utils/geo-hub'
+import { GEO_REPORTS, GEO_CONTENT_PIPELINE, PUBLIC_REPORT_SLUGS, getReport } from '~/utils/geo-hub'
 import { fetchHubByKind, mergeReports } from '~/utils/content/cms-hub'
+import { GEO_AUTHOR_ORG } from '~/utils/content/authors'
 
 definePageMeta({ layout: 'geo' })
 
@@ -10,6 +11,8 @@ const slug = computed(() => String(route.params.slug || ''))
 const { data: report } = await useAsyncData(
   () => `hub-report-${route.params.slug}`,
   async () => {
+    const allow = new Set(PUBLIC_REPORT_SLUGS as readonly string[])
+    if (!allow.has(slug.value)) return null
     const cms = await fetchHubByKind('report')
     const merged = mergeReports(GEO_REPORTS, cms)
     return merged.find((r) => r.slug === slug.value) || getReport(slug.value) || null
@@ -20,15 +23,16 @@ if (!report.value) {
   throw createError({ statusCode: 404, statusMessage: '报告不存在' })
 }
 
-useGeoHubPageSeo({
+const { crumbs, author, published, modified } = useGeoHubPageSeo({
   title: report.value.title,
   description: report.value.description,
-  keywords: 'GEO报告,AI搜索可见性,采样方法,证据样例',
+  keywords: 'GEO报告,AI搜索可见性,采样方法,证据样例,可复核基线',
   path: `/reports/${report.value.slug}`,
   type: 'article',
   datePublished: report.value.datePublished,
   dateModified: report.value.dateModified,
   faqs: report.value.faq,
+  authorId: GEO_AUTHOR_ORG.id,
 })
 </script>
 
@@ -39,7 +43,16 @@ useGeoHubPageSeo({
     :title="report.title"
     :description="report.description"
     :diagnose-cta="false"
+    :breadcrumbs="crumbs"
+    :author-label="author.short"
+    :date-published="published"
+    :date-modified="modified"
   >
+    <template #actions>
+      <NuxtLink to="/reports" class="ghost">全部公开报告</NuxtLink>
+      <NuxtLink to="/tools" class="ghost">看 GEO 工具</NuxtLink>
+    </template>
+
     <dl class="meta-box">
       <div><dt>发布</dt><dd><time :datetime="report.datePublished">{{ report.datePublished }}</time></dd></div>
       <div><dt>更新</dt><dd><time :datetime="report.dateModified">{{ report.dateModified }}</time></dd></div>
@@ -74,18 +87,16 @@ useGeoHubPageSeo({
     <article>
       <section v-for="s in report.sections" :key="s.heading" class="hub-section">
         <h2>{{ s.heading }}</h2>
-        <p v-for="(para, i) in s.paragraphs" :key="i">{{ para }}</p>
+        <p v-for="(para, i) in s.paragraphs" :key="i"><GeoLinkedText :text="para" /></p>
       </section>
     </article>
 
     <section v-if="report.evidenceSamples?.length" class="hub-section">
       <h2>证据样例</h2>
       <p class="lede">脱敏摘录，用于展示可复核结构。完整证据包在授权审计场景提供。</p>
-      <article v-for="ev in report.evidenceSamples" :key="ev.id" class="evidence card">
-        <div class="card-header">
-          <div class="card-title">{{ ev.engine }} · {{ ev.sampledAt }}</div>
-          <div class="card-description"><strong>问：</strong>{{ ev.question }}</div>
-        </div>
+      <article v-for="ev in report.evidenceSamples" :key="ev.id" class="evidence">
+        <div class="ev-head">{{ ev.engine }} · {{ ev.sampledAt }}</div>
+        <p class="ev-q"><strong>问：</strong>{{ ev.question }}</p>
         <blockquote>{{ ev.excerpt }}</blockquote>
         <div class="ev-meta">
           引用类型：{{ ev.citationTypes.join('、') }}
@@ -111,8 +122,10 @@ useGeoHubPageSeo({
     </section>
 
     <p class="next">
-      <NuxtLink to="/reports">全部报告</NuxtLink> ·
-      <NuxtLink to="/engines">引擎文档</NuxtLink> ·
+      <NuxtLink to="/reports">公开报告</NuxtLink>
+      ·
+      <NuxtLink to="/learn">学习中心</NuxtLink>
+      ·
       <NuxtLink to="/diagnose">免费诊断</NuxtLink>
     </p>
   </GeoHubPage>
@@ -121,33 +134,72 @@ useGeoHubPageSeo({
 <style scoped>
 .meta-box {
   display: grid;
-  gap: 0.75rem;
+  gap: 12px;
   margin: 0 0 2rem;
-  padding: 1rem 1.1rem;
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
-  font-size: 0.9rem;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: #f7f7f8;
+  font-size: 14px;
 }
-.meta-box dt { font-weight: 600; margin-bottom: 0.15rem; }
-.meta-box dd { margin: 0; color: hsl(var(--muted-foreground)); line-height: 1.6; }
-.metric-defs { display: grid; gap: 0.75rem; }
-.metric-defs dt { font-weight: 600; }
-.metric-defs dd { margin: 0.2rem 0 0; color: hsl(var(--muted-foreground)); line-height: 1.6; }
-.hub-section { margin-top: 1.75rem; }
-.hub-section h2 { font-size: 1.2rem; margin-bottom: 0.65rem; }
-.hub-section p, .hub-section li { line-height: 1.8; margin: 0 0 0.65rem; }
-.lede { color: hsl(var(--muted-foreground)); margin-bottom: 0.85rem !important; }
-.evidence { margin-bottom: 0.75rem; }
+.meta-box dt {
+  font-weight: 650;
+  margin-bottom: 0.15rem;
+  color: #16161a;
+}
+.meta-box dd {
+  margin: 0;
+  color: #6e6a76;
+  line-height: 1.65;
+}
+.metric-defs { display: grid; gap: 12px; }
+.metric-defs dt { font-weight: 650; }
+.metric-defs dd { margin: 0.25rem 0 0; color: #6e6a76; line-height: 1.65; }
+.lede { color: #6e6a76; margin-bottom: 0.85rem !important; }
+.evidence {
+  margin-bottom: 12px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #f7f7f8;
+}
+.ev-head {
+  font-size: 13px;
+  font-weight: 650;
+  color: #c2410c;
+  margin-bottom: 8px;
+}
+.ev-q {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: #16161a;
+  line-height: 1.55;
+}
 .evidence blockquote {
-  margin: 0 1.1rem 0.75rem;
-  padding-left: 0.75rem;
-  border-left: 3px solid hsl(var(--border));
-  color: hsl(var(--foreground) / 0.9);
+  margin: 0 0 10px;
+  padding-left: 12px;
+  border-left: 3px solid #f0c9b0;
+  color: #3f3b46;
   line-height: 1.7;
-  font-size: 0.95rem;
+  font-size: 14px;
 }
-.ev-meta { margin: 0 1.1rem 1rem; font-size: 0.8rem; color: hsl(var(--muted-foreground)); }
-.next { margin-top: 2rem; }
-.next a { color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 3px; }
-code { font-size: 0.85em; }
+.ev-meta { font-size: 12px; color: #9b97a3; line-height: 1.55; }
+.next {
+  margin-top: 2rem;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #fff4ec;
+  color: #6e6a76;
+  font-size: 14px;
+}
+.next a {
+  color: #c2410c;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+code {
+  font-size: 0.9em;
+  background: #fff;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
 </style>

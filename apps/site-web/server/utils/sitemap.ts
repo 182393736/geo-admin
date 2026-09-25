@@ -5,11 +5,11 @@ import {
   GEO_FUNCTIONAL_SLUGS,
   PUBLIC_LEARN_SLUGS,
   PUBLIC_GLOSSARY_SLUGS,
+  PUBLIC_REPORT_SLUGS,
 } from '../../utils/geo-hub'
 import { GEO_INSIGHTS, GEO_SITE } from '../../utils/geo-seo'
 import { GEO_SOLUTIONS, GEO_COMPARE_PAGES } from '../../utils/content/solutions'
 import { GEO_CUSTOMER_STORIES } from '../../utils/content/ecosystem'
-import { GEO_SHARED_REPORTS } from '../../utils/content/authority'
 
 function siteBase(config: ReturnType<typeof useRuntimeConfig>) {
   return String(config.public.siteUrl || GEO_SITE.defaultSiteUrl).replace(/\/+$/, '')
@@ -104,22 +104,14 @@ export function buildInsightsUrls(siteUrl: string) {
 }
 
 export function buildReportsUrls(siteUrl: string) {
+  const allow = new Set(PUBLIC_REPORT_SLUGS as readonly string[])
   return [
     { loc: `${siteUrl}/reports`, lastmod: GEO_SITE.dateModified, changefreq: 'weekly', priority: '0.9' },
-    { loc: `${siteUrl}/benchmarks`, lastmod: GEO_SITE.dateModified, changefreq: 'monthly', priority: '0.8' },
-    { loc: `${siteUrl}/engines`, lastmod: GEO_SITE.dateModified, changefreq: 'monthly', priority: '0.8' },
-    { loc: `${siteUrl}/changelog`, lastmod: GEO_SITE.dateModified, changefreq: 'weekly', priority: '0.6' },
-    ...GEO_REPORTS.map((r) => ({
+    ...GEO_REPORTS.filter((r) => allow.has(r.slug)).map((r) => ({
       loc: `${siteUrl}/reports/${r.slug}`,
       lastmod: r.dateModified,
-      changefreq: 'monthly',
-      priority: '0.85',
-    })),
-    ...GEO_SHARED_REPORTS.map((r) => ({
-      loc: `${siteUrl}/reports/shared/${r.id}`,
-      lastmod: r.dateModified,
-      changefreq: 'monthly',
-      priority: '0.7',
+      changefreq: 'monthly' as const,
+      priority: '0.9',
     })),
   ]
 }
