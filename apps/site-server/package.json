@@ -16,6 +16,7 @@
     "seed": "node scripts/seed.js",
     "seed:flagship": "node scripts/seed-flagship-pages.js",
     "seed:cms": "node scripts/seed-cms-localhost.js",
+    "seed:prod-geo-empty": "node scripts/seed-prod-geo-empty-safe.js",
     "seed:samples": "node scripts/seed-cms-samples.js",
     "test": "egg-bin test"
   },
