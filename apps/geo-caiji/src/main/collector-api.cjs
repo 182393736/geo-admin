@@ -140,7 +140,7 @@ async function collectorFetch(pathname, { method = 'POST', body } = {}) {
   return json && Object.prototype.hasOwnProperty.call(json, 'data') ? json.data : json;
 }
 
-/** 拉取一条待采集槽位；无任务时 data.slot === null */
+/** 拉取一条待采集槽位；无任务时 data.slot === null；超日限抛 status=429 / error_code=DAILY_LIMIT */
 async function pullSlot(params = {}) {
   const body = {};
   if (Array.isArray(params.platforms) && params.platforms.length) body.platforms = params.platforms;
@@ -148,6 +148,10 @@ async function pullSlot(params = {}) {
   if (params.end) body.end = params.end;
   if (params.query_type) body.query_type = params.query_type;
   if (params.date) body.date = params.date;
+  if (params.ip) body.ip = params.ip;
+  if (params.machine_name) body.machine_name = params.machine_name;
+  else body.machine_name = getMachineName();
+  if (params.port != null && params.port !== '') body.port = params.port;
   return collectorFetch('/collector/slots/pull', { body });
 }
 

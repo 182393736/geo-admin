@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <h2 class="page-title">采集监控</h2>
-    <p class="page-desc">每日采集任务 → 槽位 → 原始回答 → 截图；失败槽位可手动重置。采集 IP 台账在 submit 时旁路累计（含近 3 日 / 分平台）。</p>
+    <p class="page-desc">每日采集任务 → 槽位 → 原始回答 → 截图；失败槽位可手动重置。采集 IP：各平台竖排近 3 日；「今日已用/日限」可改，默认 80。</p>
 
     <a-tabs v-model:active-key="tab">
       <!-- 任务 -->
@@ -154,7 +154,7 @@
           <a-input v-model="ipMachineQ" allow-clear placeholder="机器名" style="width: 180px" @press-enter="loadIps(1)" />
           <a-input v-model="ipQ" allow-clear placeholder="IP" style="width: 160px" @press-enter="loadIps(1)" />
           <a-button type="primary" @click="loadIps(1)">查询</a-button>
-          <span class="muted" style="margin-left: auto">共 {{ ipTotal }} 条 · 累计 + 近 3 日</span>
+          <span class="muted" style="margin-left: auto">共 {{ ipTotal }} 条 · 默认日限 {{ ipDefaultDailyLimit }} · 平台列竖排近 3 日</span>
         </div>
         <div class="table-card">
           <a-table
@@ -164,31 +164,58 @@
             :pagination="false"
             row-key="id"
             size="medium"
-            :scroll="{ x: 1400 }"
-            :expandable="ipExpandable"
+            :scroll="{ x: 1680 }"
           >
             <template #platDoubao="{ record }">
-              <span class="ip-plat-cell" :title="platStatTitle(record, 'doubao')">{{ platStatText(record, 'doubao') }}</span>
+              <div class="ip-plat-days">
+                <div v-for="line in platDayLines(record, 'doubao')" :key="line.date" class="ip-plat-day">
+                  <span class="ip-plat-day-d">{{ line.md }}</span>
+                  <span class="ip-plat-day-n">{{ line.text }}</span>
+                </div>
+              </div>
             </template>
             <template #platDeepseek="{ record }">
-              <span class="ip-plat-cell" :title="platStatTitle(record, 'deepseek')">{{ platStatText(record, 'deepseek') }}</span>
+              <div class="ip-plat-days">
+                <div v-for="line in platDayLines(record, 'deepseek')" :key="line.date" class="ip-plat-day">
+                  <span class="ip-plat-day-d">{{ line.md }}</span>
+                  <span class="ip-plat-day-n">{{ line.text }}</span>
+                </div>
+              </div>
             </template>
             <template #platWenxin="{ record }">
-              <span class="ip-plat-cell" :title="platStatTitle(record, 'wenxin')">{{ platStatText(record, 'wenxin') }}</span>
+              <div class="ip-plat-days">
+                <div v-for="line in platDayLines(record, 'wenxin')" :key="line.date" class="ip-plat-day">
+                  <span class="ip-plat-day-d">{{ line.md }}</span>
+                  <span class="ip-plat-day-n">{{ line.text }}</span>
+                </div>
+              </div>
             </template>
             <template #platYuanbao="{ record }">
-              <span class="ip-plat-cell" :title="platStatTitle(record, 'yuanbao')">{{ platStatText(record, 'yuanbao') }}</span>
+              <div class="ip-plat-days">
+                <div v-for="line in platDayLines(record, 'yuanbao')" :key="line.date" class="ip-plat-day">
+                  <span class="ip-plat-day-d">{{ line.md }}</span>
+                  <span class="ip-plat-day-n">{{ line.text }}</span>
+                </div>
+              </div>
             </template>
-            <template #expand-row="{ record }">
-              <div class="ip-expand">
-                <div class="sec">近 3 日明细</div>
-                <a-table
-                  :data="dayRowsOf(record)"
-                  :columns="ipDayCols"
-                  :pagination="false"
-                  size="mini"
-                  row-key="date"
-                />
+            <template #dailyLimits="{ record }">
+              <div class="ip-limit-col">
+                <div v-for="p in IP_LIMIT_PLATS" :key="p" class="ip-limit-row">
+                  <span class="ip-limit-name">{{ platLabel(p) }}</span>
+                  <span class="ip-limit-used" :title="`今日已用 ${todayUsedOf(record, p)}`">{{ todayUsedOf(record, p) }}/</span>
+                  <a-input-number
+                    :model-value="limitDraftOf(record, p)"
+                    :min="1"
+                    :max="100000"
+                    size="mini"
+                    hide-button
+                    class="ip-limit-input"
+                    :disabled="savingLimitKey === limitKey(record, p)"
+                    @change="(v: number | undefined) => onLimitDraft(record, p, v)"
+                    @press-enter="() => saveDailyLimit(record, p)"
+                    @blur="() => saveDailyLimit(record, p)"
+                  />
+                </div>
               </div>
             </template>
           </a-table>
@@ -312,7 +339,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, reactive } from 'vue';
 import { Message, Modal } from '@arco-design/web-vue';
 import { adminApi } from '@/api/admin';
 import type { AdminCollectTaskRow, AdminSlotRow, AdminAnswerRow, AdminAnswerDetail, AdminSnapshotRow } from '@geo-admin/contracts';
@@ -442,6 +469,10 @@ type IpRow = {
   total_count: number
   by_platform: Record<string, { ok?: number; fail?: number; empty?: number; total?: number }>
   by_day: Record<string, { ok?: number; fail?: number; empty?: number; total?: number; by_platform?: Record<string, any> }>
+  daily_limits?: Record<string, number>
+  today_used?: Record<string, number>
+  default_daily_limit?: number
+  today?: string
   last_seen_at: string | null
   last_ok_at: string | null
   last_fail_at: string | null
@@ -452,7 +483,11 @@ const ipPage = ref(1);
 const ipLoading = ref(false);
 const ipMachineQ = ref('');
 const ipQ = ref('');
-const ipExpandable = { title: '', width: 40 };
+const ipDefaultDailyLimit = ref(80);
+const limitDrafts = reactive<Record<string, number>>({});
+const savingLimitKey = ref('');
+const IP_LIMIT_PLATS = ['doubao', 'deepseek', 'wenxin', 'yuanbao'] as const;
+
 function fmtTs(v: string | null | undefined) {
   if (!v) return '—';
   const d = new Date(v);
@@ -460,65 +495,104 @@ function fmtTs(v: string | null | undefined) {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-function dayRowsOf(record: IpRow) {
-  const days = Object.keys(record.by_day || {}).sort().reverse();
-  return days.map(date => {
-    const st = record.by_day[date] || {};
-    const plats = st.by_platform || {};
-    const platText = Object.keys(plats)
-      .map(p => `${platLabel(p)} ${plats[p].ok || 0}/${plats[p].fail || 0}/${plats[p].empty || 0}`)
-      .join(' · ');
-    return {
-      date,
-      ok: st.ok || 0,
-      fail: st.fail || 0,
-      empty: st.empty || 0,
-      total: st.total || 0,
-      platforms: platText || '—',
-    };
+
+function fmtPlatTriple(st: { ok?: number; fail?: number; empty?: number; total?: number } | null | undefined) {
+  if (!st) return '—';
+  const ok = st.ok || 0;
+  const fail = st.fail || 0;
+  const empty = st.empty || 0;
+  const total = st.total ?? ok + fail + empty;
+  if (!total) return '—';
+  return `${ok}/${fail}/${empty}`;
+}
+
+/** 今天起往前 3 个自然日（新→旧） */
+function recentDayKeys() {
+  const out: string[] = [];
+  const now = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    out.push(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
+  }
+  return out;
+}
+
+/** 某平台最近 3 日竖排行 */
+function platDayLines(record: IpRow, platform: string) {
+  return recentDayKeys().map(date => {
+    const st = ((record.by_day || {})[date]?.by_platform || {})[platform];
+    return { date, md: date.slice(5), text: fmtPlatTriple(st) };
   });
 }
-function platStatOf(record: IpRow, platform: string) {
-  const st = (record.by_platform || {})[platform] || {};
-  return {
-    ok: st.ok || 0,
-    fail: st.fail || 0,
-    empty: st.empty || 0,
-    total: st.total || 0,
-  };
+
+function limitKey(record: IpRow, platform: string) {
+  return `${record.id}::${platform}`;
 }
-function platStatText(record: IpRow, platform: string) {
-  const st = platStatOf(record, platform);
-  if (!st.total) return '—';
-  return `${st.ok}/${st.fail}/${st.empty}`;
+
+function todayUsedOf(record: IpRow, platform: string) {
+  return Number((record.today_used || {})[platform]) || 0;
 }
-function platStatTitle(record: IpRow, platform: string) {
-  const st = platStatOf(record, platform);
-  return `${platLabel(platform)}：成功 ${st.ok} · 失败 ${st.fail} · 空答 ${st.empty} · 总计 ${st.total}`;
+
+function limitDraftOf(record: IpRow, platform: string) {
+  const k = limitKey(record, platform);
+  if (limitDrafts[k] != null) return limitDrafts[k];
+  const n = Number((record.daily_limits || {})[platform]);
+  if (Number.isFinite(n) && n > 0) return n;
+  return record.default_daily_limit || ipDefaultDailyLimit.value || 80;
+}
+
+function onLimitDraft(record: IpRow, platform: string, v: number | undefined) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return;
+  limitDrafts[limitKey(record, platform)] = Math.floor(n);
+}
+
+async function saveDailyLimit(record: IpRow, platform: string) {
+  const k = limitKey(record, platform);
+  const next = Math.floor(Number(limitDraftOf(record, platform)));
+  const stored = (record.daily_limits || {})[platform];
+  const prev = Number(stored);
+  if (!Number.isFinite(next) || next < 1) {
+    Message.warning('日限须 ≥ 1');
+    return;
+  }
+  if (Number.isFinite(prev) && next === prev) return;
+  if (!Number.isFinite(prev) && next === (record.default_daily_limit || ipDefaultDailyLimit.value || 80)) return;
+  savingLimitKey.value = k;
+  try {
+    const r = await adminApi.collectIpDailyLimit({
+      machine_name: record.machine_name,
+      ip: record.ip,
+      platform,
+      daily_limit: next,
+    });
+    record.daily_limits = { ...(record.daily_limits || {}), ...(r.daily_limits || {}), [platform]: r.daily_limit };
+    if (r.today_used) record.today_used = { ...(record.today_used || {}), ...r.today_used };
+    limitDrafts[k] = r.daily_limit;
+    Message.success(`${platLabel(platform)} 日限已设为 ${r.daily_limit}`);
+  } catch (e: any) {
+    Message.error(e?.message || '保存失败');
+  } finally {
+    savingLimitKey.value = '';
+  }
 }
 
 const ipCols = [
   { title: '机器名', dataIndex: 'machine_name', width: 140, ellipsis: true, fixed: 'left' as const },
   { title: 'IP', dataIndex: 'ip', width: 130, fixed: 'left' as const },
   { title: '端口', dataIndex: 'port', width: 70, render: ({ record }: any) => record.port ?? '—' },
-  { title: '成功', dataIndex: 'ok_count', width: 70 },
-  { title: '失败', dataIndex: 'fail_count', width: 70 },
-  { title: '空答', dataIndex: 'empty_count', width: 70 },
-  { title: '总计', dataIndex: 'total_count', width: 70 },
-  { title: '豆包 成/败/空', width: 110, slotName: 'platDoubao' },
-  { title: 'DeepSeek', width: 100, slotName: 'platDeepseek' },
-  { title: '文心', width: 100, slotName: 'platWenxin' },
-  { title: '元宝', width: 100, slotName: 'platYuanbao' },
+  { title: '累计成功', dataIndex: 'ok_count', width: 80 },
+  { title: '累计失败', dataIndex: 'fail_count', width: 80 },
+  { title: '累计空答', dataIndex: 'empty_count', width: 80 },
+  { title: '累计总计', dataIndex: 'total_count', width: 80 },
+  { title: '今日已用/日限', width: 168, slotName: 'dailyLimits' },
+  { title: '豆包', width: 128, slotName: 'platDoubao' },
+  { title: 'DeepSeek', width: 128, slotName: 'platDeepseek' },
+  { title: '文心', width: 128, slotName: 'platWenxin' },
+  { title: '元宝', width: 128, slotName: 'platYuanbao' },
   { title: '最近活跃', width: 150, render: ({ record }: any) => fmtTs(record.last_seen_at) },
   { title: '最近失败', width: 150, render: ({ record }: any) => fmtTs(record.last_fail_at) },
-];
-const ipDayCols = [
-  { title: '日期', dataIndex: 'date', width: 110 },
-  { title: '成功', dataIndex: 'ok', width: 70 },
-  { title: '失败', dataIndex: 'fail', width: 70 },
-  { title: '空答', dataIndex: 'empty', width: 70 },
-  { title: '总计', dataIndex: 'total', width: 70 },
-  { title: '分平台(成/败/空)', dataIndex: 'platforms', ellipsis: true },
 ];
 
 async function loadIps(p = 1) {
@@ -533,6 +607,17 @@ async function loadIps(p = 1) {
     });
     ipRows.value = d.list as IpRow[];
     ipTotal.value = d.total;
+    if (typeof (d as any).default_daily_limit === 'number') {
+      ipDefaultDailyLimit.value = (d as any).default_daily_limit;
+    }
+    for (const row of ipRows.value) {
+      for (const plat of IP_LIMIT_PLATS) {
+        limitDrafts[limitKey(row, plat)] = Number((row.daily_limits || {})[plat])
+          || row.default_daily_limit
+          || ipDefaultDailyLimit.value
+          || 80;
+      }
+    }
   } finally {
     ipLoading.value = false;
   }
@@ -810,12 +895,55 @@ watch(tab, (v) => {
   max-height: 46vh;
   overflow: auto;
 }
-.ip-expand { padding: 4px 8px 12px; }
-.ip-plat-cell {
-  font-variant-numeric: tabular-nums;
-  font-size: 12.5px;
-  color: #334155;
+.ip-plat-days {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0;
+  line-height: 1.35;
+}
+.ip-plat-day {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+.ip-plat-day-d {
+  color: #94a3b8;
+  width: 36px;
+  flex-shrink: 0;
+}
+.ip-plat-day-n {
+  color: #334155;
+}
+.ip-limit-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 0;
+}
+.ip-limit-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.ip-limit-name {
+  width: 52px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+.ip-limit-used {
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  min-width: 22px;
+  text-align: right;
+}
+.ip-limit-input {
+  width: 64px;
 }
 .cite-list { margin: 0; padding-left: 0; list-style: none; }
 .cite-item {

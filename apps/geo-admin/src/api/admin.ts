@@ -89,11 +89,27 @@ export const adminApi = {
     total_count: number
     by_platform: Record<string, { ok?: number; fail?: number; empty?: number; total?: number }>
     by_day: Record<string, { ok?: number; fail?: number; empty?: number; total?: number; by_platform?: Record<string, any> }>
+    daily_limits: Record<string, number>
+    today_used: Record<string, number>
+    default_daily_limit: number
+    today: string
     last_seen_at: string | null
     last_ok_at: string | null
     last_fail_at: string | null
     last_empty_at: string | null
-  }>>(`/admin/collect/ips${qs(p)}`),
+  }> & { default_daily_limit?: number }>(`/admin/collect/ips${qs(p)}`),
+  /** 设置采集 IP × 平台每日限额 */
+  collectIpDailyLimit: (body: { machine_name: string; ip: string; platform: string; daily_limit: number }) =>
+    post<{
+      machine_name: string
+      ip: string
+      platform: string
+      daily_limit: number
+      daily_limits: Record<string, number>
+      today_used: Record<string, number>
+      default_daily_limit: number
+      today: string
+    }>('/admin/collect/ips/daily-limit', body),
 
   // 解析
   parseOverview: () => get<AdminParseOverview>('/admin/parse/overview'),

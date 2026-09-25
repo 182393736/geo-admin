@@ -20,6 +20,8 @@ module.exports = app => {
     by_platform: { type: Schema.Types.Mixed, default: {} },
     // { 'YYYY-MM-DD': { ok, fail, empty, total, by_platform: { ... } } } 仅保留近 3 天
     by_day: { type: Schema.Types.Mixed, default: {} },
+    // { doubao: 80, deepseek: 100, ... } 单平台日限覆盖；缺省用 config.collector.dailyLimitDefault
+    daily_limits: { type: Schema.Types.Mixed, default: {} },
     last_seen_at: Date,
     last_ok_at: Date,
     last_fail_at: Date,

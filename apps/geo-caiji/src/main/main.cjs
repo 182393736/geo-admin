@@ -491,7 +491,13 @@ function registerIpc() {
     let slot = null;
     try {
       logPull('info', `向后台拉取 ${cfg.name} 槽位…（${apiCfg.baseUrl}）`);
-      const data = await pullSlot({ platform });
+      const pullBody = { platform, ip: String(ip).trim() };
+      const port = ipPorts.get(ip);
+      if (port != null && port !== '') {
+        const n = Number(port);
+        if (Number.isFinite(n) && n > 0) pullBody.port = n;
+      }
+      const data = await pullSlot(pullBody);
       slot = data && data.slot ? data.slot : null;
 
       if (!slot) {
@@ -630,6 +636,25 @@ function registerIpc() {
       }
     } catch (err) {
       const msg = String((err && err.message) || err);
+      const body = (err && err.body) || {};
+      const data = body.data || {};
+      const isDailyLimit =
+        err.status === 429
+        || body.code === 429
+        || data.error_code === 'DAILY_LIMIT'
+        || /当日限额|DAILY_LIMIT/i.test(msg);
+      if (isDailyLimit) {
+        logPull('warn', `${cfg.name} 已达当日限额（${data.used != null ? `${data.used}/${data.limit}` : msg}），今日不再拉取`);
+        return {
+          ok: false,
+          dailyLimit: true,
+          error: msg,
+          platform,
+          used: data.used,
+          limit: data.limit,
+          date: data.date,
+        };
+      }
       logPull('error', `拉取失败：${msg}`);
       return { ok: false, error: msg, platform };
     } finally {

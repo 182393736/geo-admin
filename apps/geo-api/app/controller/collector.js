@@ -66,7 +66,8 @@ class CollectorController extends Controller {
   }
 
   /** 拉取单个待采集槽位：单条 + 一步原子领取（findOneAndUpdate 带 sort，无竞争窗口）。
-   *  平台：兼容单数 platform / 复数 platforms；缺省=全部 4 家；指定但均不在白名单=无。 */
+   *  平台：兼容单数 platform / 复数 platforms；缺省=全部 4 家；指定但均不在白名单=无。
+   *  日限：body.ip（+ machine_name）+ 单平台时，当日提交次数达限则 429，不占槽。 */
   async pull() {
     const { ctx } = this;
     const M = ctx.model;
@@ -90,6 +91,35 @@ class CollectorController extends Controller {
 
     const none = () => { ctx.body = { code: 200, msg: 'ok', data: { slot: null } }; };
     if (!platforms.length) return none(); // 指定的平台都不在白名单（如 kimi）
+
+    // 单平台 + 带 IP：校验当日 tab 限额（默认 80，可后台改）
+    const pullIp = String(b.ip || '').trim();
+    const pullMachine = String(b.machine_name || '').trim();
+    if (pullIp && platforms.length === 1) {
+      const chk = await ctx.service.collectorIp.checkDailyLimit({
+        machine_name: pullMachine,
+        ip: pullIp,
+        platform: platforms[0],
+      });
+      if (!chk.allowed) {
+        ctx.status = 429;
+        ctx.body = {
+          code: 429,
+          msg: `${platforms[0]} 已达当日限额（${chk.used}/${chk.limit}）`,
+          data: {
+            error_code: 'DAILY_LIMIT',
+            ip: pullIp,
+            machine_name: pullMachine || null,
+            platform: platforms[0],
+            date: chk.date,
+            used: chk.used,
+            limit: chk.limit,
+            slot: null,
+          },
+        };
+        return;
+      }
+    }
 
     // attempts 缺省视为 0（bulkWrite 展开时可能未写入该字段；$lt 不会匹配缺字段文档）
     const q = {

@@ -731,7 +731,7 @@ class AdminController extends Controller {
     });
   }
 
-  /** 采集 IP 台账（机器名 + IP，累计 + 近 3 日 + 分平台） */
+  /** 采集 IP 台账（机器名 + IP，累计 + 近 3 日 + 分平台 + 日限） */
   async collectIps() {
     const { ctx } = this;
     const M = ctx.model;
@@ -745,27 +745,55 @@ class AdminController extends Controller {
       M.CollectorIp.countDocuments(q),
       M.CollectorIp.find(q).sort({ last_seen_at: -1, updated_at: -1 }).skip((page - 1) * page_size).limit(page_size).lean(),
     ]);
+    const svc = ctx.service.collectorIp;
     this._ok({
-      list: rows.map(r => ({
-        id: `${r.machine_name}::${r.ip}`,
-        machine_name: r.machine_name,
-        ip: r.ip,
-        port: r.port || null,
-        ok_count: r.ok_count || 0,
-        fail_count: r.fail_count || 0,
-        empty_count: r.empty_count || 0,
-        total_count: r.total_count || 0,
-        by_platform: r.by_platform || {},
-        by_day: r.by_day || {},
-        last_seen_at: r.last_seen_at || null,
-        last_ok_at: r.last_ok_at || null,
-        last_fail_at: r.last_fail_at || null,
-        last_empty_at: r.last_empty_at || null,
-        created_at: r.created_at || null,
-        updated_at: r.updated_at || null,
-      })),
+      list: rows.map(r => {
+        const lim = svc.enrichLimits(r);
+        return {
+          id: `${r.machine_name}::${r.ip}`,
+          machine_name: r.machine_name,
+          ip: r.ip,
+          port: r.port || null,
+          ok_count: r.ok_count || 0,
+          fail_count: r.fail_count || 0,
+          empty_count: r.empty_count || 0,
+          total_count: r.total_count || 0,
+          by_platform: r.by_platform || {},
+          by_day: r.by_day || {},
+          daily_limits: lim.daily_limits,
+          today_used: lim.today_used,
+          default_daily_limit: lim.default_daily_limit,
+          today: lim.today,
+          last_seen_at: r.last_seen_at || null,
+          last_ok_at: r.last_ok_at || null,
+          last_fail_at: r.last_fail_at || null,
+          last_empty_at: r.last_empty_at || null,
+          created_at: r.created_at || null,
+          updated_at: r.updated_at || null,
+        };
+      }),
+      default_daily_limit: svc.defaultDailyLimit,
       total, page, page_size,
     });
+  }
+
+  /** 设置采集 IP × 平台每日限额 */
+  async collectIpDailyLimit() {
+    const { ctx } = this;
+    const b = ctx.request.body || {};
+    try {
+      const r = await ctx.service.collectorIp.setDailyLimit({
+        machine_name: b.machine_name,
+        ip: b.ip,
+        platform: b.platform,
+        daily_limit: b.daily_limit,
+      });
+      this._ok(r);
+    } catch (e) {
+      const status = e && e.status ? e.status : 500;
+      ctx.status = status;
+      ctx.body = { code: status, msg: (e && e.message) || '设置失败' };
+    }
   }
 
   // ---------- 解析 ----------

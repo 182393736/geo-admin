@@ -149,9 +149,10 @@
                 type="warning"
                 plain
                 :loading="isPulling(row.ip, p.key)"
-                :disabled="isPulling(row.ip, p.key) || isRunning(row.ip, p.key)"
+                :disabled="isPulling(row.ip, p.key) || isRunning(row.ip, p.key) || isDailyLimited(row.ip, p.key)"
+                :title="isDailyLimited(row.ip, p.key) ? '已达当日限额，今日不再拉取' : ''"
                 @click="doPull(row, p)"
-              >{{ isPulling(row.ip, p.key) ? '拉取中…' : '拉取' + p.name }}</el-button>
+              >{{ isPulling(row.ip, p.key) ? '拉取中…' : (isDailyLimited(row.ip, p.key) ? '日限' + p.name : '拉取' + p.name) }}</el-button>
             </div>
           </div>
         </template>
@@ -217,6 +218,7 @@ const authStates = reactive({});         // `${ip}:${platform}` -> { loggedIn, u
 const running = reactive({});            // `${ip}:${platform}` -> true（对话进行中）
 const pulling = reactive({});            // `${ip}:${platform}` -> true（该平台测试拉取中）
 const lastExecAt = reactive({});         // `${ip}:${platform}` -> 该 tab 上次拉取结束时间（冷却按 tab）
+const dailyLimitedUntil = reactive({});  // `${ip}:${platform}` -> 'YYYY-MM-DD' 该日已达限额，不再拉取
 const results = reactive({});            // `${ip}:${platform}` -> true（已有对话结果可预览）
 const shots = reactive({});              // `${ip}:${platform}` -> true（已有对话截图可预览）
 const shotBytes = reactive({});          // `${ip}:${platform}` -> number（压缩后字节数）
@@ -261,6 +263,29 @@ const shotSizeText = (ip, platform) => {
   return after;
 };
 const isBusy = (ip, platform) => isPulling(ip, platform) || isRunning(ip, platform);
+
+function todayStr() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function isDailyLimited(ip, platform) {
+  const key = `${ip}:${platform}`;
+  const day = dailyLimitedUntil[key];
+  if (!day) return false;
+  const today = todayStr();
+  if (day !== today) {
+    delete dailyLimitedUntil[key];
+    return false;
+  }
+  return true;
+}
+
+function markDailyLimited(ip, platform, date) {
+  const day = String(date || '').slice(0, 10);
+  dailyLimitedUntil[`${ip}:${platform}`] = /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : todayStr();
+}
 
 function rememberShot(key, r) {
   const has = !!(r && (r.hasShot || r.shotPath));
@@ -540,6 +565,10 @@ async function runPull(ip, platformKey, { fromAuto = false } = {}) {
   const name = p ? p.name : platformKey;
   const key = `${ip}:${platformKey}`;
   if (pulling[key] || running[key]) return;
+  if (isDailyLimited(ip, platformKey)) {
+    if (!fromAuto) ElMessage.warning(`${name} 已达当日限额，今日不再拉取`);
+    return;
+  }
   // 定时调度：未打开的平台 tab 不通知后台拉任务（手动「拉取」仍可走原逻辑）
   if (fromAuto && (!isBrowserOpen(ip) || !isPlatformOpen(ip, platformKey))) return;
   pulling[key] = true;
@@ -550,6 +579,15 @@ async function runPull(ip, platformKey, { fromAuto = false } = {}) {
       // 主进程复核：tab 已关 → 同步渲染态，静默跳过（避免 2s 刷日志）
       openedPlatforms.value[key] = false;
       skipped = true;
+      return;
+    }
+    if (r && r.dailyLimit) {
+      markDailyLimited(ip, platformKey, r.date);
+      const tip = r.used != null && r.limit != null
+        ? `${name} 已达当日限额（${r.used}/${r.limit}），今日该 tab 不再拉取`
+        : `${name} 已达当日限额，今日该 tab 不再拉取`;
+      pushLog({ ip, platform: platformKey, level: 'warn', time: Date.now(), message: tip });
+      if (!fromAuto) ElMessage.warning(tip);
       return;
     }
     if (r && r.empty) {
@@ -618,6 +656,7 @@ function pickOldestIdleTab(platformKey) {
     if (!isPlatformOpen(ip, platformKey)) continue;
     // 不检查登录：已打开的浏览器/tab 视为可用
     if (isBusy(ip, platformKey)) continue;
+    if (isDailyLimited(ip, platformKey)) continue;
     const tabKey = `${ip}:${platformKey}`;
     const at = lastExecAt[tabKey] || 0; // 冷却按 tab，不是按 IP
     if (now - at < COLLECT_COOLDOWN_MS) continue;

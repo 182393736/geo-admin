@@ -126,6 +126,8 @@ module.exports = () => {
     platforms: ['doubao', 'deepseek', 'wenxin', 'yuanbao'], // 当前生效 4 家（不含 kimi；千问暂移除）
     maxAttempts: Number(process.env.COLLECT_MAX_ATTEMPTS || 1),     // 每槽最多失败/超时 1 次后终态 fail（不再自动回退 pending）
     runningTtlMs: Number(process.env.COLLECT_RUNNING_TTL_MS || 15 * 60 * 1000), // running 超时回收阈值（默认 15 分钟）
+    // 每个采集 tab（IP × 平台）每日提交次数上限；单 IP 可在 collector_ips.daily_limits 覆盖
+    dailyLimitDefault: Number(process.env.COLLECT_DAILY_LIMIT_DEFAULT || 80),
   },
   // 解析+聚合调度：realtime=5s 轮询（测试期尽快出结果）；daily=凌晨 04:00（量大后回切）
   parse: {
