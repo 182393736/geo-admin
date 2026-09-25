@@ -8,19 +8,35 @@
  *   2) MONGODB_URL 已设置，且库名为 site_manage
  *   3) sites / pages 均为 0（非空一律拒绝）
  *
- * 写入：
- *   - 站点 domain=geo.hanyuai.com（aliases 含 www）
- *   - 旗舰页（与 seed-flagship-pages 同源导出）
- *
- * 用法（生产宿主机，Mongo 本机）：
+ * 用法（生产宿主机）：
  *   CONFIRM=SEED_PROD_GEO_EMPTY MONGODB_URL='mongodb://127.0.0.1:27017/site_manage' \
  *     node apps/site-server/scripts/seed-prod-geo-empty-safe.js
  */
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const mongoose = require('mongoose');
-const esbuild = require(path.resolve(__dirname, '../../../node_modules/esbuild'));
+const Module = require('module');
+
+const ROOT = path.resolve(__dirname, '../../..');
+const SERVER_DIR = path.resolve(__dirname, '..');
+
+/** 优先从 site-server / 仓库根解析依赖（兼容未 cd 到 apps/site-server） */
+function requireDep(name) {
+  const paths = [
+    path.join(SERVER_DIR, 'node_modules'),
+    path.join(ROOT, 'node_modules'),
+    path.join(ROOT, 'node_modules', '.pnpm', 'node_modules'),
+  ];
+  const resolved = Module._resolveFilename(name, {
+    id: __filename,
+    filename: __filename,
+    paths: [...paths, ...(Module._nodeModulePaths(__dirname))],
+  });
+  return require(resolved);
+}
+
+const mongoose = requireDep('mongoose');
+const esbuild = requireDep('esbuild');
 
 const CONFIRM = String(process.env.CONFIRM || '');
 const MONGODB_URL = String(process.env.MONGODB_URL || '').trim();
@@ -46,7 +62,7 @@ function die(msg) {
 function bundle(entry) {
   const outfile = path.join(os.tmpdir(), `flagship-export-${process.pid}-${path.basename(entry)}.cjs`);
   esbuild.buildSync({
-    absWorkingDir: path.resolve(__dirname, '../../..'),
+    absWorkingDir: ROOT,
     entryPoints: [entry],
     bundle: true,
     format: 'cjs',
