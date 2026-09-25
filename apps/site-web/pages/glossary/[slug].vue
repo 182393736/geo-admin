@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GEO_GLOSSARY, getGlossaryTerm } from '~/utils/geo-hub'
+import { GEO_GLOSSARY, PUBLIC_GLOSSARY_SLUGS, getGlossaryTerm } from '~/utils/geo-hub'
 import { asStructuredContent } from '~/utils/cms-page'
 
 definePageMeta({ layout: 'geo' })
@@ -26,7 +26,9 @@ if (!cms.value && term.value) {
 const related = computed(() =>
   (term.value?.related || [])
     .map((slug) => GEO_GLOSSARY.find((t) => t.slug === slug))
-    .filter(Boolean),
+    .filter((t): t is NonNullable<typeof t> =>
+      !!t && (PUBLIC_GLOSSARY_SLUGS as readonly string[]).includes(t.slug),
+    ),
 )
 </script>
 

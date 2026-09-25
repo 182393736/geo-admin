@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { GEO_LEARN_PAGES } from '~/utils/geo-hub'
+import { GEO_LEARN_PAGES, PUBLIC_LEARN_SLUGS } from '~/utils/geo-hub'
 import { asHubColumnContent } from '~/utils/cms-page'
 
 definePageMeta({ layout: 'geo' })
 
 const sitePage = useSitePage()
 const cmsColumn = computed(() => asHubColumnContent(sitePage.value?.page))
+const openLearnPages = computed(() =>
+  GEO_LEARN_PAGES.filter(p => (PUBLIC_LEARN_SLUGS as readonly string[]).includes(p.slug)),
+)
 
 if (!cmsColumn.value) {
   useGeoHubPageSeo({
@@ -28,7 +31,7 @@ if (!cmsColumn.value) {
   >
     <div class="learn-grid">
       <NuxtLink
-        v-for="p in GEO_LEARN_PAGES"
+        v-for="p in openLearnPages"
         :key="p.slug"
         :to="`/learn/${p.slug}`"
         class="card card-hover"
@@ -45,10 +48,10 @@ if (!cmsColumn.value) {
           <div class="card-description">提及率、推荐位、引用源等核心术语的权威释义。</div>
         </div>
       </NuxtLink>
-      <NuxtLink to="/insights" class="card card-hover">
+      <NuxtLink to="/tools" class="card card-hover">
         <div class="card-header">
-          <div class="card-title">实战文章</div>
-          <div class="card-description">指标合看、品牌理解排查、内容不被推荐的原因。</div>
+          <div class="card-title">GEO 工具</div>
+          <div class="card-description">学完概念后，用工具看品牌在 AI 回答里的真实表现。</div>
         </div>
       </NuxtLink>
     </div>

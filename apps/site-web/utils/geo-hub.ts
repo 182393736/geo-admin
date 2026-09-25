@@ -107,12 +107,44 @@ export const GEO_FUNCTIONAL_SLUGS = [
   'pricing',
 ] as const
 
-/** 对外内容只保留首页和功能页。诊断、登录仍可打开，但不进导航和站点地图。 */
+/** 对外内容只保留首页、功能页，以及第 1 批学习/术语（其余路由 404，文件保留便于逐批加回）。 */
+export const PUBLIC_LEARN_SLUGS = [
+  'what-is-geo',
+  'geo-vs-seo-deep-dive',
+  'geo-metrics',
+  'ai-engines',
+] as const
+
+export const PUBLIC_GLOSSARY_SLUGS = [
+  'geo',
+  'generative-engine-optimization',
+  'ai-visibility',
+  'mention-rate',
+  'citation-source',
+  'brand-entity',
+  'llms-txt',
+] as const
+
 export function isPublicContentPath(path: string) {
   const normalized = path.replace(/\/+$/, '') || '/'
-  if (normalized === '/' || normalized === '/tools' || normalized === '/pricing' || normalized === '/contact') return true
-  const match = normalized.match(/^\/tools\/([^/]+)$/)
-  return !!match && (GEO_FUNCTIONAL_SLUGS as readonly string[]).includes(match[1])
+  if (
+    normalized === '/'
+    || normalized === '/diagnose'
+    || normalized === '/tools'
+    || normalized === '/pricing'
+    || normalized === '/contact'
+    || normalized === '/learn'
+    || normalized === '/glossary'
+  ) {
+    return true
+  }
+  const tools = normalized.match(/^\/tools\/([^/]+)$/)
+  if (tools && (GEO_FUNCTIONAL_SLUGS as readonly string[]).includes(tools[1])) return true
+  const learn = normalized.match(/^\/learn\/([^/]+)$/)
+  if (learn && (PUBLIC_LEARN_SLUGS as readonly string[]).includes(learn[1])) return true
+  const gloss = normalized.match(/^\/glossary\/([^/]+)$/)
+  if (gloss && (PUBLIC_GLOSSARY_SLUGS as readonly string[]).includes(gloss[1])) return true
+  return false
 }
 
 export const GEO_PRIMARY_NAV: GeoNavItem[] = [

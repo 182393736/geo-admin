@@ -1,5 +1,5 @@
-/** 首页和功能页以外的内容路由先不开放，文件保留，方便以后逐页加回。 */
-import { GEO_FUNCTIONAL_SLUGS } from '~/utils/geo-hub'
+/** 生产对外路由白名单：未列入的内容页 404（文件保留，便于逐批开放）。 */
+import { isPublicContentPath } from '~/utils/geo-hub'
 
 export default defineNuxtRouteMiddleware((to) => {
   const path = to.path.replace(/\/+$/, '') || '/'
@@ -22,8 +22,6 @@ export default defineNuxtRouteMiddleware((to) => {
     )
   }
 
-  if (path === '/' || path === '/diagnose' || path === '/tools' || path === '/pricing' || path === '/contact') return
-  const match = path.match(/^\/tools\/([^/]+)$/)
-  if (match && (GEO_FUNCTIONAL_SLUGS as readonly string[]).includes(match[1])) return
+  if (isPublicContentPath(path)) return
   throw createError({ statusCode: 404, statusMessage: '页面不存在' })
 })

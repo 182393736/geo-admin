@@ -3,6 +3,8 @@ import {
   GEO_LEARN_PAGES,
   GEO_REPORTS,
   GEO_FUNCTIONAL_SLUGS,
+  PUBLIC_LEARN_SLUGS,
+  PUBLIC_GLOSSARY_SLUGS,
 } from '../../utils/geo-hub'
 import { GEO_INSIGHTS, GEO_SITE } from '../../utils/geo-seo'
 import { GEO_SOLUTIONS, GEO_COMPARE_PAGES } from '../../utils/content/solutions'
@@ -69,16 +71,18 @@ export function buildPublicUrls(siteUrl: string) {
 }
 
 export function buildLearnUrls(siteUrl: string) {
+  const learnSlugs = new Set(PUBLIC_LEARN_SLUGS as readonly string[])
+  const glossSlugs = new Set(PUBLIC_GLOSSARY_SLUGS as readonly string[])
   return [
     { loc: `${siteUrl}/learn`, lastmod: GEO_SITE.dateModified, changefreq: 'weekly', priority: '0.9' },
-    ...GEO_LEARN_PAGES.map((p) => ({
+    ...GEO_LEARN_PAGES.filter(p => learnSlugs.has(p.slug)).map(p => ({
       loc: `${siteUrl}/learn/${p.slug}`,
       lastmod: GEO_SITE.dateModified,
       changefreq: 'monthly',
       priority: p.slug === 'what-is-geo' ? '0.95' : '0.85',
     })),
     { loc: `${siteUrl}/glossary`, lastmod: GEO_SITE.dateModified, changefreq: 'weekly', priority: '0.9' },
-    ...GEO_GLOSSARY.map((t) => ({
+    ...GEO_GLOSSARY.filter(t => glossSlugs.has(t.slug)).map(t => ({
       loc: `${siteUrl}/glossary/${t.slug}`,
       lastmod: GEO_SITE.dateModified,
       changefreq: 'monthly',

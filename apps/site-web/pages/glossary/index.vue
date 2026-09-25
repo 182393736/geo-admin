@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { GEO_GLOSSARY } from '~/utils/geo-hub'
+import { GEO_GLOSSARY, PUBLIC_GLOSSARY_SLUGS } from '~/utils/geo-hub'
 
 definePageMeta({ layout: 'geo' })
+
+const openTerms = computed(() =>
+  GEO_GLOSSARY.filter(t => (PUBLIC_GLOSSARY_SLUGS as readonly string[]).includes(t.slug)),
+)
 
 useGeoHubPageSeo({
   title: 'GEO 术语表｜生成式引擎优化核心概念',
@@ -18,7 +22,7 @@ useGeoHubPageSeo({
     description="用可被引用的短定义解释核心概念。每个词条可独立索引。"
   >
     <div class="term-list">
-      <NuxtLink v-for="t in GEO_GLOSSARY" :key="t.slug" :to="`/glossary/${t.slug}`" class="card card-hover term">
+      <NuxtLink v-for="t in openTerms" :key="t.slug" :to="`/glossary/${t.slug}`" class="card card-hover term">
         <div class="card-header">
           <div class="card-title">{{ t.term }}</div>
           <div class="card-description">{{ t.short }} — {{ t.definition }}</div>
