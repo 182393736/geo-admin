@@ -39,6 +39,10 @@ if (!cms.value && page.value) {
     :description="page.description"
     :diagnose-cta="false"
   >
+    <template #actions>
+      <NuxtLink to="/tools" class="ghost">看 GEO 工具</NuxtLink>
+      <NuxtLink to="/learn" class="ghost">学习中心</NuxtLink>
+    </template>
     <article>
       <section v-for="s in page.sections" :key="s.heading" class="hub-section">
         <h2>{{ s.heading }}</h2>
@@ -48,9 +52,3 @@ if (!cms.value && page.value) {
     <GeoHubFaq :items="[...page.faq]" />
   </GeoHubPage>
 </template>
-
-<style scoped>
-.hub-section { margin-top: 1.75rem; }
-.hub-section h2 { font-size: 1.2rem; margin-bottom: 0.65rem; }
-.hub-section p { line-height: 1.8; margin: 0 0 0.75rem; }
-</style>

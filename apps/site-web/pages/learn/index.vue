@@ -28,31 +28,31 @@ if (!cmsColumn.value) {
     eyebrow="学习中心"
     title="GEO 学习中心"
     description="面向品牌与内容团队的生成式引擎优化知识库。先建立概念与指标，再进入产品与诊断。"
+    wide
   >
+    <template #actions>
+      <NuxtLink to="/tools" class="ghost">看 GEO 工具</NuxtLink>
+    </template>
     <div class="learn-grid">
       <NuxtLink
         v-for="p in openLearnPages"
         :key="p.slug"
         :to="`/learn/${p.slug}`"
-        class="card card-hover"
+        class="tile"
       >
-        <div class="card-header">
-          <div class="card-title">{{ p.title.split('｜')[0] }}</div>
-          <div class="card-description">{{ p.description }}</div>
-        </div>
-        <div class="card-footer"><span class="btn btn-link btn-sm">阅读 →</span></div>
+        <h3>{{ p.title.split('｜')[0] }}</h3>
+        <p>{{ p.description }}</p>
+        <em>阅读 →</em>
       </NuxtLink>
-      <NuxtLink to="/glossary" class="card card-hover">
-        <div class="card-header">
-          <div class="card-title">GEO 术语表</div>
-          <div class="card-description">提及率、推荐位、引用源等核心术语的权威释义。</div>
-        </div>
+      <NuxtLink to="/glossary" class="tile">
+        <h3>GEO 术语表</h3>
+        <p>提及率、推荐位、引用源等核心术语的权威释义。</p>
+        <em>浏览 →</em>
       </NuxtLink>
-      <NuxtLink to="/tools" class="card card-hover">
-        <div class="card-header">
-          <div class="card-title">GEO 工具</div>
-          <div class="card-description">学完概念后，用工具看品牌在 AI 回答里的真实表现。</div>
-        </div>
+      <NuxtLink to="/tools" class="tile">
+        <h3>GEO 工具</h3>
+        <p>学完概念后，用工具看品牌在 AI 回答里的真实表现。</p>
+        <em>进入 →</em>
       </NuxtLink>
     </div>
   </GeoHubPage>
@@ -62,6 +62,44 @@ if (!cmsColumn.value) {
 .learn-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 0.75rem;
+  gap: 14px;
+}
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 168px;
+  padding: 22px 20px;
+  border-radius: 16px;
+  background: #f7f7f8;
+  border: 1px solid transparent;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.tile:hover {
+  background: #fff;
+  border-color: #f0c9b0;
+  box-shadow: inset 0 -2px 0 #c2410c;
+}
+.tile h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+}
+.tile p {
+  margin: 0;
+  flex: 1;
+  color: #6e6a76;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.tile em {
+  font-style: normal;
+  color: #c2410c;
+  font-size: 13px;
+  font-weight: 650;
 }
 </style>

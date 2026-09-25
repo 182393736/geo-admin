@@ -46,15 +46,20 @@ const related = computed(() =>
     :description="term.short"
     :diagnose-cta="false"
   >
+    <template #actions>
+      <NuxtLink to="/glossary" class="ghost">术语表</NuxtLink>
+      <NuxtLink to="/tools" class="ghost">看 GEO 工具</NuxtLink>
+    </template>
     <article class="hub-section">
       <h2>{{ term.term }} 的定义</h2>
       <p>{{ term.definition }}</p>
     </article>
     <section v-if="related.length" class="hub-section">
       <h2>相关术语</h2>
-      <ul>
+      <ul class="related">
         <li v-for="r in related" :key="r!.slug">
-          <NuxtLink :to="`/glossary/${r!.slug}`">{{ r!.term }}</NuxtLink> — {{ r!.short }}
+          <NuxtLink :to="`/glossary/${r!.slug}`">{{ r!.term }}</NuxtLink>
+          <span>— {{ r!.short }}</span>
         </li>
       </ul>
     </section>
@@ -62,8 +67,19 @@ const related = computed(() =>
 </template>
 
 <style scoped>
-.hub-section { margin-top: 1.5rem; }
-.hub-section h2 { font-size: 1.2rem; margin-bottom: 0.65rem; }
-.hub-section p, .hub-section li { line-height: 1.75; }
-.hub-section a { color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 3px; }
+.related {
+  list-style: none;
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.related li {
+  margin: 0 !important;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #f7f7f8;
+}
+.related a { margin-right: 6px; }
+.related span { color: #6e6a76; font-weight: 400; }
 </style>
