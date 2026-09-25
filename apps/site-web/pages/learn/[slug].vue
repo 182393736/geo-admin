@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getLearnPage } from '~/utils/geo-hub'
 import { asStructuredContent } from '~/utils/cms-page'
+import { GEO_CONTENT_STAMP, GEO_AUTHOR_ORG } from '~/utils/content/authors'
 
 definePageMeta({ layout: 'geo' })
 
@@ -13,16 +14,20 @@ if (!cms.value && !page.value) {
   throw createError({ statusCode: 404, statusMessage: '文章不存在' })
 }
 
-if (!cms.value && page.value) {
-  useGeoHubPageSeo({
-    title: page.value.title,
-    description: page.value.description,
-    keywords: page.value.keywords,
-    path: `/learn/${page.value.slug}`,
-    type: 'article',
-    faqs: page.value.faq,
-  })
-}
+const { crumbs, author, published, modified } = useGeoHubPageSeo(computed(() => {
+  const p = page.value
+  return {
+    title: p?.title || 'GEO 学习',
+    description: p?.description || '',
+    keywords: p?.keywords,
+    path: p ? `/learn/${p.slug}` : '/learn',
+    type: 'article' as const,
+    faqs: p?.faq,
+    authorId: GEO_AUTHOR_ORG.id,
+    datePublished: GEO_CONTENT_STAMP.datePublished,
+    dateModified: GEO_CONTENT_STAMP.dateModified,
+  }
+}))
 </script>
 
 <template>
@@ -38,6 +43,10 @@ if (!cms.value && page.value) {
     :title="page.title.split('｜')[0]"
     :description="page.description"
     :diagnose-cta="false"
+    :breadcrumbs="crumbs"
+    :author-label="author.short"
+    :date-published="published"
+    :date-modified="modified"
   >
     <template #actions>
       <NuxtLink :to="page.relatedProduct || '/tools'" class="ghost">看对应工具</NuxtLink>

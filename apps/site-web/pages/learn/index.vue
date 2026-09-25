@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { GEO_LEARN_PAGES, PUBLIC_LEARN_SLUGS } from '~/utils/geo-hub'
 import { asHubColumnContent } from '~/utils/cms-page'
+import { GEO_AUTHOR_ORG, GEO_CONTENT_STAMP } from '~/utils/content/authors'
 
 definePageMeta({ layout: 'geo' })
 
@@ -10,14 +11,15 @@ const openLearnPages = computed(() =>
   GEO_LEARN_PAGES.filter(p => (PUBLIC_LEARN_SLUGS as readonly string[]).includes(p.slug)),
 )
 
-if (!cmsColumn.value) {
-  useGeoHubPageSeo({
-    title: 'GEO 学习中心｜生成式引擎优化知识库',
-    description: '系统学习什么是 GEO、核心指标、引擎差异、引用策略与效果验证，并连接到产品能力与免费诊断。',
-    keywords: 'GEO学习,生成式引擎优化教程,AI搜索优化指南',
-    path: '/learn',
-  })
-}
+const { crumbs, author, published, modified } = useGeoHubPageSeo({
+  title: 'GEO 学习中心｜生成式引擎优化知识库',
+  description: '系统学习什么是 GEO、核心指标、引擎差异、引用策略与效果验证，并连接到产品能力与免费诊断。',
+  keywords: 'GEO学习,生成式引擎优化教程,AI搜索优化指南',
+  path: '/learn',
+  authorId: GEO_AUTHOR_ORG.id,
+  datePublished: GEO_CONTENT_STAMP.datePublished,
+  dateModified: GEO_CONTENT_STAMP.dateModified,
+})
 </script>
 
 <template>
@@ -29,6 +31,10 @@ if (!cmsColumn.value) {
     title="GEO 学习中心"
     description="面向品牌与内容团队的生成式引擎优化知识库。先建立概念与指标，再进入产品与诊断。"
     wide
+    :breadcrumbs="crumbs"
+    :author-label="author.short"
+    :date-published="published"
+    :date-modified="modified"
   >
     <template #actions>
       <NuxtLink to="/tools" class="ghost">看 GEO 工具</NuxtLink>

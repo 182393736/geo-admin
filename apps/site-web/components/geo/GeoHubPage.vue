@@ -1,5 +1,7 @@
 <script setup lang="ts">
-defineProps<{
+import type { GeoHubBreadcrumb } from '~/composables/useGeoHub'
+
+const props = defineProps<{
   eyebrow?: string
   title: string
   description: string
@@ -7,11 +9,17 @@ defineProps<{
   diagnoseCta?: boolean
   /** 正文区加宽（列表页）；文章页默认阅读宽度 */
   wide?: boolean
+  breadcrumbs?: GeoHubBreadcrumb[]
+  authorLabel?: string
+  datePublished?: string
+  dateModified?: string
 }>()
 
 const { toConsole } = useGeoConsoleLink()
 
 useHead({ bodyAttrs: { class: 'geo-flagship' } })
+
+const showByline = computed(() => !!(props.authorLabel || props.dateModified || props.datePublished))
 </script>
 
 <template>
@@ -23,9 +31,23 @@ useHead({ bodyAttrs: { class: 'geo-flagship' } })
         <span class="plate plate-c" />
       </div>
       <div class="wrap">
+        <nav v-if="breadcrumbs?.length" class="crumbs" aria-label="面包屑">
+          <NuxtLink to="/">首页</NuxtLink>
+          <template v-for="(c, i) in breadcrumbs" :key="c.path">
+            <span class="sep" aria-hidden="true">/</span>
+            <NuxtLink v-if="i < breadcrumbs.length - 1" :to="c.path">{{ c.name }}</NuxtLink>
+            <span v-else class="here">{{ c.name }}</span>
+          </template>
+        </nav>
         <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
         <h1>{{ title }}</h1>
         <p class="lead">{{ description }}</p>
+        <p v-if="showByline" class="byline">
+          <span v-if="authorLabel">作者 {{ authorLabel }}</span>
+          <span v-if="authorLabel && (dateModified || datePublished)" class="dot" aria-hidden="true">·</span>
+          <span v-if="dateModified">更新于 {{ dateModified }}</span>
+          <span v-else-if="datePublished">发布于 {{ datePublished }}</span>
+        </p>
         <div v-if="diagnoseCta !== false || consolePath || $slots.actions" class="actions">
           <NuxtLink v-if="diagnoseCta !== false" to="/diagnose" class="go">免费 GEO 诊断</NuxtLink>
           <a
@@ -117,6 +139,23 @@ a:focus-visible, button:focus-visible {
   opacity: 0.75;
 }
 .stage .wrap { position: relative; }
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 8px;
+  margin: 0 0 16px;
+  color: #9b97a3;
+  font-size: 13px;
+}
+.crumbs a {
+  color: #6e6a76;
+  text-decoration: none;
+}
+.crumbs a:hover { color: var(--accent); }
+.crumbs .sep { opacity: 0.5; }
+.crumbs .here { color: var(--ink); font-weight: 650; }
 .eyebrow {
   margin: 0 0 12px;
   color: var(--accent);
@@ -138,6 +177,12 @@ a:focus-visible, button:focus-visible {
   font-size: 16px;
   line-height: 1.75;
 }
+.byline {
+  margin: 14px 0 0;
+  color: #9b97a3;
+  font-size: 13px;
+}
+.byline .dot { margin: 0 0.35rem; opacity: 0.7; }
 .actions {
   display: flex;
   flex-wrap: wrap;

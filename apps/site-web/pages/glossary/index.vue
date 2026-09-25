@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { GEO_GLOSSARY, PUBLIC_GLOSSARY_SLUGS } from '~/utils/geo-hub'
+import { GEO_AUTHOR_ORG, GEO_CONTENT_STAMP } from '~/utils/content/authors'
 
 definePageMeta({ layout: 'geo' })
 
@@ -7,11 +8,14 @@ const openTerms = computed(() =>
   GEO_GLOSSARY.filter(t => (PUBLIC_GLOSSARY_SLUGS as readonly string[]).includes(t.slug)),
 )
 
-useGeoHubPageSeo({
+const { crumbs, author, published, modified } = useGeoHubPageSeo({
   title: 'GEO 术语表｜生成式引擎优化核心概念',
   description: 'GEO、提及率、推荐位、引用源、问题集、品牌实体等术语的权威释义，便于搜索引擎与 AI 正确理解实体。',
   keywords: 'GEO术语,生成式引擎优化名词,品牌提及率,引用源',
   path: '/glossary',
+  authorId: GEO_AUTHOR_ORG.id,
+  datePublished: GEO_CONTENT_STAMP.datePublished,
+  dateModified: GEO_CONTENT_STAMP.dateModified,
 })
 </script>
 
@@ -21,6 +25,10 @@ useGeoHubPageSeo({
     title="GEO 术语表"
     description="用可被引用的短定义解释核心概念。每个词条可独立索引。"
     wide
+    :breadcrumbs="crumbs"
+    :author-label="author.short"
+    :date-published="published"
+    :date-modified="modified"
   >
     <template #actions>
       <NuxtLink to="/learn" class="ghost">回学习中心</NuxtLink>

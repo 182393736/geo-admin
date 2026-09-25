@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { GEO_GLOSSARY, PUBLIC_GLOSSARY_SLUGS, getGlossaryTerm } from '~/utils/geo-hub'
 import { asStructuredContent } from '~/utils/cms-page'
+import { GEO_AUTHOR_ORG, GEO_CONTENT_STAMP } from '~/utils/content/authors'
 
 definePageMeta({ layout: 'geo' })
 
@@ -13,15 +14,22 @@ if (!cms.value && !term.value) {
   throw createError({ statusCode: 404, statusMessage: '术语不存在' })
 }
 
-if (!cms.value && term.value) {
-  useGeoHubPageSeo({
-    title: `${term.value.term}是什么？｜GEO 术语表`,
-    description: term.value.definition,
-    keywords: `${term.value.term},${term.value.short},GEO`,
-    path: `/glossary/${term.value.slug}`,
-    type: 'article',
-  })
-}
+const { crumbs, author, published, modified } = useGeoHubPageSeo(computed(() => {
+  const t = term.value
+  return {
+    title: t ? `${t.term}是什么？｜GEO 术语表` : 'GEO 术语',
+    description: t?.definition || '',
+    keywords: t ? `${t.term},${t.short},GEO` : 'GEO',
+    path: t ? `/glossary/${t.slug}` : '/glossary',
+    type: 'article' as const,
+    authorId: GEO_AUTHOR_ORG.id,
+    datePublished: GEO_CONTENT_STAMP.datePublished,
+    dateModified: GEO_CONTENT_STAMP.dateModified,
+    definedTerm: t
+      ? { name: t.term, description: t.definition, short: t.short }
+      : undefined,
+  }
+}))
 
 const related = computed(() =>
   (term.value?.related || [])
@@ -45,6 +53,10 @@ const related = computed(() =>
     :title="term.term"
     :description="term.short"
     :diagnose-cta="false"
+    :breadcrumbs="crumbs"
+    :author-label="author.short"
+    :date-published="published"
+    :date-modified="modified"
   >
     <template #actions>
       <NuxtLink to="/glossary" class="ghost">术语表</NuxtLink>
