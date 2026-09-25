@@ -26,7 +26,4 @@ module.exports = app => {
   router.post('/api/admin/pages/:id/copy', controller.page.copy);
   router.put('/api/admin/pages/:id', controller.page.update);
   router.delete('/api/admin/pages/:id', controller.page.destroy);
-
-  // 【临时】空库灌数，用完删除本行 + app/controller/tmp_seed.js
-  router.post('/api/admin/_tmp_seed_prod_geo_empty', controller.tmpSeed.seedProdGeoEmpty);
 };
