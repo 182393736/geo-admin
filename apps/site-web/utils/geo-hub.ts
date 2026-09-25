@@ -661,7 +661,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         note: '面向搜索（含 AI 体验）的官方内容质量原则',
       },
       {
-        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        title: 'HANYUAI：AI 搜索可见性可复核基线方法（2026 Q3）',
         href: '/reports/ai-visibility-baseline-2026-q3',
         note: '本站公开的采样与指标口径',
       },
@@ -728,7 +728,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
     ],
     sources: [
       {
-        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        title: 'HANYUAI：AI 搜索可见性可复核基线方法（2026 Q3）',
         href: '/reports/ai-visibility-baseline-2026-q3',
         note: '指标定义与采样声明的同口径出处',
       },
@@ -762,10 +762,10 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         heading: '如何选监测引擎集合？',
         paragraphs: [
           '优先覆盖目标用户真实使用的引擎，再保留 1–2 个对照引擎。ToB 与消费品牌的主力入口往往不同，不要照搬竞品名单。',
-          '名单确定后至少保持一个完整复测周期再调整。海外决策场景再纳入 ChatGPT 等；纯国内获客可先做国内主力。',
+          '名单确定后至少保持一个完整复测周期再调整。海外决策场景再纳入 ChatGPT 等；本地获客可先做目标用户主力入口。',
         ],
         bullets: [
-          '国内常见主力：豆包、DeepSeek、通义、元宝等（按你的客户实际使用调整）。',
+          '常见主力：豆包、DeepSeek、通义、元宝等（按你的客户实际使用调整）。',
           '对照：保留一个「你不主攻但竞品常被提到」的引擎，避免盲区。',
           '不要把「支持的引擎数」当成效果；效果看同题复测是否移动。',
         ],
@@ -781,7 +781,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
     faq: [
       {
         q: '海外引擎要监测吗？',
-        a: '若客户决策发生在海外或双语场景，应纳入；否则先做国内主力引擎，把预算留给高意图题与证据。',
+        a: '若客户决策发生在海外或双语场景，应纳入；否则先做目标用户主力引擎，把预算留给高意图题与证据。',
       },
       {
         q: '引擎越多越好吗？',
@@ -799,7 +799,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         note: 'URL 变更主动通知（发现辅助，非 GEO 效果本身）',
       },
       {
-        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        title: 'HANYUAI：AI 搜索可见性可复核基线方法（2026 Q3）',
         href: '/reports/ai-visibility-baseline-2026-q3',
         note: '公开采样窗口的引擎名单与局限声明',
       },
@@ -876,7 +876,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         note: '可抽取、对人有用的内容结构原则',
       },
       {
-        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        title: 'HANYUAI：AI 搜索可见性可复核基线方法（2026 Q3）',
         href: '/reports/ai-visibility-baseline-2026-q3',
         note: '引用类型与证据字段的公开口径',
       },
@@ -962,7 +962,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
     ],
     sources: [
       {
-        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        title: 'HANYUAI：AI 搜索可见性可复核基线方法（2026 Q3）',
         href: '/reports/ai-visibility-baseline-2026-q3',
         note: '采样周期、问题集版本与局限声明的模板',
       },
@@ -1050,7 +1050,7 @@ export const GEO_LEARN_PAGES: HubLearnPage[] = [
         note: 'GEO 学术定义出处',
       },
       {
-        title: 'HANYUAI：中国 AI 搜索可见性可复核基线方法（2026 Q3）',
+        title: 'HANYUAI：AI 搜索可见性可复核基线方法（2026 Q3）',
         href: '/reports/ai-visibility-baseline-2026-q3',
         note: '并行体系下的 GEO 采样与指标口径',
       },

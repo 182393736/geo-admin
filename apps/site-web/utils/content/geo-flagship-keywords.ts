@@ -438,7 +438,7 @@ export const flagshipKeywordPages = {
       {
         title: '每台引擎一张偏好表',
         path: '抽链接 → 归类 → 按引擎汇总',
-        text: '免费信源平台偏好的交付是分引擎类型柱状，而不是全国媒体 Top10。',
+        text: '免费信源平台偏好的交付是分引擎类型柱状，而不是全量媒体 Top10。',
       },
       {
         title: '投放锁定一类',
@@ -555,7 +555,7 @@ export const flagshipKeywordPages = {
     startPlaceholder: '例如：选型题里被点开的三条链接分别是谁的？请做免费引用源洞察。',
     startFill: '我的品牌叫「{brand}」。请做免费引用源洞察：列出高意图题答案里的 URL，标注类型、是否我的页、服务哪一题。',
     startButton: '免费拆链接',
-    startChips: ['特斯拉中国', '三顿半', '元气森林', '法律科技'],
+    startChips: ['特斯拉', '三顿半', '元气森林', '法律科技'],
     insightSlugs: ['build-citation-moat', 'tongyi-citation-patterns', 'llms-txt-and-geo', 'why-ai-not-recommending'],
     heroTitle: [
       { text: '免费引用源洞察' },
@@ -975,7 +975,7 @@ export const flagshipKeywordPages = {
     startPlaceholder: '例如：品牌正式名是「某某」，还有简称和旧名；另有一家差一字的公司不要认成我们。请做免费监控识别管理。',
     startFill: '我的品牌叫「{brand}」。请配置免费监控识别管理：正式名、别名、易混名排除规则，避免假阴性与张冠李戴。',
     startButton: '免费配识别',
-    startChips: ['欧莱雅中国', '长安汽车', '叮咚买菜', '集团简称'],
+    startChips: ['欧莱雅', '长安汽车', '叮咚买菜', '集团简称'],
     insightSlugs: ['ai-brand-understanding-checklist', 'fix-ai-brand-misstatements', 'geo-core-metrics', 'competitor-geo-analysis'],
     heroTitle: [
       { text: '免费监控识别管理' },

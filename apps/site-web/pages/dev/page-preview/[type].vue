@@ -274,7 +274,7 @@ const data = computed(() => samples[typeId.value])
         <div><dt>引擎</dt><dd>{{ (data as any).engines.join('、') }}</dd></div>
         <div><dt>采样周期</dt><dd>{{ (data as any).samplingPeriod.start }} ~ {{ (data as any).samplingPeriod.end }}（{{ (data as any).samplingPeriod.cadence }}）</dd></div>
         <div><dt>问题集</dt><dd><code>{{ (data as any).questionSetVersion }}</code></dd></div>
-        <div><dt>样本量</dt><dd>prompts {{ (data as any).sampleSize.prompts }} · answers {{ (data as any).sampleSize.answers }}（方法演示窗口，非全国普查）</dd></div>
+        <div><dt>样本量</dt><dd>prompts {{ (data as any).sampleSize.prompts }} · answers {{ (data as any).sampleSize.answers }}（方法演示窗口，非全量普查）</dd></div>
         <div><dt>方法</dt><dd>{{ (data as any).method }}</dd></div>
       </dl>
       <section v-if="(data as any).changelog?.length" class="sec">

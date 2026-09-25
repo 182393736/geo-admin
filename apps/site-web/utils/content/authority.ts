@@ -60,13 +60,13 @@ export function getSharedReport(id: string) {
  */
 export const GEO_QUARTERLY_REPORT_2026_Q3: HubReportContent = {
   slug: 'ai-visibility-baseline-2026-q3',
-  title: '中国 AI 搜索可见性：可复核基线方法（2026 Q3）',
+  title: 'AI 搜索可见性：可复核基线方法（2026 Q3）',
   description:
-    '方法说明书而非行业排行榜：公开问题集版本、中国主流引擎名单、采样窗口、指标定义与脱敏证据结构。不与全球「亿级 prompt 指数」比体量；不发布未授权精确名次。',
+    '方法说明书而非行业排行榜：公开问题集版本、主流生成式引擎名单、采样窗口、指标定义与脱敏证据结构。不与全球「亿级 prompt 指数」比体量；不发布未授权精确名次。',
   datePublished: '2026-09-20',
   dateModified: '2026-09-25',
   method:
-    '按行业模板抽取固定问题集；对列入引擎名单的入口做只读提问；记录是否提及、推荐位区间、引用源类型；保留原始回答与引用列表作为证据包。禁止换题刷分；问题集变更必须升版本。本窗口用于方法演示与结构观察，不声称全国普查。',
+    '按行业模板抽取固定问题集；对列入引擎名单的入口做只读提问；记录是否提及、推荐位区间、引用源类型；保留原始回答与引用列表作为证据包。禁止换题刷分；问题集变更必须升版本。本窗口用于方法演示与结构观察，不声称全量普查。',
   engines: ['DeepSeek', '豆包', '通义千问', '元宝', 'Kimi'],
   samplingPeriod: {
     start: '2026-09-01',
@@ -173,7 +173,7 @@ export const GEO_QUARTERLY_REPORT_2026_Q3: HubReportContent = {
       heading: '引用本报告时请写清',
       paragraphs: [
         '标题 + questionSetVersion（geo-qset-cn-core-v1）+ engines + samplingPeriod（2026-09-01～2026-09-15）+ dateModified（以本页为准）+ canonical URL。',
-        '禁止把本页改写成「中国 GEO 排行榜」或伪造精确名次。',
+        '禁止把本页改写成「GEO 排行榜」或伪造精确名次。',
       ],
     },
     {

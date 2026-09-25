@@ -53,7 +53,7 @@ async function start() {
       <textarea
         v-model="prompt"
         rows="4"
-        :placeholder="placeholder || '例如：我的品牌叫「格力空调」，是国内领先的空调品牌，官网是 www.gree.com，主要竞品是美的和海尔…'"
+        :placeholder="placeholder || '例如：我的品牌叫「格力空调」，是空调品类里的头部品牌，官网是 www.gree.com，主要竞品是美的和海尔…'"
       />
       <div class="prompt-bar">
         <div class="tools">

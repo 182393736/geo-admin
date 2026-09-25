@@ -30,7 +30,7 @@ export const GEO_INTEGRATIONS: IntegrationItem[] = [
   {
     slug: 'feishu',
     name: '飞书',
-    summary: '周报与告警卡片推送，适合国内增长与内容协作。',
+    summary: '周报与告警卡片推送，适合增长与内容协作。',
     status: 'beta',
   },
   {
