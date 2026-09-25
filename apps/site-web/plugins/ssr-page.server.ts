@@ -16,11 +16,12 @@ export default defineNuxtPlugin(async () => {
   const payload = await fetchSitePage(domain, path)
   sitePage.value = payload
 
-  if (payload?.page?.seo || payload?.site?.meta) {
-    const seo = payload.page.seo || {}
-    const meta = payload.site.meta || {}
+  // page 可能为 null（路径无 CMS 页，仅有 site）；条件勿用 page.seo 短路，否则 site.meta 为真时仍会读 page.seo → 500
+  if (payload?.page || payload?.site?.meta) {
+    const seo = payload.page?.seo || {}
+    const meta = payload.site?.meta || {}
     useHead({
-      title: seo.title || payload.page.title || meta.title || payload.site.name,
+      title: seo.title || payload.page?.title || meta.title || payload.site?.name,
       meta: [
         { name: 'description', content: seo.description || meta.description || '' },
         { name: 'keywords', content: seo.keywords || meta.keywords || '' },
