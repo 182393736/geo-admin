@@ -15,7 +15,14 @@ export default defineNuxtRouteMiddleware((to) => {
     )
   }
 
-  if (path === '/' || path === '/diagnose' || path === '/login' || path === '/tools' || path === '/pricing' || path === '/contact') return
+  if (path === '/login') {
+    return navigateTo(
+      { path: '/', query: { ...to.query, auth: '1' }, hash: to.hash },
+      { redirectCode: 301 },
+    )
+  }
+
+  if (path === '/' || path === '/diagnose' || path === '/tools' || path === '/pricing' || path === '/contact') return
   const match = path.match(/^\/tools\/([^/]+)$/)
   if (match && (GEO_FUNCTIONAL_SLUGS as readonly string[]).includes(match[1])) return
   throw createError({ statusCode: 404, statusMessage: '页面不存在' })

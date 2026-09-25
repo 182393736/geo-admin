@@ -40,7 +40,6 @@ export const GEO_HUB_PREFIXES = [
   '/pricing',
   '/contact',
   '/demo',
-  '/login',
   '/about',
   '/security',
   '/privacy',

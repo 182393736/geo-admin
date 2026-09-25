@@ -4,6 +4,7 @@ import { getSharedReport } from '~/utils/content/authority'
 definePageMeta({ layout: 'geo' })
 
 const route = useRoute()
+const { open: openAuth } = useGeoAuthModal()
 const report = computed(() => getSharedReport(String(route.params.id || '')))
 
 if (!report.value) {
@@ -49,7 +50,7 @@ useGeoHubPageSeo({
     <p class="next">
       <NuxtLink to="/reports">公开报告</NuxtLink> ·
       <NuxtLink to="/diagnose">免费诊断</NuxtLink> ·
-      <NuxtLink to="/login">登录工作台导出</NuxtLink>
+      <button type="button" class="linkish" @click="openAuth('wechat', 'shared_report')">登录工作台导出</button>
     </p>
   </GeoHubPage>
 </template>
@@ -65,5 +66,16 @@ useGeoHubPageSeo({
 .hub-section h2 { font-size: 1.15rem; margin-bottom: 0.5rem; }
 .hub-section p, .hub-section li { line-height: 1.75; }
 .next { margin-top: 1.75rem; }
-.next a { color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 3px; }
+.next a, .next .linkish {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.next .linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
 </style>

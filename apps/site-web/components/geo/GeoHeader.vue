@@ -114,7 +114,6 @@ function onParentClick(e: Event, label: string) {
           type="button"
           @click="onLoginClick"
         >登录</button>
-        <NuxtLink to="#start" class="btn btn-default btn-sm" @click="closeNav">免费诊断</NuxtLink>
         <button class="btn btn-outline btn-icon btn-sm mobile-toggle" type="button" aria-label="菜单" @click="navOpen = !navOpen">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>

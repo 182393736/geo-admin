@@ -10,6 +10,7 @@ useGeoHubPageSeo({
 })
 
 const route = useRoute()
+const { toConsole } = useGeoConsoleLink()
 const brandInput = ref(typeof route.query.brand === 'string' ? route.query.brand : '')
 const status = ref<'idle' | 'running' | 'done' | 'error'>('idle')
 const message = ref('')
@@ -18,6 +19,11 @@ const result = ref<{
   data?: { summary?: string; focus?: string[]; note?: string }
   upgrade?: { loginUrl?: string; message?: string }
 } | null>(null)
+
+const upgradeLoginHref = computed(() =>
+  result.value?.upgrade?.loginUrl
+  || toConsole('/dashboard/report-center', 'geo_diagnose'),
+)
 
 onMounted(() => {
   if (brandInput.value.trim()) {
@@ -98,7 +104,7 @@ function fill(name: string) {
       <div class="card-footer" style="gap:.75rem;flex-wrap:wrap">
         <a
           class="btn btn-default"
-          :href="result.upgrade?.loginUrl || '/login?redirect=/dashboard/report-center'"
+          :href="upgradeLoginHref"
         >登录查看完整诊断</a>
         <NuxtLink to="/tools/visibility" class="btn btn-outline">了解可见性监测</NuxtLink>
         <NuxtLink to="/learn/what-is-geo" class="btn btn-ghost">什么是 GEO</NuxtLink>
